@@ -2,7 +2,7 @@
 
 #### Generation Expansion
 
-$$\min\ \sum_{t = 1}^T (c^1_tx_t + c^2_ty_t + ps_t)$$
+$\min\ \sum_{t = 1}^T (c^1_tx_t + c^2_ty_t + ps_t)$
 
 $$\ \mbox{s.t.}\ \sum_{s = 1}^t x_s \le \bar{u},$$
 
