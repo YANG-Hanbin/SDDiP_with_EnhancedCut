@@ -130,7 +130,7 @@ function backward_step_F(StageProblemData::StageData, demand::Vector{Float64}, s
                                     "Threads"=>1)
             )
 
-    @variable(F, l[i = 1:n], Bin)
+    @variable(F, l[i = 1:n], Bin)      # current stage variable l_t
     @variable(F, 0 <= L[i = 1:n]<= 1)  # auxiliary variable (copy variable)
     @variable(F, y[i = 1:d] >= 0)
     @variable(F, slack >= 0 )
@@ -151,10 +151,6 @@ function backward_step_F(StageProblemData::StageData, demand::Vector{Float64}, s
         optimize!(F)
         result = [ JuMP.objective_value(F), - A * JuMP.value.(L) ]
     end
-
-
-    optimize!(F)
-
     return result
 end
 
@@ -209,12 +205,18 @@ function LevelSetMethod_generator_v(StageProblemData::StageData, demand::Vector{
     l_interior= [interior_value for i in 1:n]
 
     f_star = forward_step_optimize!(StageProblemData, demand, sum_generator, cut_coefficient)
-    f_star_value = f_star[3] + f_star[4]
+    f_star_value = f_star[3] + f_star[4]  ## here, we obtain the optimal value f^*
 
+    """
+        compute_f_G
+        This function is designed to collect the info of objective and constraints, such as their values and gradients,
+            and return a Dict
+    """
     function compute_f_G(π::Vector{Float64}; Enhand_Cut::Bool = true )
         F_solution = backward_step_F(StageProblemData, demand, sum_generator, π, cut_coefficient)
+        ##  minus F_solution because this level set method is designed to obtain minimum
         if Enhand_Cut
-            function_value_info  = Dict(1 => -F_solution[1] - π' * (A * l_interior .- sum_generator),
+            function_value_info  = Dict(1 => -F_solution[1] - π' * (A * l_interior .- sum_generator),  
                                         2 => -F_solution[2] - (A * l_interior .- sum_generator),
                                         3 => Dict(1 => (1- ϵ) * f_star_value - F_solution[1]),
                                         4 => Dict(1 => - F_solution[2]),
@@ -265,7 +267,7 @@ function LevelSetMethod_generator_v(StageProblemData::StageData, demand::Vector{
     #     @variable(model_oracle, z >= - 10^(ceil(log10(-para_oracle_bound))))
     # end
     para_oracle_bound =  α * function_info.f_his[1] + (1-α) * function_info.G_max_his[1] 
-    @variable(model_oracle, z >= - 10^(ceil(log10(-para_oracle_bound))))
+    @variable(model_oracle, z >= - 10^(ceil(log10(-para_oracle_bound))))  ## the lower bound is crucial
 
     @variable(model_oracle, x[i = 1:d])
     @variable(model_oracle, y <= 0)
@@ -280,7 +282,7 @@ function LevelSetMethod_generator_v(StageProblemData::StageData, demand::Vector{
         st = termination_status(model_oracle)
         if st != MOI.OPTIMAL
             @info "oracle is infeasible"
-            # break
+            break
         end
 
         f_star = JuMP.objective_value(model_oracle)
@@ -345,7 +347,7 @@ function LevelSetMethod_generator_v(StageProblemData::StageData, demand::Vector{
             if Enhand_Cut
                 return [ - function_value_info[1], function_info.x_his[iter]] 
             else
-                return [ - function_value_info[1] - function_info.x_his[iter]' * sum_generator, 
+                return [ - function_value_info[1] - function_info.x_his[iter]' * sum_generator,  ## we only return F or L_n (see sddip)
                                                 function_info.x_his[iter]]
             end
         end
