@@ -130,6 +130,20 @@ $$\ \mbox{s.t.}\ \sum_{s = 1}^t AL_s \le \bar{u},$$
 
 
 
+$$\min\ c^1_tAL_t + c^2_ty_t + ps_t + \theta_t$$
+
+$$\ \mbox{s.t.}\ \sum_{s = 1}^t AL_s \le \bar{u},$$
+
+​         $$\textbf{1}^{\top}y_t + s_t \ge d_t^\omega,$$
+
+​		 $$ AL_c = S_{t-1},$$
+
+​         $$h N (AL_c + AL_t + S_0) \ge y_t,$$
+
+​         $$L_t\in \{0,1\}^n,\ L_c\in[0,1]^n ,\ y_t\in\mathbb{R}_d^+,$$
+
+​		$$\theta_t \ge \sum_{\omega\in\Omega_t}q^\omega (v^\omega_l + (\pi^\omega_l)^\top x_t),\ \forall l = 1,\dots,i-1.$$
+
 
 
 
@@ -138,9 +152,29 @@ $$\ \mbox{s.t.}\ \sum_{s = 1}^t AL_s \le \bar{u},$$
 
 
 
+$$\max\ F(\pi) + \pi^\top(A\tilde{L} - \hat{S}_{t-1})   $$
+
+$$\ \mbox{s.t.}\ F(\pi)\ge (1-\epsilon)f^* $$
 
 
 
+Where  $F(\pi)$ is the following optimization problem (Backward_F)
+
+$$\min\ c^1_tAL_t + c^2_ty_t + ps_t + \theta_t + \pi^\top(\hat{S}_{t-1} - AL_c) $$
+
+$$\ \mbox{s.t.}\ \sum_{s = 1}^t AL_s \le \bar{u},$$
+
+​         $$\textbf{1}^{\top}y_t + s_t \ge d_t^\omega,$$
+
+​         $$h N (AL_c + AL_t + S_0) \ge y_t,$$
+
+​         $$L_t\in \{0,1\}^n,\ L_c\in[0,1]^n,\ y_t\in\mathbb{R}_d^+,$$
+
+​		$$\theta_t \ge \sum_{\omega\in\Omega_t}q^\omega (v^\omega_l + (\pi^\omega_l)^\top x_t),\ \forall l = 1,\dots,i-1.$$
+
+
+
+Where $f^*$ the optimal value of the forward optimization problem.
 
 
 
