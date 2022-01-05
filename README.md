@@ -132,7 +132,7 @@ $$\ \mbox{s.t.}\ \sum_{s = 1}^t AL_s \le \bar{u},$$
 
 $$\min\ c^1_tAL_t + c^2_ty_t + ps_t + \theta_t$$
 
-$$\ \mbox{s.t.}\ \sum_{s = 1}^t AL_s \le \bar{u},$$
+$$\ \mbox{s.t.}\ A(L_t + L_c) \le \bar{u},$$
 
 ​         $$\textbf{1}^{\top}y_t + s_t \ge d_t^\omega,$$
 
@@ -142,7 +142,7 @@ $$\ \mbox{s.t.}\ \sum_{s = 1}^t AL_s \le \bar{u},$$
 
 ​         $$L_t\in \{0,1\}^n,\ L_c\in[0,1]^n ,\ y_t\in\mathbb{R}_d^+,$$
 
-​		$$\theta_t \ge \sum_{\omega\in\Omega_t}q^\omega (v^\omega_l + (\pi^\omega_l)^\top x_t),\ \forall l = 1,\dots,i-1.$$
+​		$$\theta_t \ge \sum_{\omega\in\Omega_t}q^\omega (v^\omega_l + (\pi^\omega_l)^\top AL_t),\ \forall l = 1,\dots,i-1.$$
 
 
 
@@ -162,7 +162,7 @@ Where  $F(\pi)$ is the following optimization problem (Backward_F)
 
 $$\min\ c^1_tAL_t + c^2_ty_t + ps_t + \theta_t + \pi^\top(\hat{S}_{t-1} - AL_c) $$
 
-$$\ \mbox{s.t.}\ \sum_{s = 1}^t AL_s \le \bar{u},$$
+$$\ \mbox{s.t.}\ AL_c + AL_t \le \bar{u},$$  
 
 ​         $$\textbf{1}^{\top}y_t + s_t \ge d_t^\omega,$$
 
@@ -170,7 +170,7 @@ $$\ \mbox{s.t.}\ \sum_{s = 1}^t AL_s \le \bar{u},$$
 
 ​         $$L_t\in \{0,1\}^n,\ L_c\in[0,1]^n,\ y_t\in\mathbb{R}_d^+,$$
 
-​		$$\theta_t \ge \sum_{\omega\in\Omega_t}q^\omega (v^\omega_l + (\pi^\omega_l)^\top x_t),\ \forall l = 1,\dots,i-1.$$
+​		$$\theta_t \ge \sum_{\omega\in\Omega_t}q^\omega (v^\omega_l + (\pi^\omega_l)^\top AL_t),\ \forall l = 1,\dots,i-1.$$
 
 
 
