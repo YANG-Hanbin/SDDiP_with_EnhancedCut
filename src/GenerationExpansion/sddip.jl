@@ -2,9 +2,9 @@ using JuMP, Test, Statistics, StatsBase, Gurobi, Distributed, Random  #, Flux
 
 const GRB_ENV = Gurobi.Env()
 
-include("SDDiP_hb/src/GenerationExpansion/data_struct.jl")
-include("SDDiP_hb/src/GenerationExpansion/forward_pass.jl")
-include("SDDiP_hb/src/GenerationExpansion/backward_pass.jl")
+include("/Users/aaron/SDDiP_with_EnhancedCut/src/GenerationExpansion/data_struct.jl")
+include("/Users/aaron/SDDiP_with_EnhancedCut/src/GenerationExpansion/backward_pass.jl")
+include("/Users/aaron/SDDiP_with_EnhancedCut/src/GenerationExpansion/forward_pass.jl")
 
 
 #############################################################################################
@@ -53,7 +53,7 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
         UB = μ̄ + 1.96 * sqrt(σ̂²/M)
 
         ## Backward Step
-        for t = reverse(2:4)
+        for t = reverse(2:T)
             cut_collection[t-1].v[i] = Dict()
             cut_collection[t-1].π[i] = Dict()
             for k in 1:M 
@@ -69,11 +69,13 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
                         nxt_bound = 1e14
                         if 2.9e8 <= demand[1] <= 3.1e8
                             λ_value = .7
-                            ϵ_value = .1
-                        else
+                            ϵ_value = .05
+                        elseif 2.9e8 > demand[1]
                             λ_value = .3
+                            ϵ_value = .1
                         end
                     end
+
                     @time c = c + prob[t][j] * LevelSetMethod_generator_v(StageCoefficient[t], 
                                                                                     Ω[t][j].d, 
                                                                                     Sol_collection[t-1,k][1], 

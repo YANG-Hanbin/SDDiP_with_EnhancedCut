@@ -266,16 +266,39 @@ function LevelSetMethod_generator_v(StageProblemData::StageData, demand::Vector{
     #     para_oracle_bound =  α * function_info.f_his[1] + (1-α) * function_info.G_max_his[1] 
     #     @variable(model_oracle, z >= - 10^(ceil(log10(-para_oracle_bound))))
     # end
+<<<<<<< HEAD
     para_oracle_bound =  α * function_info.f_his[1] + (1-α) * function_info.G_max_his[1] 
     @variable(model_oracle, z >= - 10^(ceil(log10(-para_oracle_bound))))  ## the lower bound is crucial
 
+=======
+    # para_oracle_bound =  α * function_info.f_his[1] + (1-α) * function_info.G_max_his[1] 
+    # @variable(model_oracle, z >= - 10^(ceil(log10(-para_oracle_bound))))
+    @variable(model_oracle, z)
+>>>>>>> dev
     @variable(model_oracle, x[i = 1:d])
     @variable(model_oracle, y <= 0)
+
+    para_oracle_bound =  abs(α * function_info.f_his[1] + (1-α) * function_info.G_max_his[1])
+    z_rhs = 3 * 10^(ceil(log10(para_oracle_bound)))
+    @constraint(model_oracle, oracle_bound, z >= - z_rhs)
+
     @objective(model_oracle, Min, z)
     oracle_info = ModelInfo(model_oracle, x, y, z)
 
 
+
     while true
+        if true
+            param_z_rhs = abs(function_info.f_his[iter])
+            if z_rhs <  param_z_rhs
+                z_rhs = 1.3 * z_rhs
+            end
+
+            if z_rhs > 2 * param_z_rhs
+                z_rhs = 0.7 * z_rhs
+            end 
+            set_normalized_rhs(oracle_bound, - z_rhs)  
+        end
         add_constraint(function_info, oracle_info, iter)
         optimize!(model_oracle)
 
@@ -291,7 +314,7 @@ function LevelSetMethod_generator_v(StageProblemData::StageData, demand::Vector{
 
         result = Δ_model_formulation(function_info, f_star, iter, Output = Output)
         Δ, a_min, a_max = result[1], result[2], result[3]
-        # @info "Gap is $Δ, iter num is $iter"
+        @info "Gap is $Δ, iter num is $iter"
         ## update α
         if μ/2 <= (α-a_min)/(a_max-a_min) .<= 1-μ/2
             α = α
