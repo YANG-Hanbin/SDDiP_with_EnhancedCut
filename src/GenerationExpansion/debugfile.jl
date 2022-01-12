@@ -64,7 +64,7 @@ function LevelSetMethod_generator_v(StageProblemData::StageData, demand::Vector{
 
     iter = 1
     α = 1/2
-
+    
     ## trajectory
     function_value_info = compute_f_G(x₀, Enhand_Cut = Enhand_Cut)
     function_info = FunctionInfo(   Dict(1 => x₀), 

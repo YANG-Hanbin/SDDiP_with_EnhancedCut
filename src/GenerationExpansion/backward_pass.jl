@@ -245,15 +245,25 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
     while true
         if true
             param_z_rhs = abs(function_info.f_his[iter])
-            if z_rhs <  param_z_rhs
-                z_rhs = 1.3 * z_rhs
+            if z_rhs <  1.2 * param_z_rhs
+                z_rhs = 1.1 * z_rhs
+            elseif z_rhs > 3 * param_z_rhs
+                z_rhs = 0.7 * z_rhs
             end
 
-            if z_rhs > 1.5 * param_z_rhs
-                z_rhs = 0.8 * z_rhs
-            end 
             set_normalized_rhs(oracle_bound, - z_rhs)  
         end
+        # if true
+        #     param_z_rhs = abs(function_info.f_his[iter])
+        #     if z_rhs <  1.1 * param_z_rhs
+        #         z_rhs = 1.3 * z_rhs
+        #     end
+
+        #     if z_rhs > 2 * param_z_rhs
+        #         z_rhs = 0.8 * z_rhs
+        #     end 
+        #     set_normalized_rhs(oracle_bound, - z_rhs)  
+        # end
         add_constraint(function_info, oracle_info, iter)
         optimize!(model_oracle)
 

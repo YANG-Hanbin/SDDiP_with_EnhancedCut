@@ -34,13 +34,17 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
     while true
         Sol_collection = Dict()  # to store every iteration results
         u = Vector{Float64}(undef, M)  # to compute upper bound
+
+        Scenarios = SampleScenarios(T = T, M = M)
         
         ## Forward Step
         for k in 1:M
             sum_generator= [0.0 for i in 1:d]
             for t in 1:T
-                demand = Ω[t][DrawSamples(prob[t])].d
-                Sol_collection[t, k] = forward_step_optimize!(StageCoefficient[t], demand, sum_generator, cut_collection[t])
+                Sol_collection[t, k] = forward_step_optimize!(StageCoefficient[t], 
+                                                                Ω[t][Scenarios[k, t]].d, 
+                                                                sum_generator, 
+                                                                cut_collection[t]        )
                 sum_generator = Sol_collection[t,k][1]
             end
             u[k] = sum(Sol_collection[t, k][4] for t in 1:T)
@@ -65,30 +69,28 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
                     # compute average cut coefficient
                     demand = Ω[t][j].d
                     if t == 5
-                        oracle_bound = 1e13
                         nxt_bound = 1e14
                         if demand[1] > 3.1e8
-                            λ_value = .9
-                            ϵ_value = .1
+                            λ_value = .95
+                            ϵ_value = 1e-1
                         elseif 2.9e8 <= demand[1] <= 3.1e8
                             λ_value = .7
-                            ϵ_value = .1
+                            ϵ_value = 1e-1
                         elseif 2.9e8 > demand[1]
                             λ_value = .3
-                            ϵ_value = .1
+                            ϵ_value = 1e-1
                         end
                     end
 
-                    @time c = c + prob[t][j] * LevelSetMethod_generator_v(StageCoefficient[t], 
+                    @time c = c + prob[t][j] * prob[t][j] * LevelSetMethod_optimization!(StageCoefficient[t], 
                                                                                     Ω[t][j].d, 
                                                                                     Sol_collection[t-1,k][1], 
                                                                                     cut_collection[t], 
-                                                                                    max_iter = 3000, 
-                                                                                    Enhand_Cut = Enhand_Cut, 
-                                                                                    oracle_bound = oracle_bound,
+                                                                                    max_iter = 4000, 
+                                                                                    Enhand_Cut = Enhand_Cut,  
                                                                                     nxt_bound = nxt_bound,
-                                                                                    μ = 0.93, λ = λ_value, ϵ = ϵ_value,
-                                                                                    Output_Gap = false )  
+                                                                                    μ = 0.95, λ = λ_value, ϵ = ϵ_value,
+                                                                                    Output_Gap = false ) 
                 end
                 # add cut
                 cut_collection[t-1].v[i][k] = c[1]
@@ -110,8 +112,6 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
 
 end
 
-
-lagrangian_cut = cut_collection
 
 
 
