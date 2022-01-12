@@ -67,9 +67,12 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
                     if t == 5
                         oracle_bound = 1e13
                         nxt_bound = 1e14
-                        if 2.9e8 <= demand[1] <= 3.1e8
+                        if demand[1] > 3.1e8
+                            λ_value = .9
+                            ϵ_value = .1
+                        elseif 2.9e8 <= demand[1] <= 3.1e8
                             λ_value = .7
-                            ϵ_value = .05
+                            ϵ_value = .1
                         elseif 2.9e8 > demand[1]
                             λ_value = .3
                             ϵ_value = .1
@@ -84,7 +87,8 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
                                                                                     Enhand_Cut = Enhand_Cut, 
                                                                                     oracle_bound = oracle_bound,
                                                                                     nxt_bound = nxt_bound,
-                                                                                    μ = 0.93, λ = λ_value, ϵ = ϵ_value )  
+                                                                                    μ = 0.93, λ = λ_value, ϵ = ϵ_value,
+                                                                                    Output_Gap = false )  
                 end
                 # add cut
                 cut_collection[t-1].v[i][k] = c[1]

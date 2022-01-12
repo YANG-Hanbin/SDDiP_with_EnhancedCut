@@ -159,43 +159,10 @@ function backward_step_F(StageProblemData::StageData, demand::Vector{Float64}, s
 end
 
 
-
-# function backward_step_f_star(StageProblemData::StageData, demand::Vector{Float64}, sum_generator::Vector{Float64}, cut_coefficient::CutCoefficient; 
-#     θ_bound::Real = 0.0, interior_value ::Float64 = 0.5,
-#     d::Int64 = 6, n::Int64 = 21, 
-#     A::Matrix{Int64} = [1 2 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0;
-#                         0 0 0 1 2 4 8 0 0 0 0 0 0 0 0 0 0 0 0 0 0;
-#                         0 0 0 0 0 0 0 1 2 4 8 0 0 0 0 0 0 0 0 0 0;
-#                         0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0;
-#                         0 0 0 0 0 0 0 0 0 0 0 0 1 2 4 8 16 32 0 0 0;
-#                         0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 2 4;]
-#     )
-#     f_star = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-#                                                 "OutputFlag" => 0, 
-#                                                 "Threads" => 1) 
-#                     )
-
-#     @variable(f_star, l[i = 1:n], Bin)
-#     @variable(f_star, y[i = 1:d] >= 0)
-#     @variable(f_star, slack >= 0 )
-#     @variable(f_star, θ >= θ_bound)
-#     model_info = ForwardModelInfo(f_star, l, y, θ, demand, slack, sum_generator)
-
-#     add_generator_constraint(StageProblemData, model_info)
-#     add_generator_cut(cut_coefficient, model_info)
-
-#     @objective(f_star, Min, StageProblemData.c1'* A * l + StageProblemData.c2' * y + StageProblemData.penalty * slack +  θ)
-
-#     optimize!(f_star)
-
-#     return JuMP.objective_value(f_star)
-# end
-
-
 ##  μ larger is better, λ is flexibile
-function LevelSetMethod_generator_v(StageProblemData::StageData, demand::Vector{Float64}, sum_generator::Vector{Float64}, cut_coefficient::CutCoefficient; 
+function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vector{Float64}, sum_generator::Vector{Float64}, cut_coefficient::CutCoefficient; 
     μ::Float64 = 0.95, λ::Float64 = 0.3, Output::Int64 = 0, threshold::Float64 = 1e3, ϵ::Float64 = 1e-2, interior_value ::Float64 = 0.5,
-    d::Int64 = 6, n::Int64 = 21, max_iter::Int64 = 3e3, Enhand_Cut::Bool = true, nxt_bound::Float64 = 1e13, oracle_bound::Float64 = 1e14,
+    d::Int64 = 6, n::Int64 = 21, max_iter::Int64 = 3e3, Enhand_Cut::Bool = true, nxt_bound::Float64 = 1e13, Output_Gap::Bool = false,
     A::Matrix{Int64} = [1 2 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0;
                         0 0 0 1 2 4 8 0 0 0 0 0 0 0 0 0 0 0 0 0 0;
                         0 0 0 0 0 0 0 1 2 4 8 0 0 0 0 0 0 0 0 0 0;
@@ -258,20 +225,16 @@ function LevelSetMethod_generator_v(StageProblemData::StageData, demand::Vector{
             "Threads" => 1)
             )
 
-    # if Enhand_Cut
-    #     @variable(model_oracle, z >= - oracle_bound)
-    # else 
-    #     para_oracle_bound =  α * function_info.f_his[1] + (1-α) * function_info.G_max_his[1] 
-    #     @variable(model_oracle, z >= - 10^(ceil(log10(-para_oracle_bound))))
-    # end
-    # para_oracle_bound =  α * function_info.f_his[1] + (1-α) * function_info.G_max_his[1] 
-    # @variable(model_oracle, z >= - 10^(ceil(log10(-para_oracle_bound))))
+
+
     @variable(model_oracle, z)
     @variable(model_oracle, x[i = 1:d])
     @variable(model_oracle, y <= 0)
 
+    # para_oracle_bound =  α * function_info.f_his[1] + (1-α) * function_info.G_max_his[1] 
+    # @variable(model_oracle, z >= - 10^(ceil(log10(-para_oracle_bound))))
     para_oracle_bound = abs(function_info.f_his[1])
-    z_rhs = 3 * 10^(ceil(log10(para_oracle_bound)))
+    z_rhs = 5 * 10^(ceil(log10(para_oracle_bound)))
     @constraint(model_oracle, oracle_bound, z >= - z_rhs)
 
     @objective(model_oracle, Min, z)
@@ -306,7 +269,9 @@ function LevelSetMethod_generator_v(StageProblemData::StageData, demand::Vector{
 
         result = Δ_model_formulation(function_info, f_star, iter, Output = Output)
         Δ, a_min, a_max = result[1], result[2], result[3]
-        @info "Gap is $Δ, iter num is $iter"
+        if Output_Gap == true
+            @info "Gap is $Δ, iter num is $iter"
+        end
         ## update α
         if μ/2 <= (α-a_min)/(a_max-a_min) .<= 1-μ/2
             α = α
@@ -379,7 +344,6 @@ function LevelSetMethod_generator_v(StageProblemData::StageData, demand::Vector{
         function_info.df              = function_value_info[2]
         function_info.dG              = function_value_info[4]
         function_info.G               = function_value_info[3]
-        # @info "Gap is $Δ, iter num is $iter"
 
     end
 

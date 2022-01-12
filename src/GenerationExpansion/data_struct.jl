@@ -71,13 +71,26 @@ end
 
 
 
-## sampling 
+## sampling function 
 function DrawSamples(P)
     # draw f, A, B, C, b from Ωₜ according to distribution P
     items = [i for i in 1:length(P)]
     weights = Weights(P)
     j = sample(items, weights)
     return j
+end
+
+## form scenarios
+function SampleScenarios( ;T::Int64 = 5, M::Int64 = 30)
+    ## a dict to store realization for each stage t in scenario k
+    scenarios = Dict()
+    for k in 1:M 
+        for t in 1:T 
+          ## draw sample
+          scenarios[k, t] = DrawSamples(prob[t])
+        end
+    end
+    return scenarios
 end
 
 
