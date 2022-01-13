@@ -231,10 +231,10 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
     @variable(model_oracle, x[i = 1:d])
     @variable(model_oracle, y <= 0)
 
-    # para_oracle_bound =  α * function_info.f_his[1] + (1-α) * function_info.G_max_his[1] 
+    # para_oracle_bound =  abs(α * function_info.f_his[1] + (1-α) * function_info.G_max_his[1] )
     # @variable(model_oracle, z >= - 10^(ceil(log10(-para_oracle_bound))))
     para_oracle_bound = abs(function_info.f_his[1])
-    z_rhs = 5 * 10^(ceil(log10(para_oracle_bound)))
+    z_rhs = 3 * 10^(ceil(log10(para_oracle_bound)))
     @constraint(model_oracle, oracle_bound, z >= - z_rhs)
 
     @objective(model_oracle, Min, z)
@@ -243,27 +243,27 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
 
 
     while true
-        if true
-            param_z_rhs = abs(function_info.f_his[iter])
-            if z_rhs <  1.2 * param_z_rhs
-                z_rhs = 1.1 * z_rhs
-            elseif z_rhs > 3 * param_z_rhs
-                z_rhs = 0.7 * z_rhs
-            end
-
-            set_normalized_rhs(oracle_bound, - z_rhs)  
-        end
         # if true
         #     param_z_rhs = abs(function_info.f_his[iter])
-        #     if z_rhs <  1.1 * param_z_rhs
-        #         z_rhs = 1.3 * z_rhs
+        #     if z_rhs <  1.5 * param_z_rhs
+        #         z_rhs = 1.2 * z_rhs
+        #     elseif z_rhs > 5 * param_z_rhs
+        #         z_rhs = 0.8 * z_rhs
         #     end
 
-        #     if z_rhs > 2 * param_z_rhs
-        #         z_rhs = 0.8 * z_rhs
-        #     end 
         #     set_normalized_rhs(oracle_bound, - z_rhs)  
         # end
+        if true
+            param_z_rhs = abs(function_info.f_his[iter])
+            if z_rhs <  2 * param_z_rhs
+                z_rhs = 1.5 * z_rhs
+            end
+
+            if z_rhs > 4 * param_z_rhs
+                z_rhs = 0.9 * z_rhs
+            end 
+            set_normalized_rhs(oracle_bound, - z_rhs)  
+        end
         add_constraint(function_info, oracle_info, iter)
         optimize!(model_oracle)
 
@@ -280,7 +280,7 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
         result = Δ_model_formulation(function_info, f_star, iter, Output = Output)
         Δ, a_min, a_max = result[1], result[2], result[3]
         if Output_Gap == true
-            @info "Gap is $Δ, iter num is $iter"
+            @info "Gap is $Δ, iter num is $iter, z_rhs is $z_rhs"
         end
         ## update α
         if μ/2 <= (α-a_min)/(a_max-a_min) .<= 1-μ/2
