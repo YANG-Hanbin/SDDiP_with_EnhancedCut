@@ -13,7 +13,7 @@ A = [
 struct RandomVariables
     d::Vector{Float64}
 end
-ddddddd
+
 
 struct StageData ## with the assumption that only b has stochasticity
     c1       ::Vector{Float64}
