@@ -64,61 +64,65 @@ There are total 6 kind of generators,  and the parameter $d$ stands for the cate
 
 In order to make the above model conform to the conditions of the sddip algorithm, i.e., the stage variable is binary and the problem is multi-stage, we do the following transformation:
 
-Note that $x_t\le (4, 10, 10,1, 45, 4)^\top $ from the data; to binarize  the variables, we introduce the binary variables for each compoent.
+Note that $ S_t\le (4, 10, 10,1, 45, 4)^\top $ from the data; to binarize  the variables, we introduce the binary variables for each compoent.
 
 
 
- $$ x_t=\left[\begin{matrix}l_1 + 2l_2 +4l_3\\l_1 + 2l_2 +4l_3 + 8l_4\\l_1 + 2l_2 +4l_3 + 8l_4\\l_1\\l_1 + 2l_2 +4l_3+8l_4+16l_5+32l_6\\l_1 + 2l_2 +4l_3 \end{matrix}\right] = A L_t,$$
+ $$ S_t=\left[\begin{matrix}l_1 + 2l_2 +4l_3\\l_1 + 2l_2 +4l_3 + 8l_4\\l_1 + 2l_2 +4l_3 + 8l_4\\l_1\\l_1 + 2l_2 +4l_3+8l_4+16l_5+32l_6\\l_1 + 2l_2 +4l_3 \end{matrix}\right] = A L_t,$$
 
 Where $A$ Is a coefficient matrix and $L_t$ is a vector with $21$ components. ($n= 21$)
 
 
 
-$$\min\ \sum_{t = 1}^T (c^1_tAL_t + c^2_ty_t + ps_t)$$
+$$\min\ \sum_{t = 1}^T (c^1_t x_t + c^2_ty_t + ps_t)$$
 
-$$\ \mbox{s.t.}\ \sum_{s = 1}^t AL_s \le \bar{u},$$
+$$\ \mbox{s.t.}\ S_t \le \bar{u},$$
 
 ​         $$\textbf{1}^{\top}y_t + s_t \ge d_t^\omega,$$
 
 ​         $$h_t N (S_t+S_0) \ge y_t,$$
 
-​         $$S_t = \sum_{s = 1}^t AL_s,$$
+​         $$S_t = \sum_{s = 1}^t x_s,$$
 
-​         $$L_t\in \{0,1\}^n , y_t\in\mathbb{R}_d^+.$$
+​		$$S_t = AL_t, $$
 
-
-
-
-
-For stage $t$, given the summation of built generators $S_{t-1}$, we can formulate it by following:
-
-$$\min\ c^1_tAL_t + c^2_ty_t + ps_t + \theta_t$$
-
-$$\ \mbox{s.t.}\ \sum_{s = 1}^t AL_s \le \bar{u},$$
-
-​         $$\textbf{1}^{\top}y_t + s_t \ge d_t^\omega,$$
-
-​         $$h N (S_t+S_0) \ge y_t,$$
-
-​         $$S_t =S_{t-1} + AL_t,$$
-
-​         $$L_t\in \{0,1\}^n , y_t\in\mathbb{R}_d^+.$$
+​         $$L_t\in \{0,1\}^n, x_t\in \mathbb{Z}_d^+ , y_t\in\mathbb{R}_d^+.$$
 
 
 
-We introduce a local binary copy $L_c$  for $S_{t-1}$, then we have:
 
-$$\min\ c^1_tAL_t + c^2_ty_t + ps_t + \theta_t$$
 
-$$\ \mbox{s.t.}\ \sum_{s = 1}^t AL_s \le \bar{u},$$
+For stage $t$, given the previous decision  $L_{t-1}$, we can formulate it by following:
+
+$$\min\ c^1_t x_t + c^2_ty_t + ps_t + \theta_t$$
+
+$$\ \mbox{s.t.}\ AL_{t-1} + x_t \le \bar{u},$$
 
 ​         $$\textbf{1}^{\top}y_t + s_t \ge d_t^\omega,$$
 
-​		 $$ AL_c = S_{t-1},$$
+​         $$h N (AL_{t-1} + x_t +S_0) \ge y_t,$$
 
-​         $$h N (AL_c + AL_t + S_0) \ge y_t,$$
+​         $$ A L_t =A L_{t-1} + x_t,$$
 
-​         $$L_t\in \{0,1\}^n , y_t\in\mathbb{R}_d^+.$$
+​         $$L_t\in \{0,1\}^n, x_t\in\mathbb{Z}_d^+ , y_t\in\mathbb{R}_d^+.$$
+
+
+
+We introduce a local binary copy $L_c$  for $ L_{t-1}$, then we have: (Stage variable is $L_t$)
+
+$$\min\ c^1_t x_t + c^2_ty_t + ps_t + \theta_t$$
+
+$$\ \mbox{s.t.}\ AL_c + x_t \le \bar{u},$$
+
+​         $$\textbf{1}^{\top}y_t + s_t \ge d_t^\omega,$$
+
+​		 $$ L_c = L_{t-1},$$
+
+​         $$h N (AL_c + x_t + S_0) \ge y_t,$$
+
+​		$$A L_t =A L_c + x_t,$$		
+
+​         $$L_t\in \{0,1\}^n , L_c\in [0,1]^n, y_t\in\mathbb{R}_d^+.$$
 
 
 
@@ -130,19 +134,21 @@ $$\ \mbox{s.t.}\ \sum_{s = 1}^t AL_s \le \bar{u},$$
 
 
 
-$$\min\ c^1_tAL_t + c^2_ty_t + ps_t + \theta_t$$
+$$\min\ c^1_t x_t + c^2_ty_t + ps_t + \theta_t$$
 
-$$\ \mbox{s.t.}\ A(L_t + L_c) \le \bar{u},$$
+$$\ \mbox{s.t.}\ AL_c + x_t \le \bar{u},$$
 
 ​         $$\textbf{1}^{\top}y_t + s_t \ge d_t^\omega,$$
 
-​		 $$ AL_c = S_{t-1},$$
+​		  $$L_c = L_{t-1},$$
 
-​         $$h N (AL_c + AL_t + S_0) \ge y_t,$$
+​         $$h N (AL_c + x_t + S_0) \ge y_t,$$
 
-​         $$L_t\in \{0,1\}^n,\ L_c\in[0,1]^n ,\ y_t\in\mathbb{R}_d^+,$$
+​		$$A L_t =A L_c + x_t,$$		
 
-​		$$\theta_t \ge \sum_{\omega\in\Omega_t}q^\omega (v^\omega_l + (\pi^\omega_l)^\top AL_t),\ \forall l = 1,\dots,i-1.$$
+​         $$L_t\in \{0,1\}^n,\ L_c\in[0,1]^n ,\ x_t\in\mathbb{Z}_d^+, \ y_t\in\mathbb{R}_d^+,$$
+
+​		$$\theta_t \ge \sum_{\omega\in\Omega_t}q^\omega (v^\omega_l + (\pi^\omega_l)^\top (L_t-\tilde{L})),\ \forall l = 1,\dots,i-1.$$
 
 
 
@@ -152,25 +158,29 @@ $$\ \mbox{s.t.}\ A(L_t + L_c) \le \bar{u},$$
 
 
 
-$$\max\ F(\pi) + \pi^\top(A\tilde{L} - \hat{S}_{t-1})   $$
+$$\max\ F(\pi) + \pi^\top(\tilde{L} - \hat{L}_{t-1})   $$
 
 $$\ \mbox{s.t.}\ F(\pi)\ge (1-\epsilon)f^* $$
 
 
 
+
+
 Where  $F(\pi)$ is the following optimization problem (Backward_F)
 
-$$\min\ c^1_tAL_t + c^2_ty_t + ps_t + \theta_t + \pi^\top(\hat{S}_{t-1} - AL_c) $$
+$$\min\ c^1_t x_t + c^2_ty_t + ps_t + \theta_t + \pi^\top(\hat{L}_{t-1} - L_c) $$
 
-$$\ \mbox{s.t.}\ AL_c + AL_t \le \bar{u},$$  
+$$\ \mbox{s.t.}\ AL_c + x_t \le \bar{u},$$  
 
 ​         $$\textbf{1}^{\top}y_t + s_t \ge d_t^\omega,$$
 
-​         $$h N (AL_c + AL_t + S_0) \ge y_t,$$
+​         $$h N (AL_c + x_t + S_0) \ge y_t,$$
+
+​		$$A L_t =A L_c + x_t,$$		
 
 ​         $$L_t\in \{0,1\}^n,\ L_c\in[0,1]^n,\ y_t\in\mathbb{R}_d^+,$$
 
-​		$$\theta_t \ge \sum_{\omega\in\Omega_t}q^\omega (v^\omega_l + (\pi^\omega_l)^\top AL_t),\ \forall l = 1,\dots,i-1.$$
+​		$$\theta_t \ge \sum_{\omega\in\Omega_t}q^\omega (v^\omega_l + (\pi^\omega_l)^\top (L_t-\tilde{L})),\ \forall l = 1,\dots,i-1.$$
 
 
 

@@ -28,25 +28,29 @@ end
 
 struct ForwardModelInfo
     model           :: Model
-    l               :: Vector{VariableRef}
-    y               :: Vector{VariableRef}
+    x               :: Vector{VariableRef} ## for current state, x is the number of generators
+    Lt              :: Vector{VariableRef} ## stage variable, A * Lt is total number of generators built
+    y               :: Vector{VariableRef} ## amount of electricity
     θ               :: VariableRef
     demand          :: Vector{Float64}
     slack           :: VariableRef
     sum_generator   :: Vector{Float64}
 end
+
 
 
 struct BackwardModelInfo
     model           :: Model
-    l               :: Vector{VariableRef}
-    L               :: Vector{VariableRef}
-    y               :: Vector{VariableRef}
+    x               :: Vector{VariableRef} ## for current state, x is the number of generators
+    Lt              :: Vector{VariableRef} ## stage variable, A * Lt is total number of generators built
+    Lc              :: Vector{VariableRef} ## local cooy variable
+    y               :: Vector{VariableRef} ## amount of electricity
     θ               :: VariableRef
     demand          :: Vector{Float64}
     slack           :: VariableRef
     sum_generator   :: Vector{Float64}
 end
+
 
 
 ## data structure for levelset method
