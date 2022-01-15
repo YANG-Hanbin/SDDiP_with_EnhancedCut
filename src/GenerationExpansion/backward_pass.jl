@@ -236,7 +236,7 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
     # para_oracle_bound =  abs(α * function_info.f_his[1] + (1-α) * function_info.G_max_his[1] )
     # @variable(model_oracle, z >= - 10^(ceil(log10(-para_oracle_bound))))
     para_oracle_bound = abs(function_info.f_his[1])
-    z_rhs = 5 * 10^(ceil(log10(para_oracle_bound)))
+    z_rhs = 5.3 * 10^(ceil(log10(para_oracle_bound)))
     @constraint(model_oracle, oracle_bound, z >= - z_rhs)
 
     @objective(model_oracle, Min, z)

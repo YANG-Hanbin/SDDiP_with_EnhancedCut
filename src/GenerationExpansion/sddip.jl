@@ -1,5 +1,5 @@
 using Distributed
-addprocs(20)
+addprocs(10)
 
 @everywhere using JuMP, Test, Statistics, StatsBase, Gurobi, Distributed, ParallelDataTransfer, Random
 
@@ -14,6 +14,10 @@ end
 #############################################################################################
 ####################################    main function   #####################################
 #############################################################################################
+n = 21; d = 6; max_iter = 20; ϵ = 1e-2; Enhand_Cut = true
+
+@broadcast n = 21; d = 6; max_iter = 20; ϵ = 1e-2; Enhand_Cut = true;
+@broadcast Enhand_Cut = true;
 
 function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict{Int64,Vector{Float64}}, StageCoefficient::Dict{Int64, StageData}; 
     ϵ::Float64 = 0.001, M::Int64 = 30, n::Int64 = 21, max_iter::Int64 = 2000, Enhand_Cut::Bool = true)
@@ -112,17 +116,17 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
 
         ##################################### Parallel Computation ###########################
 
-        M = 5
+        M = 4
 
         @everywhere begin 
             function inner_func_backward(j, k, t)
                 @info "$t $k $j"
-                λ_value = .5
+                λ_value = .1
                 ϵ_value = 1e-3
+                nxt_bound = 1e14
                 # compute average cut coefficient
                 demand = Ω[t][j].d
                 if t == 5
-                    nxt_bound = 1e14
                     if demand[1] > 3.0e8
                         λ_value = .3
                         ϵ_value = 5e-2
@@ -134,17 +138,16 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
                         ϵ_value = 5e-2
                     end
                 end
-
                 @time c =  prob[t][j] * LevelSetMethod_optimization!(StageCoefficient[t], 
                                                                     Ω[t][j].d, 
                                                                     Sol_collection[t-1,k][1], 
                                                                     cut_collection[t], 
-                                                                    max_iter = 5000, 
-                                                                    threshold = 5e3,
+                                                                    max_iter = 2000, 
+                                                                    threshold = 1e4,
                                                                     Enhand_Cut = Enhand_Cut,  
                                                                     nxt_bound = nxt_bound,
                                                                     μ = 0.95, λ = λ_value, ϵ = ϵ_value,
-                                                                    Output_Gap = false ) 
+                                                                    Output_Gap = true ) 
                 return  c
             end
         end
@@ -152,7 +155,7 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
 
 
 
-        for t = reverse(2: T)
+        for t = reverse(2: 3)
             cut_collection[t-1].v[i] = Dict()
             cut_collection[t-1].π[i] = Dict()
             @passobj 1 workers() cut_collection
@@ -162,6 +165,7 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
                 cut_collection[t-1].v[i][k] = c[1]
                 cut_collection[t-1].π[i][k] = c[2]
             end
+            @passobj 1 workers() cut_collection
         end
 
 
