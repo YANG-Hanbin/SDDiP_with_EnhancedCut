@@ -1,12 +1,16 @@
-using JuMP, Test, Statistics, StatsBase, Gurobi, Distributed, Random  #, Flux
+using Distributed
+addprocs(20)
 
-const GRB_ENV = Gurobi.Env()
+@everywhere using JuMP, Test, Statistics, StatsBase, Gurobi, Distributed, ParallelDataTransfer, Random
 
-include("/Users/aaron/SDDiP_with_EnhancedCut/src/GenerationExpansion/data_struct.jl")
-include("/Users/aaron/SDDiP_with_EnhancedCut/src/GenerationExpansion/backward_pass.jl")
-include("/Users/aaron/SDDiP_with_EnhancedCut/src/GenerationExpansion/forward_pass.jl")
+@everywhere const GRB_ENV = Gurobi.Env()
 
-
+@everywhere begin
+    include("/Users/aaron/SDDiP_with_EnhancedCut/src/GenerationExpansion/data_struct.jl")
+    include("/Users/aaron/SDDiP_with_EnhancedCut/src/GenerationExpansion/backward_pass.jl")
+    include("/Users/aaron/SDDiP_with_EnhancedCut/src/GenerationExpansion/forward_pass.jl")
+    include("/Users/aaron/SDDiP_with_EnhancedCut/src/GenerationExpansion/data_file.jl")
+end
 #############################################################################################
 ####################################    main function   #####################################
 #############################################################################################
@@ -16,7 +20,7 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
     ## d: x dim
     ## M: num of scenarios when doing one iteration
     
-    T = length(keys(Ω))
+    @broadcast T = length(keys(Ω))
     
     i = 1
     LB = - Inf 
@@ -53,58 +57,120 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
             u[k] = sum(Sol_collection[t, k][4] for t in 1:T)
         end
 
+        @passobj 1 workers() Sol_collection
 
         ## compute the upper bound
         μ̄ = mean(u)
         σ̂² = var(u)
         UB = μ̄ + 1.96 * sqrt(σ̂²/M)
 
+        # M = 5
+        # ## Backward Step
+        # for t = reverse(2:T)
+        #     cut_collection[t-1].v[i] = Dict()
+        #     cut_collection[t-1].π[i] = Dict()
+        #     for k in 1:M 
+        #         c = [0, zeros(Float64,n)]
+        #         for j in keys(Ω[t])
+        #             @info "$t $k $j"
+        #             λ_value = .5
+        #             ϵ_value = 1e-3
+        #             # compute average cut coefficient
+        #             demand = Ω[t][j].d
+        #             if t == 5
+        #                 nxt_bound = 1e14
+        #                 if demand[1] > 3.0e8
+        #                     λ_value = .3
+        #                     ϵ_value = 5e-2
+        #                 elseif 2.8e8 <= demand[1] <= 3.0e8
+        #                     λ_value = .2
+        #                     ϵ_value = 5e-2
+        #                 elseif 2.8e8 > demand[1]
+        #                     λ_value = .01
+        #                     ϵ_value = 5e-2
+        #                 end
+        #             end
+
+        #             @time c = c + prob[t][j] * LevelSetMethod_optimization!(StageCoefficient[t], 
+        #                                                                             Ω[t][j].d, 
+        #                                                                             Sol_collection[t-1,k][1], 
+        #                                                                             cut_collection[t], 
+        #                                                                             max_iter = 5000, 
+        #                                                                             threshold = 5e3,
+        #                                                                             Enhand_Cut = Enhand_Cut,  
+        #                                                                             nxt_bound = nxt_bound,
+        #                                                                             μ = 0.95, λ = λ_value, ϵ = ϵ_value,
+        #                                                                             Output_Gap = false ) 
+        #         end
+        #         # add cut
+        #         cut_collection[t-1].v[i][k] = c[1]
+        #         cut_collection[t-1].π[i][k] = c[2]
+        #     end
+        # end
+
+
+
+        ##################################### Parallel Computation ###########################
+
         M = 5
-        ## Backward Step
-        for t = reverse(2:T)
+
+        @everywhere begin 
+            function inner_func_backward(j, k, t)
+                @info "$t $k $j"
+                λ_value = .5
+                ϵ_value = 1e-3
+                # compute average cut coefficient
+                demand = Ω[t][j].d
+                if t == 5
+                    nxt_bound = 1e14
+                    if demand[1] > 3.0e8
+                        λ_value = .3
+                        ϵ_value = 5e-2
+                    elseif 2.8e8 <= demand[1] <= 3.0e8
+                        λ_value = .2
+                        ϵ_value = 5e-2
+                    elseif 2.8e8 > demand[1]
+                        λ_value = .01
+                        ϵ_value = 5e-2
+                    end
+                end
+
+                @time c =  prob[t][j] * LevelSetMethod_optimization!(StageCoefficient[t], 
+                                                                    Ω[t][j].d, 
+                                                                    Sol_collection[t-1,k][1], 
+                                                                    cut_collection[t], 
+                                                                    max_iter = 5000, 
+                                                                    threshold = 5e3,
+                                                                    Enhand_Cut = Enhand_Cut,  
+                                                                    nxt_bound = nxt_bound,
+                                                                    μ = 0.95, λ = λ_value, ϵ = ϵ_value,
+                                                                    Output_Gap = false ) 
+                return  c
+            end
+        end
+
+
+
+
+        for t = reverse(2: T)
             cut_collection[t-1].v[i] = Dict()
             cut_collection[t-1].π[i] = Dict()
+            @passobj 1 workers() cut_collection
             for k in 1:M 
-                c = [0, zeros(Float64,n)]
-                for j in keys(Ω[t])
-                    @info "$t $k $j"
-                    λ_value = .5
-                    ϵ_value = 1e-3
-                    # compute average cut coefficient
-                    demand = Ω[t][j].d
-                    if t == 5
-                        nxt_bound = 1e14
-                        if demand[1] > 3.0e8
-                            λ_value = .3
-                            ϵ_value = 5e-2
-                        elseif 2.8e8 <= demand[1] <= 3.0e8
-                            λ_value = .2
-                            ϵ_value = 5e-2
-                        elseif 2.8e8 > demand[1]
-                            λ_value = .01
-                            ϵ_value = 5e-2
-                        end
-                    end
-
-                    @time c = c + prob[t][j] * prob[t][j] * LevelSetMethod_optimization!(StageCoefficient[t], 
-                                                                                    Ω[t][j].d, 
-                                                                                    Sol_collection[t-1,k][1], 
-                                                                                    cut_collection[t], 
-                                                                                    max_iter = 5000, 
-                                                                                    threshold = 5e3,
-                                                                                    Enhand_Cut = Enhand_Cut,  
-                                                                                    nxt_bound = nxt_bound,
-                                                                                    μ = 0.95, λ = λ_value, ϵ = ϵ_value,
-                                                                                    Output_Gap = false ) 
-                end
-                # add cut
+                p = pmap(inner_func_backward, 1:10, [k for i in keys(Ω[t])], [t for i in keys(Ω[t])])
+                c = sum(p)
                 cut_collection[t-1].v[i][k] = c[1]
                 cut_collection[t-1].π[i][k] = c[2]
             end
         end
 
+
+        ######################################################################################
+
+
+
         ## compute the lower bound
-        _LB = forward_step_optimize!(StageCoefficient[1], Ω[1][1].d, [0.0 for i in 1:d], cut_collection[1])
+        _LB = forward_step_optimize!(StageCoefficient[1], Ω[1][1].d, [0.0 for i in 1:n], cut_collection[1])
         LB = _LB[3] + _LB[4]
         i = i + 1
 

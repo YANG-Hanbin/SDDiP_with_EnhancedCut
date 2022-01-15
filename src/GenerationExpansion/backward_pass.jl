@@ -316,7 +316,7 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
         end
 
         ## stop rule
-        if ( Δ < threshold || iter > max_iter) && (function_info.G_max_his[iter] <= threshold )
+        if Δ < threshold || iter > max_iter 
             if Enhand_Cut
                 return [ - function_info.f_his[iter], function_info.x_his[iter]] 
             else
