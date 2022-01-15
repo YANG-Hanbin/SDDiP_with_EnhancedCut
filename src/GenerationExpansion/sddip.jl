@@ -155,7 +155,7 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
 
 
 
-        for t = reverse(2: 3)
+        for t = reverse(2: T)
             cut_collection[t-1].v[i] = Dict()
             cut_collection[t-1].π[i] = Dict()
             @passobj 1 workers() cut_collection
