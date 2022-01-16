@@ -1,5 +1,5 @@
 using Distributed
-addprocs(10)
+addprocs(5)
 
 @everywhere using JuMP, Test, Statistics, StatsBase, Gurobi, Distributed, ParallelDataTransfer, Random
 
@@ -14,13 +14,13 @@ end
 #############################################################################################
 ####################################    main function   #####################################
 #############################################################################################
-n = 21; d = 6; max_iter = 20; ϵ = 1e-2; Enhand_Cut = true
+# n = 21; d = 6; max_iter = 20; ϵ = 1e-2; Enhand_Cut = true
 
-@broadcast n = 21; d = 6; max_iter = 20; ϵ = 1e-2; Enhand_Cut = true;
-@broadcast Enhand_Cut = true;
+# @broadcast n = 21; d = 6; max_iter = 20; ϵ = 1e-2; Enhand_Cut = true;
+# @broadcast Enhand_Cut = true;
 
 function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict{Int64,Vector{Float64}}, StageCoefficient::Dict{Int64, StageData}; 
-    ϵ::Float64 = 0.001, M::Int64 = 30, n::Int64 = 21, max_iter::Int64 = 2000, Enhand_Cut::Bool = true)
+    ϵ::Float64 = 0.001, M::Int64 = 30, n::Int64 = 21, max_iter::Int64 = 20, Enhand_Cut::Bool = true)
     ## d: x dim
     ## M: num of scenarios when doing one iteration
     
@@ -39,6 +39,45 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
                                             Dict(1=> Dict(1=> zeros(Float64, n)), 2 => Dict()) 
                                           )
     end
+
+    add_result = Dict()
+
+
+    ## an auxiliary function for backward iteration
+    @everywhere begin 
+        function inner_func_backward(j, k, t)
+            @info "$t $k $j"
+            λ_value = .1
+            ϵ_value = 5e-4
+            nxt_bound = 1e14
+            # compute average cut coefficient
+            demand = Ω[t][j].d
+            if t == 5
+                if demand[1] > 3.0e8
+                    λ_value = .3
+                    ϵ_value = 1e-2
+                elseif 2.8e8 <= demand[1] <= 3.0e8
+                    λ_value = .2
+                    ϵ_value = 1e-2
+                elseif 2.8e8 > demand[1]
+                    λ_value = .01
+                    ϵ_value = 1e-2
+                end
+            end
+            @time c =  prob[t][j] * LevelSetMethod_optimization!(StageCoefficient[t], 
+                                                                Ω[t][j].d, 
+                                                                Sol_collection[t-1,k][1], 
+                                                                cut_collection[t], 
+                                                                max_iter = 3000, 
+                                                                threshold = 1e4,
+                                                                Enhand_Cut = Enhand_Cut,  
+                                                                nxt_bound = nxt_bound,
+                                                                μ = 0.95, λ = λ_value, ϵ = ϵ_value,
+                                                                Output_Gap = false ) 
+            return  c
+        end
+    end
+
 
     while true
         M = 30
@@ -68,92 +107,9 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
         σ̂² = var(u)
         UB = μ̄ + 1.96 * sqrt(σ̂²/M)
 
-        # M = 5
-        # ## Backward Step
-        # for t = reverse(2:T)
-        #     cut_collection[t-1].v[i] = Dict()
-        #     cut_collection[t-1].π[i] = Dict()
-        #     for k in 1:M 
-        #         c = [0, zeros(Float64,n)]
-        #         for j in keys(Ω[t])
-        #             @info "$t $k $j"
-        #             λ_value = .5
-        #             ϵ_value = 1e-3
-        #             # compute average cut coefficient
-        #             demand = Ω[t][j].d
-        #             if t == 5
-        #                 nxt_bound = 1e14
-        #                 if demand[1] > 3.0e8
-        #                     λ_value = .3
-        #                     ϵ_value = 5e-2
-        #                 elseif 2.8e8 <= demand[1] <= 3.0e8
-        #                     λ_value = .2
-        #                     ϵ_value = 5e-2
-        #                 elseif 2.8e8 > demand[1]
-        #                     λ_value = .01
-        #                     ϵ_value = 5e-2
-        #                 end
-        #             end
-
-        #             @time c = c + prob[t][j] * LevelSetMethod_optimization!(StageCoefficient[t], 
-        #                                                                             Ω[t][j].d, 
-        #                                                                             Sol_collection[t-1,k][1], 
-        #                                                                             cut_collection[t], 
-        #                                                                             max_iter = 5000, 
-        #                                                                             threshold = 5e3,
-        #                                                                             Enhand_Cut = Enhand_Cut,  
-        #                                                                             nxt_bound = nxt_bound,
-        #                                                                             μ = 0.95, λ = λ_value, ϵ = ϵ_value,
-        #                                                                             Output_Gap = false ) 
-        #         end
-        #         # add cut
-        #         cut_collection[t-1].v[i][k] = c[1]
-        #         cut_collection[t-1].π[i][k] = c[2]
-        #     end
-        # end
-
-
-
-        ##################################### Parallel Computation ###########################
+        ##################################### Parallel Computation for backward step ###########################
 
         M = 4
-
-        @everywhere begin 
-            function inner_func_backward(j, k, t)
-                @info "$t $k $j"
-                λ_value = .1
-                ϵ_value = 1e-3
-                nxt_bound = 1e14
-                # compute average cut coefficient
-                demand = Ω[t][j].d
-                if t == 5
-                    if demand[1] > 3.0e8
-                        λ_value = .3
-                        ϵ_value = 5e-2
-                    elseif 2.8e8 <= demand[1] <= 3.0e8
-                        λ_value = .2
-                        ϵ_value = 5e-2
-                    elseif 2.8e8 > demand[1]
-                        λ_value = .01
-                        ϵ_value = 5e-2
-                    end
-                end
-                @time c =  prob[t][j] * LevelSetMethod_optimization!(StageCoefficient[t], 
-                                                                    Ω[t][j].d, 
-                                                                    Sol_collection[t-1,k][1], 
-                                                                    cut_collection[t], 
-                                                                    max_iter = 2000, 
-                                                                    threshold = 1e4,
-                                                                    Enhand_Cut = Enhand_Cut,  
-                                                                    nxt_bound = nxt_bound,
-                                                                    μ = 0.95, λ = λ_value, ϵ = ϵ_value,
-                                                                    Output_Gap = true ) 
-                return  c
-            end
-        end
-
-
-
 
         for t = reverse(2: T)
             cut_collection[t-1].v[i] = Dict()
@@ -169,13 +125,14 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
         end
 
 
-        ######################################################################################
+        ########################################################################################################
 
 
 
         ## compute the lower bound
         _LB = forward_step_optimize!(StageCoefficient[1], Ω[1][1].d, [0.0 for i in 1:n], cut_collection[1])
         LB = _LB[3] + _LB[4]
+        add_result[i] = _LB  # store the result
         i = i + 1
 
         @info "LB is $LB, UB is $UB"
@@ -186,8 +143,6 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
     end
 
 end
-
-
 
 
 
