@@ -62,8 +62,13 @@ end
 #############################################################################################
 
 function add_generator_constraint(StageProblemData::StageData, model_info::BackwardModelInfo;
-                                                                A::Matrix{Int64} = [1 2;])
-
+    A::Matrix{Int64} = [1 2 4 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0;
+                        0 0 0 1 2 4 8 0 0 0 0 0 0 0 0 0 0 0 0 0 0;
+                        0 0 0 0 0 0 0 1 2 4 8 0 0 0 0 0 0 0 0 0 0;
+                        0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0;
+                        0 0 0 0 0 0 0 0 0 0 0 0 1 2 4 8 16 32 0 0 0;
+                        0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 2 4;]
+                    )
     @constraint(model_info.model, A * model_info.Lc + model_info.x .<= StageProblemData.ū )  ## no more than max num of generators
     @constraint(model_info.model, sum(model_info.y) + model_info.slack .>= model_info.demand )  # satisfy demand
     @constraint(model_info.model, StageProblemData.h * StageProblemData.N 
@@ -75,8 +80,15 @@ end
 
 
 function add_generator_cut(cut_coefficient::CutCoefficient, model_info::BackwardModelInfo; 
-                            Enhand_Cut::Bool = true, interior_value ::Float64 = 0.5,
-                            d::Int64 = 1, n::Int64 = 2, A::Matrix{Int64} = [1 2;] )
+    Enhand_Cut::Bool = true,
+    d::Int64 = 8, n::Int64 = 21, interior_value ::Float64 = 0.5,
+    A::Matrix{Int64} = [1 2 4 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0;
+                        0 0 0 1 2 4 8 0 0 0 0 0 0 0 0 0 0 0 0 0 0;
+                        0 0 0 0 0 0 0 1 2 4 8 0 0 0 0 0 0 0 0 0 0;
+                        0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0;
+                        0 0 0 0 0 0 0 0 0 0 0 0 1 2 4 8 16 32 0 0 0;
+                        0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 2 4;]
+                        )
 
     l_interior= [interior_value for i in 1:n]
 
@@ -106,8 +118,14 @@ end
 """
 function backward_step_F(StageProblemData::StageData, demand::Vector{Float64}, sum_generator::Vector{Float64}, π::Vector{Float64}, cut_coefficient::CutCoefficient; 
                         θ_bound::Real = 0.0, interior_value ::Float64 = 0.5, Enhand_Cut::Bool = true,
-                        d::Int64 = 1, n::Int64 = 2, A::Matrix{Int64} = [1 2;] )
-
+                        d::Int64 = 6, n::Int64 = 21, 
+                        A::Matrix{Int64} = [1 2 4 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0;
+                                            0 0 0 1 2 4 8 0 0 0 0 0 0 0 0 0 0 0 0 0 0;
+                                            0 0 0 0 0 0 0 1 2 4 8 0 0 0 0 0 0 0 0 0 0;
+                                            0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0;
+                                            0 0 0 0 0 0 0 0 0 0 0 0 1 2 4 8 16 32 0 0 0;
+                                            0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 2 4;]
+                        )
     F = Model(
         optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                                     "OutputFlag" => 0,
@@ -122,18 +140,18 @@ function backward_step_F(StageProblemData::StageData, demand::Vector{Float64}, s
     @variable(F, θ >= θ_bound)
 
     model_info = BackwardModelInfo(F, x, Lt, Lc, y, θ, demand, slack, sum_generator)
-    add_generator_constraint(StageProblemData, model_info, A = A)
-    add_generator_cut(cut_coefficient, model_info, Enhand_Cut = Enhand_Cut, A = A, d = d, n = n)
+    add_generator_constraint(StageProblemData, model_info)
+    add_generator_cut(cut_coefficient, model_info, Enhand_Cut = Enhand_Cut)
 
     @constraint(F, A * sum_generator + x .== A * Lt )  ## to ensure pass a binary variable
 
     if Enhand_Cut 
-        @objective(F, Min, StageProblemData.c1' * x + StageProblemData.c2' * y + θ + StageProblemData.penalty * slack + 
+        @objective(F, Min, StageProblemData.c1' * x + StageProblemData.c2' * y +  θ + StageProblemData.penalty * slack + 
                                                             π' * (sum_generator .- Lc) )
         optimize!(F)
         result = [ JuMP.objective_value(F), sum_generator .- JuMP.value.(Lc) ]
     else
-        @objective(F, Min, StageProblemData.c1' * x + StageProblemData.c2' * y + θ + StageProblemData.penalty * slack - 
+        @objective(F, Min, StageProblemData.c1' * x + StageProblemData.c2' * y +  θ + StageProblemData.penalty * slack - 
                                                             π' * Lc )
         optimize!(F)
         result = [ JuMP.objective_value(F), - JuMP.value.(Lc) ]
@@ -145,10 +163,9 @@ end
 
 ##  μ larger is better, λ is flexibile
 function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vector{Float64}, sum_generator::Vector{Float64}, cut_coefficient::CutCoefficient; 
-                                        μ::Float64 = 0.95, λ::Float64 = 0.3, ϵ::Float64 = 1e-4, interior_value::Float64 = 0.5,
-                                        threshold::Float64 = 1e-2, nxt_bound::Float64 = 1e13, max_iter::Int64 = 3e3,
-                                        Adj::Bool = true, Enhand_Cut::Bool = true, Output_Gap::Bool = false, Output::Int64 = 0,
-                                        d::Int64 = 1, n::Int64 = 2, A::Matrix{Int64} = [1 2;])
+                                        μ::Float64 = 0.95, λ::Float64 = 0.3, ϵ::Float64 = 1e-2, interior_value::Float64 = 0.5,
+                                        d::Int64 = 6, n::Int64 = 21, threshold::Float64 = 1e3, nxt_bound::Float64 = 1e13,
+                                        max_iter::Int64 = 3e3, Enhand_Cut::Bool = true, Output_Gap::Bool = false, Output::Int64 = 0)
     ######################################################################################################################
     ###############################   auxiliary function for function information   ######################################
     ######################################################################################################################
@@ -163,7 +180,7 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
         StageProblemData::StageData = StageProblemData, demand::Vector{Float64} = demand, 
         sum_generator::Vector{Float64} = sum_generator, cut_coefficient::CutCoefficient = cut_coefficient   )
 
-        F_solution = backward_step_F(StageProblemData, demand, sum_generator, π, cut_coefficient, Enhand_Cut = Enhand_Cut, A = A, d = d, n = n)
+        F_solution = backward_step_F(StageProblemData, demand, sum_generator, π, cut_coefficient, Enhand_Cut = Enhand_Cut)
 
         if Enhand_Cut
             function_value_info  = Dict(1 => - F_solution[1] - π' * (l_interior .- sum_generator),
@@ -228,19 +245,6 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
 
 
     while true
-        if Adj
-            param_z_rhs = abs(function_info.f_his[iter])
-            if z_rhs <  1.5 * param_z_rhs
-                # @info "z level up $(z_rhs/param_z_rhs)"
-                z_rhs = 2 * z_rhs
-            end
-
-            if z_rhs > 10 * param_z_rhs
-                # @info "z level down $(z_rhs/param_z_rhs) "
-                z_rhs = .1 * z_rhs
-            end 
-            set_normalized_rhs(oracle_bound, - z_rhs)  
-        end
         add_constraint(function_info, oracle_info, iter)
         optimize!(model_oracle)
 
@@ -305,7 +309,7 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
                                                 function_info.x_his[iter]]
             end
         else
-            set_normalized_rhs( level_constraint, w + 1 * (W - w))
+            set_normalized_rhs( level_constraint, w + 0.99 * (W - w))
             optimize!(model_nxt)
             x_nxt = JuMP.value.(x1)
             # break   

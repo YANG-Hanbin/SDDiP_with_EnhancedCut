@@ -3,8 +3,13 @@
 #############################################################################################
 
 function add_generator_constraint(StageProblemData::StageData, model_info::ForwardModelInfo;
-  A::Matrix{Int64} = [1 2;])    
-
+  A::Matrix{Int64} = [1 2 4 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0;
+                      0 0 0 1 2 4 8 0 0 0 0 0 0 0 0 0 0 0 0 0 0;
+                      0 0 0 0 0 0 0 1 2 4 8 0 0 0 0 0 0 0 0 0 0;
+                      0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0;
+                      0 0 0 0 0 0 0 0 0 0 0 0 1 2 4 8 16 32 0 0 0;
+                      0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 2 4;]
+                  )    
   @constraint(model_info.model, A * model_info.sum_generator + model_info.x .<= StageProblemData.ū )  ## no more than max num of generators
   @constraint(model_info.model, sum(model_info.y) + model_info.slack .>= model_info.demand )  # satisfy demand
   @constraint(model_info.model, StageProblemData.h * StageProblemData.N 
@@ -15,9 +20,14 @@ end
 
 
 function add_generator_cut(cut_coefficient::CutCoefficient, model_info::ForwardModelInfo; 
-                                                  d::Int64 = 1, n::Int64 = 2, Enhand_Cut::Bool = true,
-                                                  A::Matrix{Int64} = [1 2;] )
-
+                                                  d::Int64 = 8, n::Int64 = 21, Enhand_Cut::Bool = true,
+                                                  A::Matrix{Int64} = [1 2 4 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0;
+                                                                      0 0 0 1 2 4 8 0 0 0 0 0 0 0 0 0 0 0 0 0 0;
+                                                                      0 0 0 0 0 0 0 1 2 4 8 0 0 0 0 0 0 0 0 0 0;
+                                                                      0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0;
+                                                                      0 0 0 0 0 0 0 0 0 0 0 0 1 2 4 8 16 32 0 0 0;
+                                                                      0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 2 4;]
+                                                  )
   l_interior= [.5 for i in 1:n]
 
   iter = length(keys(cut_coefficient.v))  ## iter num
@@ -49,12 +59,24 @@ StageProblemData: is the param info given stage t
 """
 
 
-function forward_step_optimize!(StageProblemData::StageData, demand::Vector{Float64}, sum_generator::Vector{Float64}, 
-                                cut_coefficient::CutCoefficient; Enhand_Cut::Bool = true,
-                                θ_bound::Real = 0.0, d::Int64 = 1, n::Int64 = 2, 
-                                A::Matrix{Int64} = [1 2;]  )
 
-                                
+
+
+
+
+
+
+function forward_step_optimize!(StageProblemData::StageData, demand::Vector{Float64}, sum_generator::Vector{Float64}, 
+  cut_coefficient::CutCoefficient; Enhand_Cut::Bool = true,
+  θ_bound::Real = 0.0, d::Int64 = 6, n::Int64 = 21, 
+  A::Matrix{Int64} = [1 2 4 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0;
+                      0 0 0 1 2 4 8 0 0 0 0 0 0 0 0 0 0 0 0 0 0;
+                      0 0 0 0 0 0 0 1 2 4 8 0 0 0 0 0 0 0 0 0 0;
+                      0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0;
+                      0 0 0 0 0 0 0 0 0 0 0 0 1 2 4 8 16 32 0 0 0;
+                      0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 2 4;]
+  )
+
     ## construct forward problem (3.1)
     Q = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                                           "OutputFlag" => 0, 
@@ -67,8 +89,8 @@ function forward_step_optimize!(StageProblemData::StageData, demand::Vector{Floa
     @variable(Q, θ >= θ_bound)
     model_info = ForwardModelInfo(Q, x, Lt, y, θ, demand, slack, sum_generator)
 
-    add_generator_constraint(StageProblemData, model_info, A = A)
-    add_generator_cut(cut_coefficient, model_info, Enhand_Cut = Enhand_Cut, A = A, d = d, n = n)
+    add_generator_constraint(StageProblemData, model_info)
+    add_generator_cut(cut_coefficient, model_info, Enhand_Cut = Enhand_Cut)
     @constraint(Q, A * sum_generator + x.== A * Lt)
 
     @objective(Q, Min, StageProblemData.c1'* x + StageProblemData.c2' * y + StageProblemData.penalty * slack + θ )
