@@ -1,6 +1,3 @@
-# using Distributed
-# addprocs(4)
-
 using JuMP, Test, Statistics, StatsBase, Gurobi, Distributed, ParallelDataTransfer, Random
 
 const GRB_ENV = Gurobi.Env()
@@ -9,18 +6,17 @@ const GRB_ENV = Gurobi.Env()
 include("data_struct.jl")
 include("backward_pass.jl")
 include("forward_pass.jl")
-# include("data_file.jl")
-include("data_file_small_case.jl")
+include("runtests_small.jl")
+
 #############################################################################################
 ####################################    main function   #####################################
 #############################################################################################
-max_iter = 20; ϵ = 1e-2; Enhand_Cut = false
+max_iter = 20; ϵ = 1e-2; Enhand_Cut = true
 
-# @broadcast max_iter = 20; ϵ = 1e-2; 
-# @broadcast Enhand_Cut = false;
 
 function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict{Int64,Vector{Float64}}, StageCoefficient::Dict{Int64, StageData}; 
-    ϵ::Float64 = 0.001, M::Int64 = 30, max_iter::Int64 = 20, Enhand_Cut::Bool = true, n::Int64 = 2, d::Int64 = 1, A::Matrix{Int64} = [1 2;])
+    scenario_sequence::Dict{Int64, Dict{Int64, Any}} = scenario_sequence, ϵ::Float64 = 0.001, M::Int64 = 30, max_iter::Int64 = 20, 
+    n::Int64 = 2, d::Int64 = 1, A::Matrix{Int64} = [1 2;], Enhand_Cut::Bool = true)
     ## d: x dim
     ## M: num of scenarios when doing one iteration
     
@@ -48,14 +44,15 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
         u = Vector{Float64}(undef, M)  # to compute upper bound
         
         Random.seed!(i*3)
-        Scenarios = SampleScenarios(T = T, M = M)
+        Scenarios = SampleScenarios(scenario_sequence, T = T, M = M)
         
         ## Forward Step
         for k in 1:M
             sum_generator= [0.0 for i in 1:n]
             for t in 1:T
+                j = scenario_sequence[Scenarios[k]][1][t]  ## realization of k-th scenario at stage t
                 Sol_collection[t, k] = forward_step_optimize!(StageCoefficient[t], 
-                                                                Ω[t][Scenarios[k, t]].d, 
+                                                                Ω[t][j].d, 
                                                                 sum_generator, 
                                                                 cut_collection[t], 
                                                                 A = A, d = d, n = n)
@@ -63,8 +60,6 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
             end
             u[k] = sum(Sol_collection[t, k][4] for t in 1:T)
         end
-
-        # @passobj 1 workers() Sol_collection
 
         ## compute the upper bound
         μ̄ = mean(u)
@@ -83,7 +78,7 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
                 for j in keys(Ω[t])
                     @info "$t $k $j"
                     λ_value = .5
-                    ϵ_value = 1e-3
+                    ϵ_value = 1e-5
                     nxt_bound = 1e14
                     Adj = false
                     @time c = c + prob[t][j] * LevelSetMethod_optimization!(StageCoefficient[t], 

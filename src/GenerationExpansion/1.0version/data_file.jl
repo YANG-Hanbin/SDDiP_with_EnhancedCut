@@ -1,36 +1,6 @@
-## this file is to generate data
-
-#  the matrix A is to help to form decision variables X
-A = [
-        1 2 4 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0;
-        0 0 0 1 2 4 8 0 0 0 0 0 0 0 0 0 0 0 0 0 0;
-        0 0 0 0 0 0 0 1 2 4 8 0 0 0 0 0 0 0 0 0 0;
-        0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0;
-        0 0 0 0 0 0 0 0 0 0 0 0 1 2 4 8 16 32 0 0 0;
-        0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 2 4;
-        ]
-
-struct RandomVariables
-    d::Vector{Float64}
-end
-
-
-struct StageData ## with the assumption that only b has stochasticity
-    c1       ::Vector{Float64}
-    c2       ::Vector{Float64}
-    ū        ::Vector{Float64}
-    h        ::Float64
-    N        ::Matrix{Float64}
-    s₀       ::Vector{Float64}
-    penalty  ::Float64
-end
-
-
-
 ##########################################################################################
 ############################  To generate Stage Data  ####################################
 ##########################################################################################
-T = 5
 r = 0.08
 N = [
     1130.0 0 0 0 0 0;
@@ -41,6 +11,13 @@ N = [
     0 0 0 0 0 560]
 
 ū = [4.0, 10, 10, 1, 45, 4]
+
+binaryDict = binarize_gen(ū)
+(A, n, d) = (binaryDict[1], binaryDict[2], binaryDict[3])
+
+
+
+
 c = [1.445, 0.795, 0.575, 1.613, 1.650, 1.671] * 10^6  # c_g from table 4, cost/MW to build a generator of type g
 mg = [1200, 400, 400, 1200, 500, 600]
 
@@ -70,7 +47,7 @@ end
 ##########################################################################################
 ############################  To generate random variable  ###############################
 ##########################################################################################
-M =4
+T = 5
 N = Vector{Int64}()  # the number of realization of each stage
 N = [10, 10, 10, 10, 10]  ## xxxx 需要update
 
@@ -106,7 +83,13 @@ end
 
 
 
+scenario_sequence = Dict{Int64, Dict{Int64, Any}}()  ## the first index is for scenario index, the second one is for stage
+pathList = Vector{Int64}()
+push!(pathList, 1)
+P = 1.0
 
+recursion_scenario_tree(pathList, P, scenario_sequence, 2, T = T)
+scenario_tree = scenario_sequence
 
 
 

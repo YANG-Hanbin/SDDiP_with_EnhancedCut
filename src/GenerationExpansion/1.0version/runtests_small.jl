@@ -1,59 +1,11 @@
-## this file is to generate data
-
-#  the matrix A is to help to form decision variables X
-# A = [   1 2 4 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0;
-#         0 0 0 1 2 4 8 0 0 0 0 0 0 0 0 0 0 0 0 0 0;
-#         0 0 0 0 0 0 0 1 2 4 8 0 0 0 0 0 0 0 0 0 0;
-#         0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0;
-#         0 0 0 0 0 0 0 0 0 0 0 0 1 2 4 8 16 32 0 0 0;
-#         0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 2 4;  ]
-
-
-ū = [3] # ū = [4,10,10,1,45,4]
-
-row_num = size(ū); row_num = row_num[1];
-
-var_num = floor.(Int, log.(2,ū) ) .+ 1; col_num = sum(Int, var_num);
-
-A = zeros(Int64, row_num, col_num)
-# A = Array{Int64, 2}(undef, row_num, col_num)
-for i in 1:row_num
-    l = sum(var_num[l] for l in 1:i)
-    for j in (l+1-var_num[i]):(l+var_num[i]-var_num[i])
-        A[i,j] = 2^(j-(l+1-var_num[i]))
-        # println(1)
-    end
-end
-
-A
-
-(d,n) = size(A)
-
-struct RandomVariables
-    d::Vector{Float64}
-end
-
-
-struct StageData ## with the assumption that only b has stochasticity
-    c1       ::Vector{Float64}
-    c2       ::Vector{Float64}
-    ū        ::Vector{Float64}
-    h        ::Float64
-    N        ::Matrix{Float64}
-    s₀       ::Vector{Float64}
-    penalty  ::Float64
-end
-
-
-
 ##########################################################################################
 ############################  To generate Stage Data  ####################################
 ##########################################################################################
-T = 2
+ū = [3.] # ū = [4.,10.,10.,1.,45.,4.]
 
+binaryDict = binarize_gen(ū)
+(A, n, d) = (binaryDict[1], binaryDict[2], binaryDict[3])
 
-
-ū = [3]
 
 c1 = [[30.],[20.]]
 c2 = [[14.],[12.5]]
@@ -75,9 +27,10 @@ end
 ##########################################################################################
 ############################  To generate random variable  ###############################
 ##########################################################################################
-M =4
+T = 2
 N_rv = Vector{Int64}()  # the number of realization of each stage
-N_rv = [2, 2]  ## xxxx 需要update
+num_Ω = 3
+N_rv = [num_Ω for t in 1:T]  ## xxxx 需要update
 
 
 Random.seed!(12345)
@@ -101,7 +54,7 @@ end
 
 prob = Dict{Int64,Vector{Float64}}()  # P(node in t-1 --> node in t ) = prob[t]
 for t in 1:T 
-    prob[t] = [0.5 for i in 1:N_rv[t]]
+    prob[t] = [0.333 for i in 1:N_rv[t]]
 end
 
 # prob[2][1] = .3
@@ -128,7 +81,7 @@ end
 ################################################################################################################################################
 
 
-W = 2^(T-1) # number of scenarios
+W = num_Ω^(T-1) # number of scenarios
 
 
 model = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
@@ -142,44 +95,61 @@ model = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV),
 
 @constraint(model, [t in 1:T, ω in 1:W], S[:, t, ω] .== sum(x[:, j, ω] for j in 1:t ) )
 @constraint(model, S .<= ū)
-@constraint(model, [t in 1:T, ω in 1:W], sum(y[i, t, ω] for i in 1:d) + slack[t, ω] >= Ω[t][ω].d[1] )
+
 @constraint(model, [t in 1:T, ω in 1:W], y[:,t, ω] .<= h * N * (S[:, t, ω] + s₀))
 
 @constraint(model, [i in 1:W, j in 1:W], x[:, 1, i] .== x[:, 1, j])  ## nonanticipativity for 2-stage problem
 
-@objective(model, Min, sum( sum( prob[t][ω] * (c1[t]' * x[:, t, ω] + c2[t]' * y[:, t, ω] + penalty * slack[t, ω]) for t in 1:T ) for ω in 1:W) )
+################### nonanticipativity for multistage problem #######################
+
+function recursion_scenario_constraint(pathList::Vector{Int64}, P::Float64, scenario_sequence::Dict{Int64, Dict{Int64, Any}}, t::Int64;   
+                    Ω::Dict{Int64,Dict{Int64,RandomVariables}} = Ω, prob::Dict{Int64,Vector{Float64}} = prob, T::Int64 = 2)
+
+    if t <= T
+        for ω_key in keys(Ω[t])
+
+            pathList_copy = copy(pathList)
+            P_copy = copy(P)
+
+            push!(pathList_copy, ω_key)
+            P_copy = P_copy * prob[t][ω_key]
+
+            ## nonanticipativity for multi-stage problem
+            if t < T
+                if haskey(scenario_sequence, 1)
+                    first =  maximum(keys(scenario_sequence)) + 1
+                    last  =  maximum(keys(scenario_sequence)) + num_Ω^(T-t)
+                    @constraint(model, [i = first, j in (first + 1): last], x[:, t, i] .== x[:, t, j]) 
+
+                else
+                    @constraint(model, [i = 1, j in 2:num_Ω^(T-t)], x[:, t, i] .== x[:, t, j]) 
+                end
+            end
+            recursion_scenario(pathList_copy, P_copy, scenario_sequence, t+1, Ω = Ω, prob = prob, T = T)
+        end
+    else
+        if haskey(scenario_sequence, 1)
+            scenario_sequence[maximum(keys(scenario_sequence))+1] = Dict(1 => pathList, 2 => P)
+        else
+            scenario_sequence[1] = Dict(1 => pathList, 2 => P)
+        end
+        return scenario_sequence
+    end
+
+end
+
+scenario_sequence = Dict{Int64, Dict{Int64, Any}}()  ## the first index is for scenario index, the second one is for stage
+pathList = Vector{Int64}()
+push!(pathList, 1)
+P = 1.0
+
+recursion_scenario_constraint(pathList, P, scenario_sequence, 2, T = T)
+scenario_tree = scenario_sequence
+#####################################################################################
+
+@constraint(model, [t in 1:T, ω in 1:W], sum(y[i, t, ω] for i in 1:d) + slack[t, ω] >= Ω[t][scenario_tree[ω][1][t]].d[1] )
+
+@objective(model, Min, sum( sum( scenario_tree[ω][2][t] * (c1[t]' * x[:, t, ω] + c2[t]' * y[:, t, ω] + penalty * slack[t, ω]) for t in 1:T ) for ω in 1:W) )
+
 @info "$model"
 optimize!(model)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

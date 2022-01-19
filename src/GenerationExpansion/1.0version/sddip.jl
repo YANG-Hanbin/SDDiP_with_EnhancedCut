@@ -6,10 +6,10 @@ addprocs(5)
 @everywhere const GRB_ENV = Gurobi.Env()
 
 @everywhere begin
-    include("/Users/aaron/SDDiP_with_EnhancedCut/src/GenerationExpansion/data_struct.jl")
-    include("/Users/aaron/SDDiP_with_EnhancedCut/src/GenerationExpansion/backward_pass.jl")
-    include("/Users/aaron/SDDiP_with_EnhancedCut/src/GenerationExpansion/forward_pass.jl")
-    include("/Users/aaron/SDDiP_with_EnhancedCut/src/GenerationExpansion/data_file.jl")
+    include("data_struct.jl")
+    include("backward_pass.jl")
+    include("forward_pass.jl")
+    include("data_file.jl")
 end
 #############################################################################################
 ####################################    main function   #####################################
@@ -20,7 +20,8 @@ end
 # @broadcast Enhand_Cut = true;
 
 function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict{Int64,Vector{Float64}}, StageCoefficient::Dict{Int64, StageData}; 
-    ϵ::Float64 = 0.001, M::Int64 = 30, max_iter::Int64 = 20, Enhand_Cut::Bool = true, n::Int64 = 2, d::Int64 = 1, A::Matrix{Int64} = [1 2;])
+    scenario_sequence::Dict{Int64, Dict{Int64, Any}} = scenario_sequence, ϵ::Float64 = 0.001, M::Int64 = 30, max_iter::Int64 = 20, 
+    n::Int64 = 2, d::Int64 = 1, A::Matrix{Int64} = [1 2;], Enhand_Cut::Bool = true)
     ## d: x dim
     ## M: num of scenarios when doing one iteration
     
@@ -74,7 +75,7 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
                                                                 nxt_bound = nxt_bound,
                                                                 μ = 0.95, λ = λ_value, ϵ = ϵ_value,
                                                                 Output_Gap = false, Adj = Adj, threshold = 1e-3, 
-                                                                A = A, d = d, n = m ) 
+                                                                A = A, d = d, n = n ) 
         end
     end
 
