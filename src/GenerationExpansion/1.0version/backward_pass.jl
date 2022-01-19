@@ -154,7 +154,7 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
     ######################################################################################################################
     l_interior= [interior_value for i in 1:n]
 
-    f_star = forward_step_optimize!(StageProblemData, demand, sum_generator, cut_coefficient)
+    f_star = forward_step_optimize!(StageProblemData, demand, sum_generator, cut_coefficient, A = A, d = d, n = n, Enhand_Cut = Enhand_Cut,)
     f_star_value = f_star[3] + f_star[4]
 
 

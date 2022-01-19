@@ -116,6 +116,9 @@ function recursion_scenario_tree(pathList::Vector{Int64}, P::Float64, scenario_s
 
             push!(pathList_copy, ω_key)
             P_copy = P_copy * prob[t][ω_key]
+
+            recursion_scenario_tree(pathList_copy, P_copy, scenario_sequence, t+1, Ω = Ω, prob = prob, T = T)
+        end
     else
         if haskey(scenario_sequence, 1)
             scenario_sequence[maximum(keys(scenario_sequence))+1] = Dict(1 => pathList, 2 => P)
@@ -127,13 +130,13 @@ function recursion_scenario_tree(pathList::Vector{Int64}, P::Float64, scenario_s
 
 end
 
-# scenario_sequence = Dict{Int64, Dict{Int64, Any}}()  ## the first index is for scenario index, the second one is for stage
-# pathList = Vector{Int64}()
-# push!(pathList, 1)
-# P = 1.0
+scenario_sequence = Dict{Int64, Dict{Int64, Any}}()  ## the first index is for scenario index, the second one is for stage
+pathList = Vector{Int64}()
+push!(pathList, 1)
+P = 1.0
 
-# recursion_scenario_tree(pathList, P, scenario_sequence, 2, T = T)
-# scenario_tree = scenario_sequence
+recursion_scenario_tree(pathList, P, scenario_sequence, 2, T = T)
+scenario_tree = scenario_sequence
 
 
 

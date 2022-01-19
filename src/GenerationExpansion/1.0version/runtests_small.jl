@@ -1,22 +1,26 @@
 ##########################################################################################
 ############################  To generate Stage Data  ####################################
 ##########################################################################################
-ū = [3.] # ū = [4.,10.,10.,1.,45.,4.]
+ū = [3., 5., 3.] # ū = [4.,10.,10.,1.,45.,4.]
 
 binaryDict = binarize_gen(ū)
 (A, n, d) = (binaryDict[1], binaryDict[2], binaryDict[3])
 
 
-c1 = [[30.],[20.]]
-c2 = [[14.],[12.5]]
+c1 = [[150., 130, 100], [100., 60, 40]]
+c2 = [[1.9, 4.3, 5.0], [2.5, 3.1, 4.0]]
 
 StageCoefficient = Dict{Int64,StageData}()
 
-s₀ = [1]
-penalty = 1e2
-N = Array{Float64,2}(undef,1,1)
-N[1,1] = 2.0
-h = 5
+s₀ = [1,1,1]
+penalty = 1e3
+N = Array{Float64,2}(undef, d, d)
+N =     [5. 0  0;
+        0  9  0;
+        0  0  6;]
+h = 30
+T = 2
+
 for t in 1:T 
     StageCoefficient[t] = StageData(c1[t], c2[t], ū, h, N, s₀, penalty)
 end
@@ -29,14 +33,14 @@ end
 ##########################################################################################
 T = 2
 N_rv = Vector{Int64}()  # the number of realization of each stage
-num_Ω = 3
+num_Ω = 4
 N_rv = [num_Ω for t in 1:T]  ## xxxx 需要update
 
 
 Random.seed!(12345)
 
 Ω = Dict{Int64,Dict{Int64,RandomVariables}}()   # each stage t, its node are included in Ω[t]
-initial_demand = 50  #  5.685e8
+initial_demand = 500  #  5.685e8
 
 for t in 1:T 
     Ω[t] = Dict{Int64,RandomVariables}()
@@ -44,7 +48,8 @@ for t in 1:T
         if t == 1
             Ω[t][i]= RandomVariables([initial_demand])
         else
-            Ω[t][i]= RandomVariables( (rand(1)[1]/5+1)*Ω[t-1][i].d )
+            # Ω[t][i]= RandomVariables( (rand(1)[1]/5+1)*Ω[t-1][i].d )
+            Ω[t][i]= RandomVariables( (.3*i+1)*Ω[t-1][i].d )
         end
     end
 end
@@ -54,7 +59,7 @@ end
 
 prob = Dict{Int64,Vector{Float64}}()  # P(node in t-1 --> node in t ) = prob[t]
 for t in 1:T 
-    prob[t] = [0.333 for i in 1:N_rv[t]]
+    prob[t] = [0.25 for i in 1:N_rv[t]]
 end
 
 # prob[2][1] = .3
@@ -120,12 +125,16 @@ function recursion_scenario_constraint(pathList::Vector{Int64}, P::Float64, scen
                     first =  maximum(keys(scenario_sequence)) + 1
                     last  =  maximum(keys(scenario_sequence)) + num_Ω^(T-t)
                     @constraint(model, [i = first, j in (first + 1): last], x[:, t, i] .== x[:, t, j]) 
+                    @constraint(model, [i = first, j in (first + 1): last], y[:, t, i] .== y[:, t, j]) 
+                    @constraint(model, [i = first, j in (first + 1): last], slack[t, i] .== slack[t, j]) 
 
                 else
                     @constraint(model, [i = 1, j in 2:num_Ω^(T-t)], x[:, t, i] .== x[:, t, j]) 
+                    @constraint(model, [i = 1, j in 2:num_Ω^(T-t)], y[:, t, i] .== y[:, t, j]) 
+                    @constraint(model, [i = 1, j in 2:num_Ω^(T-t)], slack[t, i] .== slack[t, j]) 
                 end
             end
-            recursion_scenario(pathList_copy, P_copy, scenario_sequence, t+1, Ω = Ω, prob = prob, T = T)
+            recursion_scenario_constraint(pathList_copy, P_copy, scenario_sequence, t+1, Ω = Ω, prob = prob, T = T)
         end
     else
         if haskey(scenario_sequence, 1)
@@ -149,7 +158,10 @@ scenario_tree = scenario_sequence
 
 @constraint(model, [t in 1:T, ω in 1:W], sum(y[i, t, ω] for i in 1:d) + slack[t, ω] >= Ω[t][scenario_tree[ω][1][t]].d[1] )
 
-@objective(model, Min, sum( sum( scenario_tree[ω][2][t] * (c1[t]' * x[:, t, ω] + c2[t]' * y[:, t, ω] + penalty * slack[t, ω]) for t in 1:T ) for ω in 1:W) )
+@objective(model, Min, sum( sum( scenario_tree[ω][2] * (c1[t]' * x[:, t, ω] + c2[t]' * y[:, t, ω] + penalty * slack[t, ω]) for t in 1:T ) for ω in 1:W) )
 
 @info "$model"
 optimize!(model)
+
+JuMP.objective_value(model)
+JuMP.value.(x[:, 1, 1])

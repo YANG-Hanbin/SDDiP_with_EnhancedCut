@@ -11,7 +11,7 @@ include("runtests_small.jl")
 #############################################################################################
 ####################################    main function   #####################################
 #############################################################################################
-max_iter = 20; ϵ = 1e-2; Enhand_Cut = true
+max_iter = 200; ϵ = 1e-2; Enhand_Cut = false
 
 
 function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict{Int64,Vector{Float64}}, StageCoefficient::Dict{Int64, StageData}; 
@@ -55,6 +55,7 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
                                                                 Ω[t][j].d, 
                                                                 sum_generator, 
                                                                 cut_collection[t], 
+                                                                Enhand_Cut = Enhand_Cut,
                                                                 A = A, d = d, n = n)
                 sum_generator = Sol_collection[t,k][1]
             end
@@ -76,12 +77,22 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
             for k in 1:M 
                 c = [0, zeros(Float64,n)]
                 for j in keys(Ω[t])
-                    @info "$t $k $j"
+                    # @info "$t $k $j"
                     λ_value = .5
                     ϵ_value = 1e-5
                     nxt_bound = 1e14
                     Adj = false
-                    @time c = c + prob[t][j] * LevelSetMethod_optimization!(StageCoefficient[t], 
+                    # @time c = c + prob[t][j] * LevelSetMethod_optimization!(StageCoefficient[t], 
+                    #                                                                 Ω[t][j].d, 
+                    #                                                                 Sol_collection[t-1,k][1], 
+                    #                                                                 cut_collection[t], 
+                    #                                                                 max_iter = 4000, 
+                    #                                                                 Enhand_Cut = Enhand_Cut,  
+                    #                                                                 nxt_bound = nxt_bound,
+                    #                                                                 μ = 0.95, λ = λ_value, ϵ = ϵ_value,
+                    #                                                                 Output_Gap = false, Adj = Adj, threshold = 1e-3, 
+                    #                                                                 A = A, d = d, n =n ) 
+                    c = c + prob[t][j] * LevelSetMethod_optimization!(StageCoefficient[t], 
                                                                                     Ω[t][j].d, 
                                                                                     Sol_collection[t-1,k][1], 
                                                                                     cut_collection[t], 
@@ -89,7 +100,7 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
                                                                                     Enhand_Cut = Enhand_Cut,  
                                                                                     nxt_bound = nxt_bound,
                                                                                     μ = 0.95, λ = λ_value, ϵ = ϵ_value,
-                                                                                    Output_Gap = true, Adj = Adj, threshold = 1e-3, 
+                                                                                    Output_Gap = false, Adj = Adj, threshold = 1e-3, 
                                                                                     A = A, d = d, n =n ) 
                 end
                 # add cut
@@ -103,12 +114,12 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
 
 
         ## compute the lower bound
-        _LB = forward_step_optimize!(StageCoefficient[1], Ω[1][1].d, [0.0 for i in 1:n], cut_collection[1], A = A, n = n, d = d)
+        _LB = forward_step_optimize!(StageCoefficient[1], Ω[1][1].d, [0.0 for i in 1:n], cut_collection[1], A = A, n = n, d = d, Enhand_Cut = Enhand_Cut)
         LB = _LB[3] + _LB[4]
         add_result[i] = _LB  # store the result
         i = i + 1
 
-        @info "LB is $LB, UB is $UB"
+        @info "iter num is $i, LB is $LB, UB is $UB"
         if UB-LB <= ϵ * UB || i > max_iter
             return [LB,UB]
         end
