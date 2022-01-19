@@ -15,7 +15,8 @@ row_num = size(ū); row_num = row_num[1];
 
 var_num = floor.(Int, log.(2,ū) ) .+ 1; col_num = sum(Int, var_num);
 
-A = zeros(row_num, col_num)
+A = zeros(Int64, row_num, col_num)
+# A = Array{Int64, 2}(undef, row_num, col_num)
 for i in 1:row_num
     l = sum(var_num[l] for l in 1:i)
     for j in (l+1-var_num[i]):(l+var_num[i]-var_num[i])
@@ -75,7 +76,7 @@ end
 ############################  To generate random variable  ###############################
 ##########################################################################################
 M =4
-N = Vector{Int64}()  # the number of realization of each stage
+N_rv = Vector{Int64}()  # the number of realization of each stage
 N_rv = [2, 2]  ## xxxx 需要update
 
 

@@ -9,8 +9,8 @@ const GRB_ENV = Gurobi.Env()
 include("data_struct.jl")
 include("backward_pass.jl")
 include("forward_pass.jl")
-include("data_file.jl")
-
+# include("data_file.jl")
+include("data_file_small_case.jl")
 #############################################################################################
 ####################################    main function   #####################################
 #############################################################################################
@@ -95,7 +95,7 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
                                                                                     nxt_bound = nxt_bound,
                                                                                     μ = 0.95, λ = λ_value, ϵ = ϵ_value,
                                                                                     Output_Gap = true, Adj = Adj, threshold = 1e-3, 
-                                                                                    A = A, d = d, n = m ) 
+                                                                                    A = A, d = d, n =n ) 
                 end
                 # add cut
                 cut_collection[t-1].v[i][k] = c[1]
