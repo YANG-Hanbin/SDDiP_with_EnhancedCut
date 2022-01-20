@@ -3,8 +3,8 @@
 ##########################################################################################
 ū = [3., 5., 3.] # ū = [4.,10.,10.,1.,45.,4.]
 
-binaryDict = binarize_gen(ū)
-(A, n, d) = (binaryDict[1], binaryDict[2], binaryDict[3])
+binaryInfo = binarize_gen(ū)
+(A, n, d) = (binaryInfo.A, binaryInfo.n, binaryInfo.d)
 
 
 c1 = [[150., 130, 100], [100., 60, 40]]

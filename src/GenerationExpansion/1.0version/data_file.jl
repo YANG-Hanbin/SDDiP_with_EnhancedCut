@@ -14,8 +14,8 @@ N = [
 
 ū = [4.0, 10, 10, 1, 45, 4]
 
-binaryDict = binarize_gen(ū)
-(A, n, d) = (binaryDict[1], binaryDict[2], binaryDict[3])
+binaryInfo = binarize_gen(ū)
+(A, n, d) = (binaryInfo.A, binaryInfo.n, binaryInfo.d)
 
 
 

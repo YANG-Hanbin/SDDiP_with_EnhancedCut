@@ -4,7 +4,15 @@
 struct CutCoefficient
     v               ::Dict{Int64,Dict{Int64, Float64}} # [i][k] where i is the iteration index, and k is the scenario index
     π               ::Dict{Int64,Dict{Int64, Vector{Float64}}}  # [[1.,2.,3.],[1.,2.,3.]]  -- push!(Π, π) to add a new element
-    # Enhand_Cut      ::Bool
+end
+
+
+
+
+struct BinaryInfo
+    A     ::Matrix{Int64}
+    n     ::Int64
+    d     ::Int64
 end
 
 
@@ -92,11 +100,9 @@ function binarize_gen(ū::Vector{Float64})
         end
     end
 
-    return Dict(1 =>A, 2 =>col_num, 3=> row_num)
+    binaryInfo = BinaryInfo(A, col_num, row_num)
+    return binaryInfo
 end
-
-# binaryDict = binarize_gen(ū)
-# (A, n, d) = (binaryDict[1], binaryDict[2], binaryDict[3])
 
 
 
