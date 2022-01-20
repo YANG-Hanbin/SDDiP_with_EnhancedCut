@@ -2,8 +2,9 @@
 ####################################   Data Structure   #####################################
 #############################################################################################
 struct CutCoefficient
-    v   ::Dict{Int64,Dict{Int64, Float64}} # [i][k] where i is the iteration index, and k is the scenario index
-    π   ::Dict{Int64,Dict{Int64, Vector{Float64}}}  # [[1.,2.,3.],[1.,2.,3.]]  -- push!(Π, π) to add a new element
+    v               ::Dict{Int64,Dict{Int64, Float64}} # [i][k] where i is the iteration index, and k is the scenario index
+    π               ::Dict{Int64,Dict{Int64, Vector{Float64}}}  # [[1.,2.,3.],[1.,2.,3.]]  -- push!(Π, π) to add a new element
+    # Enhand_Cut      ::Bool
 end
 
 
@@ -130,13 +131,13 @@ function recursion_scenario_tree(pathList::Vector{Int64}, P::Float64, scenario_s
 
 end
 
-scenario_sequence = Dict{Int64, Dict{Int64, Any}}()  ## the first index is for scenario index, the second one is for stage
-pathList = Vector{Int64}()
-push!(pathList, 1)
-P = 1.0
+# scenario_sequence = Dict{Int64, Dict{Int64, Any}}()  ## the first index is for scenario index, the second one is for stage
+# pathList = Vector{Int64}()
+# push!(pathList, 1)
+# P = 1.0
 
-recursion_scenario_tree(pathList, P, scenario_sequence, 2, T = T)
-scenario_tree = scenario_sequence
+# recursion_scenario_tree(pathList, P, scenario_sequence, 2, T = T)
+# scenario_tree = scenario_sequence
 
 
 

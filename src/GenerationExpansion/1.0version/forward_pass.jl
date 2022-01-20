@@ -74,6 +74,6 @@ function forward_step_optimize!(StageProblemData::StageData, demand::Vector{Floa
     @objective(Q, Min, StageProblemData.c1'* x + StageProblemData.c2' * y + StageProblemData.penalty * slack + θ )
     optimize!(Q)
 
-    return [JuMP.value.(Lt), JuMP.value.(y), JuMP.value(θ), JuMP.objective_value(Q) - JuMP.value(θ)]  ## returen [Lt, y, θ, f]
+    return [round.(JuMP.value.(Lt)), JuMP.value.(y), JuMP.value(θ), JuMP.objective_value(Q) - JuMP.value(θ)]  ## returen [Lt, y, θ, f]
 end
 

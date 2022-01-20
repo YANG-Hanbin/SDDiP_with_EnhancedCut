@@ -6,12 +6,12 @@ const GRB_ENV = Gurobi.Env()
 include("data_struct.jl")
 include("backward_pass.jl")
 include("forward_pass.jl")
-include("runtests_small.jl")
+include("runtests_small2.jl")
 
 #############################################################################################
 ####################################    main function   #####################################
 #############################################################################################
-max_iter = 200; ϵ = 1e-2; Enhand_Cut = false
+max_iter = 200; ϵ = 1e-2; Enhand_Cut = true
 
 
 function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict{Int64,Vector{Float64}}, StageCoefficient::Dict{Int64, StageData}; 
@@ -69,7 +69,7 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
 
         ##################################### Parallel Computation for backward step ###########################
 
-        M = 4
+        M = 2
 
         for t = reverse(2:T)
             cut_collection[t-1].v[i] = Dict()
@@ -78,30 +78,30 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
                 c = [0, zeros(Float64,n)]
                 for j in keys(Ω[t])
                     # @info "$t $k $j"
-                    λ_value = .5
+                    λ_value = .5  ## .5 for small1
                     ϵ_value = 1e-5
                     nxt_bound = 1e14
                     Adj = false
-                    # @time c = c + prob[t][j] * LevelSetMethod_optimization!(StageCoefficient[t], 
-                    #                                                                 Ω[t][j].d, 
-                    #                                                                 Sol_collection[t-1,k][1], 
-                    #                                                                 cut_collection[t], 
-                    #                                                                 max_iter = 4000, 
-                    #                                                                 Enhand_Cut = Enhand_Cut,  
-                    #                                                                 nxt_bound = nxt_bound,
-                    #                                                                 μ = 0.95, λ = λ_value, ϵ = ϵ_value,
-                    #                                                                 Output_Gap = false, Adj = Adj, threshold = 1e-3, 
-                    #                                                                 A = A, d = d, n =n ) 
                     c = c + prob[t][j] * LevelSetMethod_optimization!(StageCoefficient[t], 
                                                                                     Ω[t][j].d, 
                                                                                     Sol_collection[t-1,k][1], 
                                                                                     cut_collection[t], 
-                                                                                    max_iter = 4000, 
+                                                                                    max_iter = 3000, 
                                                                                     Enhand_Cut = Enhand_Cut,  
                                                                                     nxt_bound = nxt_bound,
                                                                                     μ = 0.95, λ = λ_value, ϵ = ϵ_value,
-                                                                                    Output_Gap = false, Adj = Adj, threshold = 1e-3, 
-                                                                                    A = A, d = d, n =n ) 
+                                                                                    Output_Gap = false, Adj = Adj, threshold = 1e2, 
+                                                                                    A = A, d = d, n = n ) 
+                    # c = c + prob[t][j] * LevelSetMethod_optimization!(StageCoefficient[t], 
+                                                                                    # Ω[t][j].d, 
+                                                                                    # Sol_collection[t-1,k][1], 
+                                                                                    # cut_collection[t], 
+                                                                                    # max_iter = 3000, 
+                                                                                    # Enhand_Cut = Enhand_Cut,  
+                                                                                    # nxt_bound = nxt_bound,
+                                                                                    # μ = 0.95, λ = λ_value, ϵ = ϵ_value,
+                                                                                    # Output_Gap = true, Adj = Adj, threshold = 1e2, 
+                                                                                    # A = A, d = d, n =n ) 
                 end
                 # add cut
                 cut_collection[t-1].v[i][k] = c[1]
@@ -119,7 +119,7 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
         add_result[i] = _LB  # store the result
         i = i + 1
 
-        @info "iter num is $i, LB is $LB, UB is $UB"
+        @info "iter num is $(i-1), LB is $LB, UB is $UB, first stage decision is $(A*_LB[1])"
         if UB-LB <= ϵ * UB || i > max_iter
             return [LB,UB]
         end

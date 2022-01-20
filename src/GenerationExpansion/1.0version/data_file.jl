@@ -2,6 +2,8 @@
 ############################  To generate Stage Data  ####################################
 ##########################################################################################
 r = 0.08
+T = 5
+
 N = [
     1130.0 0 0 0 0 0;
     0 390 0 0 0 0; 
@@ -37,8 +39,10 @@ c2 = [[fuel_price[i]*heat_rate[i]*1e-3*eff[i] for i in 1:6]*(1.02)^j + om_cost*(
 StageCoefficient = Dict{Int64,StageData}()
 s₀ = [1,2,3,4,5,6]
 penalty = 1e5
+
+
 for t in 1:T 
-    StageCoefficient[t] = StageData(c1[t], c2[t], ū, 8760, N, s₀, penalty)
+    StageCoefficient[t] = StageData(c1[t], c2[t], ū, 8760., N, s₀, penalty)
 end
 
 
