@@ -1,3 +1,9 @@
+"""
+    Enhanded_LC converges to optimal solution with sub-optimal value within 8 iterations
+    However, LC cannot arrive to optimal solution within 200 iterations.
+
+"""
+
 ##########################################################################################
 ############################  To generate Stage Data  ####################################
 ##########################################################################################
@@ -7,7 +13,7 @@ binaryInfo = binarize_gen(ū)
 (A, n, d) = (binaryInfo.A, binaryInfo.n, binaryInfo.d)
 
 
-c1 = [[150., 130, 100], [100., 60, 40]]
+c1 = [[15000., 13000, 10000], [10000., 6000, 4000]]
 c2 = [[1.9, 4.3, 5.0], [2.5, 3.1, 4.0]]
 
 StageCoefficient = Dict{Int64,StageData}()
@@ -15,10 +21,10 @@ StageCoefficient = Dict{Int64,StageData}()
 s₀ = [1,1,1]
 penalty = 1e3
 N = Array{Float64,2}(undef, d, d)
-N =     [5. 0  0;
-        0  9  0;
-        0  0  6;]
-h = 30
+N =     [150. 0  0;
+        0  90  0;
+        0  0  70;]
+h = 300
 T = 2
 
 for t in 1:T 
@@ -40,7 +46,7 @@ N_rv = [num_Ω for t in 1:T]  ## xxxx 需要update
 Random.seed!(12345)
 
 Ω = Dict{Int64,Dict{Int64,RandomVariables}}()   # each stage t, its node are included in Ω[t]
-initial_demand = 500  #  5.685e8
+initial_demand = 1e4  #  5.685e8
 
 for t in 1:T 
     Ω[t] = Dict{Int64,RandomVariables}()

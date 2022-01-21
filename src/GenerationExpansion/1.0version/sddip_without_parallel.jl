@@ -6,7 +6,7 @@ const GRB_ENV = Gurobi.Env()
 include("data_struct.jl")
 include("backward_pass.jl")
 include("forward_pass.jl")
-include("runtests_small3.jl")
+include("runtests_small.jl")
 include("gurobiTest.jl")
 
 #############################################################################################
@@ -78,9 +78,9 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
             for k in 1:M 
                 c = [0, zeros(Float64,n)]
                 for j in keys(Ω[t])
-                    # @info "$t $k $j"
+                    @info "$t $k $j"
                     ϵ_value = 1e-5
-                    λ_value = .5; threshold = 1e2; Output = 0; Output_Gap = true; Adj = false;
+                    λ_value = .1; threshold = 1e2; Output = 0; Output_Gap = false; Adj = false; Enhand_Cut = true;
                     levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
                     c = c + prob[t][j] * LevelSetMethod_optimization!(StageCoefficient[t], Ω[t][j].d, Sol_collection[t-1,k][1], cut_collection[t], 
                                                                         levelSetMethodParam = levelSetMethodParam, ϵ = ϵ_value, 
@@ -113,21 +113,21 @@ end
 
 
 
-using JLD2, FileIO
-result_enhanced = copy(add_result)
-cut_enhanced = copy(cut_collection)
+# using JLD2, FileIO
+# result_enhanced = copy(add_result)
+# cut_enhanced = copy(cut_collection)
 
-@save "runtests_small2_enhanced.jld2" result_enhanced cut_enhanced
-# @load "runtests_small2_enhanced.jld2" result_enhanced cut_enhanced
-
-
+# @save "runtests_small_enhanced.jld2" result_enhanced cut_enhanced
+# # @load "runtests_small2_enhanced.jld2" result_enhanced cut_enhanced
 
 
-result_LC = copy(add_result)
-cut_LC = copy(cut_collection)
 
-@save "runtests_small2_LC.jld2" result_LC cut_LC
-# @load "runtests_small2_LC.jld2" result_LC cut_LC
+
+# result_LC = copy(add_result)
+# cut_LC = copy(cut_collection)
+
+# @save "runtests_small_LC.jld2" result_LC cut_LC
+# # @load "runtests_small2_LC.jld2" result_LC cut_LC
 
 
 
