@@ -14,8 +14,7 @@ end
 
 
 
-function add_generator_cut(cut_coefficient::CutCoefficient, model_info::ForwardModelInfo; 
-                                                              Enhand_Cut::Bool = true)
+function add_generator_cut(cut_coefficient::CutCoefficient, model_info::ForwardModelInfo)
 
   iter = length(keys(cut_coefficient.v))  ## iter num
   k = length(keys(cut_coefficient.v[1]))  ## scenario num
@@ -42,8 +41,7 @@ StageProblemData: is the param info given stage t
 """
 
 
-function forward_step_optimize!(StageProblemData::StageData, demand::Vector{Float64}, sum_generator::Vector{Float64}, 
-                                cut_coefficient::CutCoefficient; Enhand_Cut::Bool = true,
+function forward_step_optimize!(StageProblemData::StageData, demand::Vector{Float64}, sum_generator::Vector{Float64}, cut_coefficient::CutCoefficient;
                                 θ_bound::Real = 0.0, binaryInfo::BinaryInfo = binaryInfo )
 
     (A, n, d) = (binaryInfo.A, binaryInfo.n, binaryInfo.d)                            
@@ -60,7 +58,7 @@ function forward_step_optimize!(StageProblemData::StageData, demand::Vector{Floa
     model_info = ForwardModelInfo(Q, x, Lt, y, θ, demand, slack, sum_generator)
 
     add_generator_constraint(StageProblemData, model_info, binaryInfo = binaryInfo)
-    add_generator_cut(cut_coefficient, model_info, Enhand_Cut = Enhand_Cut)
+    add_generator_cut(cut_coefficient, model_info)
     @constraint(Q, A * sum_generator + x.== A * Lt)
 
     @objective(Q, Min, StageProblemData.c1'* x + StageProblemData.c2' * y + StageProblemData.penalty * slack + θ )

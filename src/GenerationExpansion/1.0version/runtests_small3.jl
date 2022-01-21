@@ -1,73 +1,53 @@
 ##########################################################################################
 ############################  To generate Stage Data  ####################################
 ##########################################################################################
-r = 0.08
-T = 5
-
-N = [
-    1130.0 0 0 0 0 0;
-    0 390 0 0 0 0; 
-    0 0 380 0 0 0; 
-    0 0 0 1180 0 0;
-    0 0 0 0 175 0; 
-    0 0 0 0 0 560]
-
-ū = [4.0, 10, 10, 1, 45, 4]
+ū = [8., 13., 12., 5.] # ū = [4.,10.,10.,1.,45.,4.]
 
 binaryInfo = binarize_gen(ū)
 (A, n, d) = (binaryInfo.A, binaryInfo.n, binaryInfo.d)
 
 
-
-
-c = [1.445, 0.795, 0.575, 1.613, 1.650, 1.671] * 10^6  # c_g from table 4, cost/MW to build a generator of type g
-mg = [1200, 400, 400, 1200, 500, 600]
-
-#  compute c1
-c1 = [[c[i]*mg[i]/(1+r)^j for i in 1:6 ]  for j in 1:T ] 
-
-
-#  compute c2
-fuel_price = [3.37, 9.11, 9.11, 9.3e-4, 0, 3.7]
-heat_rate = [8844, 7196, 10842, 10400, 1, 8613]
-eff = [0.4, 0.56, 0.4, 0.45, 0, 0.48]
-om_cost = [4.7, 2.11, 3.66, 0.51, 5.00, 2.98]
-
-c2 = [[fuel_price[i]*heat_rate[i]*1e-3*eff[i] for i in 1:6]*(1.02)^j + om_cost*(1.03)^j for j in 1:T]
-
+c1 = [[3.5e5, 1.3e5, 1.4e5, 6e5], [3.2e5, 1e5, 1.1e5, 5e5], [3e5, 9.5e5, 1.05e5, 4e5]]
+c2 = [[2.5, 3.3, 3.2, .5], [2.3, 3.1, 3.0, .4], [2.2, 3.0, 2.9, .5]]
 
 StageCoefficient = Dict{Int64,StageData}()
-s₀ = [1,2,3,4,5,6]
-penalty = 1e5
 
+s₀ = [1,1,0,1]
+penalty = 1e6
+N = Array{Float64,2}(undef, d, d)
+N =     [900. 0  0  0;
+         0  700  0  0;
+         0   0  750 0;
+         0  0  0  1400;]
+h = 300.
+T = 3
 
 for t in 1:T 
-    StageCoefficient[t] = StageData(c1[t], c2[t], ū, 8760., N, s₀, penalty)
+    StageCoefficient[t] = StageData(c1[t], c2[t], ū, h, N, s₀, penalty)
 end
-
-
-
 
 ##########################################################################################
 ############################  To generate random variable  ###############################
 ##########################################################################################
-T = 5
-N = Vector{Int64}()  # the number of realization of each stage
-N = [10, 10, 10, 10, 10]  ## xxxx 需要update
+T = 3
+N_rv = Vector{Int64}()  # the number of realization of each stage
+num_Ω = 4
+N_rv = [num_Ω for t in 1:T]  ## xxxx 需要update
 
 
-Random.seed!(1234)
+Random.seed!(12345)
 
 Ω = Dict{Int64,Dict{Int64,RandomVariables}}()   # each stage t, its node are included in Ω[t]
-initial_demand = 2e8  #  5.685e8
+initial_demand = 2e6  #  5.685e8
 
 for t in 1:T 
     Ω[t] = Dict{Int64,RandomVariables}()
-    for i in 1:N[t]
+    for i in 1:N_rv[t]
         if t == 1
             Ω[t][i]= RandomVariables([initial_demand])
         else
-            Ω[t][i]= RandomVariables( (rand(1)[1]/5+1)*Ω[t-1][i].d )
+            # Ω[t][i]= RandomVariables( (rand(1)[1]/5+1)*Ω[t-1][i].d )
+            Ω[t][i]= RandomVariables( (.2*i+1)*Ω[t-1][i].d )
         end
     end
 end
@@ -77,13 +57,11 @@ end
 
 prob = Dict{Int64,Vector{Float64}}()  # P(node in t-1 --> node in t ) = prob[t]
 for t in 1:T 
-    prob[t] = [0.1 for i in 1:N[t]]
+    prob[t] = [0.25 for i in 1:N_rv[t]]
 end
 
-
-
-
-
+# prob[2][1] = .3
+# prob[2][2] = .7
 
 
 
@@ -94,38 +72,6 @@ P = 1.0
 
 recursion_scenario_tree(pathList, P, scenario_sequence, 2, T = T)
 scenario_tree = scenario_sequence
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

@@ -74,8 +74,7 @@ end
 
 
 
-function add_generator_cut(cut_coefficient::CutCoefficient, model_info::BackwardModelInfo; 
-                            Enhand_Cut::Bool = true, interior_value ::Float64 = 0.5 )
+function add_generator_cut(cut_coefficient::CutCoefficient, model_info::BackwardModelInfo)
 
 
     iter = length(keys(cut_coefficient.v))  ## iter num
@@ -99,7 +98,7 @@ end
     This is the oracle in level set method, and it will return [F, dF]
 """
 function backward_step_F(StageProblemData::StageData, demand::Vector{Float64}, sum_generator::Vector{Float64}, π::Vector{Float64}, cut_coefficient::CutCoefficient; 
-                        θ_bound::Real = 0.0, interior_value ::Float64 = 0.5, Enhand_Cut::Bool = true,
+                        θ_bound::Real = 0.0, Enhand_Cut::Bool = true,
                         binaryInfo::BinaryInfo = binaryInfo )
 
     (A, n, d) = (binaryInfo.A, binaryInfo.n, binaryInfo.d)
@@ -119,7 +118,7 @@ function backward_step_F(StageProblemData::StageData, demand::Vector{Float64}, s
 
     model_info = BackwardModelInfo(F, x, Lt, Lc, y, θ, demand, slack, sum_generator)
     add_generator_constraint(StageProblemData, model_info, binaryInfo = binaryInfo)
-    add_generator_cut(cut_coefficient, model_info, Enhand_Cut = Enhand_Cut)
+    add_generator_cut(cut_coefficient, model_info)
 
     @constraint(F, A * sum_generator + x .== A * Lt )  ## to ensure pass a binary variable
 
@@ -139,20 +138,37 @@ function backward_step_F(StageProblemData::StageData, demand::Vector{Float64}, s
 end
 
 
-##  μ larger is better, λ is flexibile
+
+struct LevelSetMethodParam
+    μ             ::Float64   ## param for adjust α
+    λ             ::Float64   ## param for adjust level
+    threshold     ::Float64   ## threshold for Δ
+    nxt_bound     ::Float64   ## lower bound for solving next iteration point π
+    max_iter      ::Int64     
+    Output        ::Int64     ## Gurobi Output parameter
+    Output_Gap    ::Bool      ## if True will print Δ info
+    Adj           ::Bool      ## whether adjust oracle lower bound
+end
+
+
+# levelSetMethodParam = LevelSetMethodParam(μ, λ, threshold, nxt_bound, max_iter, Output, Output_Gap, Adj)
+
+
+
+
 function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vector{Float64}, sum_generator::Vector{Float64}, cut_coefficient::CutCoefficient; 
-                                        μ::Float64 = 0.95, λ::Float64 = 0.3, ϵ::Float64 = 1e-4, interior_value::Float64 = 0.5,
-                                        threshold::Float64 = 1e-2, nxt_bound::Float64 = 1e14, max_iter::Int64 = 3e3,
-                                        Adj::Bool = true, Enhand_Cut::Bool = true, Output_Gap::Bool = false, Output::Int64 = 0,
-                                        binaryInfo::BinaryInfo = binaryInfo)
+                                        levelSetMethodParam::LevelSetMethodParam = levelSetMethodParam, 
+                                        ϵ::Float64 = 1e-4, interior_value::Float64 = 0.5, Enhand_Cut::Bool = true, binaryInfo::BinaryInfo = binaryInfo)
     
     ######################################################################################################################
     ###############################   auxiliary function for function information   ######################################
     ######################################################################################################################
+    ##  μ larger is better
+    (μ, λ, threshold, nxt_bound, max_iter, Output, Output_Gap, Adj) = (levelSetMethodParam.μ, levelSetMethodParam.λ, levelSetMethodParam.threshold, levelSetMethodParam.nxt_bound, levelSetMethodParam.max_iter, levelSetMethodParam.Output,levelSetMethodParam.Output_Gap, levelSetMethodParam.Adj)
     (A, n, d) = (binaryInfo.A, binaryInfo.n, binaryInfo.d)
     l_interior= [interior_value for i in 1:n]
 
-    f_star = forward_step_optimize!(StageProblemData, demand, sum_generator, cut_coefficient, Enhand_Cut = Enhand_Cut, binaryInfo = binaryInfo)
+    f_star = forward_step_optimize!(StageProblemData, demand, sum_generator, cut_coefficient, binaryInfo = binaryInfo)
     f_star_value = f_star[3] + f_star[4]
 
 
