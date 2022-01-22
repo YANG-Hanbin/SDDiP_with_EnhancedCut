@@ -1,4 +1,4 @@
-using JuMP, Test, Statistics, StatsBase, Gurobi, Distributed, ParallelDataTransfer, Random
+using JuMP, Test, Statistics, StatsBase, Gurobi, Distributed, ParallelDataTransfer, Random, DataFrames, Dates
 
 const GRB_ENV = Gurobi.Env()
 
@@ -6,8 +6,8 @@ const GRB_ENV = Gurobi.Env()
 include("data_struct.jl")
 include("backward_pass.jl")
 include("forward_pass.jl")
-include("runtests_small.jl")
 include("gurobiTest.jl")
+include("runtests_small2.jl")  ## M = 4
 
 #############################################################################################
 ####################################    main function   #####################################
@@ -20,7 +20,7 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
     Enhand_Cut::Bool = true, binaryInfo::BinaryInfo = binaryInfo)
     ## d: x dim
     ## M: num of scenarios when doing one iteration
-    
+    initial = now()
     T = length(keys(Ω))
     
     i = 1
@@ -37,15 +37,24 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
                                           )
     end
 
-    add_result = Dict()
-
+    col_names = [:iter, :LB, :OPT, :UB, :gap, :time, :Time] # needs to be a vector Symbols
+    col_types = [Int64, Float64, Float64, Float64, String, Float64, Float64]
+    named_tuple = (; zip(col_names, type[] for type in col_types )...)
+    sddipResult = DataFrame(named_tuple) # 0×7 DataFrame
+    gapList = []
+    gurobiResult = gurobiOptimize!(Ω, prob, StageCoefficient,
+                                    binaryInfo = binaryInfo)
+    # OPT = round!(gurobiResult[1])[3]
+    OPT = gurobiResult[1]
+    println("---------------- print out iteration information -------------------")
     while true
+        t0 = now()
         M = 100
-        Sol_collection = Dict()  # to store every iteration results
-        u = Vector{Float64}(undef, M)  # to compute upper bound
+        Sol_collection = Dict();  # to store every iteration results
+        u = Vector{Float64}(undef, M);  # to compute upper bound
         
         Random.seed!(i*3)
-        Scenarios = SampleScenarios(scenario_sequence, T = T, M = M)
+        Scenarios = SampleScenarios(scenario_sequence, T = T, M = M);
         
         ## Forward Step
         for k in 1:M
@@ -68,7 +77,7 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
         μ̄ = mean(u)
         σ̂² = var(u)
         UB = μ̄ + 1.96 * sqrt(σ̂²/M)
-
+        # UB = round!(UB)[3]
         ##################################### Parallel Computation for backward step ###########################
 
         M = 4
@@ -78,9 +87,9 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
             for k in 1:M 
                 c = [0, zeros(Float64,n)]
                 for j in keys(Ω[t])
-                    @info "$t $k $j"
+                    # @info "$t $k $j"
                     ϵ_value = 1e-5
-                    λ_value = .1; threshold = 1e2; Output = 0; Output_Gap = false; Adj = false; Enhand_Cut = true;
+                    λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhand_Cut = true; threshold = 1e2; 
                     levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
                     c = c + prob[t][j] * LevelSetMethod_optimization!(StageCoefficient[t], Ω[t][j].d, Sol_collection[t-1,k][1], cut_collection[t], 
                                                                         levelSetMethodParam = levelSetMethodParam, ϵ = ϵ_value, 
@@ -98,13 +107,21 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
 
         ## compute the lower bound
         _LB = forward_step_optimize!(StageCoefficient[1], Ω[1][1].d, [0.0 for i in 1:n], cut_collection[1], binaryInfo = binaryInfo)
+        # LB = round!(_LB[3] + _LB[4])[3]
         LB = _LB[3] + _LB[4]
-        add_result[i] = _LB  # store the result
+        t1 = now()
+        time = (t1 - t0).value/360
+        Time = (t1 - initial).value/360
+        gap = round((OPT-LB)/OPT * 100 ,digits = 2)
+        gapString = string(gap,"%")
+        push!(sddipResult, [i, LB, OPT, UB, gapString, time, Time]); push!(gapList, 1-gap);
+        
+        
         i = i + 1
-
+        
         @info "iter num is $(i-1), LB is $LB, UB is $UB, first stage decision is $(A*_LB[1])"
-        if UB-LB <= ϵ * UB || i > max_iter
-            return [LB,UB]
+        if OPT-LB <= ϵ * OPT || i > max_iter
+            return Dict(:solHistory => sddipResult, :solution => _LB, :gapHistory => gapList) 
         end
 
     end
@@ -114,39 +131,24 @@ end
 
 
 # using JLD2, FileIO
-# result_enhanced = copy(add_result)
+# result_enhanced = copy(Dict(:solHistory => sddipResult, :solution => _LB, :gapHistory => gapList) )
 # cut_enhanced = copy(cut_collection)
 
-# @save "runtests_small_enhanced.jld2" result_enhanced cut_enhanced
+# @save "runtests_small2_enhanced.jld2" result_enhanced cut_enhanced
 # # @load "runtests_small2_enhanced.jld2" result_enhanced cut_enhanced
 
-
-
-
-# result_LC = copy(add_result)
+# result_LC = copy(Dict(:solHistory => sddipResult, :solution => _LB, :gapHistory => gapList) )
 # cut_LC = copy(cut_collection)
 
-# @save "runtests_small_LC.jld2" result_LC cut_LC
+# @save "runtests_small2_LC.jld2" result_LC cut_LC
 # # @load "runtests_small2_LC.jld2" result_LC cut_LC
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# using DataFrames
+# using Latexify
+# df = DataFrame(A = 'x':'z', B = ["M", "F", "F"])
+# latexify(df; env=:table, latex=false)
 
 
 

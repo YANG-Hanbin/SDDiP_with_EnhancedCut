@@ -59,8 +59,10 @@ end
 ############################  To generate random variable  ###############################
 ##########################################################################################
 T = 5
-N = Vector{Int64}()  # the number of realization of each stage
-N = [10, 10, 10, 10, 10]  ## xxxx 需要update
+
+N_rv = Vector{Int64}()  # the number of realization of each stage
+num_Ω = 10
+N_rv = [num_Ω for t in 1:T]  ## xxxx 需要update
 
 
 Random.seed!(1234)
@@ -70,7 +72,7 @@ initial_demand = 2e8  #  5.685e8
 
 for t in 1:T 
     Ω[t] = Dict{Int64,RandomVariables}()
-    for i in 1:N[t]
+    for i in 1:N_rv[t]
         if t == 1
             Ω[t][i]= RandomVariables([initial_demand])
         else
@@ -84,7 +86,7 @@ end
 
 prob = Dict{Int64,Vector{Float64}}()  # P(node in t-1 --> node in t ) = prob[t]
 for t in 1:T 
-    prob[t] = [0.1 for i in 1:N[t]]
+    prob[t] = [0.1 for i in 1:N_rv[t]]
 end
 
 

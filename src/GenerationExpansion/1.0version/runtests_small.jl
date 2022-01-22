@@ -24,7 +24,7 @@ N = Array{Float64,2}(undef, d, d)
 N =     [150. 0  0;
         0  90  0;
         0  0  70;]
-h = 300
+h = 300.
 T = 2
 
 for t in 1:T 
