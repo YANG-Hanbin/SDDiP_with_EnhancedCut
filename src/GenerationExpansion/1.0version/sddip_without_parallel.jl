@@ -7,7 +7,7 @@ include("data_struct.jl")
 include("backward_pass.jl")
 include("forward_pass.jl")
 include("gurobiTest.jl")
-include("runtests_small2.jl")  ## M = 4
+include("runtests_small.jl")  ## M = 4
 
 #############################################################################################
 ####################################    main function   #####################################
@@ -88,8 +88,8 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
                 c = [0, zeros(Float64,n)]
                 for j in keys(Ω[t])
                     # @info "$t $k $j"
-                    ϵ_value = 1e-5
-                    λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhand_Cut = true; threshold = 1e2; 
+                    ϵ_value = 1e-5 # 1e-5
+                    λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhand_Cut = true; threshold = 1e-5; 
                     levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
                     c = c + prob[t][j] * LevelSetMethod_optimization!(StageCoefficient[t], Ω[t][j].d, Sol_collection[t-1,k][1], cut_collection[t], 
                                                                         levelSetMethodParam = levelSetMethodParam, ϵ = ϵ_value, 
@@ -110,11 +110,11 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
         # LB = round!(_LB[3] + _LB[4])[3]
         LB = _LB[3] + _LB[4]
         t1 = now()
-        time = (t1 - t0).value/360
-        Time = (t1 - initial).value/360
+        iter_time = (t1 - t0).value/1000
+        total_Time = (t1 - initial).value/1000
         gap = round((OPT-LB)/OPT * 100 ,digits = 2)
         gapString = string(gap,"%")
-        push!(sddipResult, [i, LB, OPT, UB, gapString, time, Time]); push!(gapList, 1-gap);
+        push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, 100-gap);
         
         
         i = i + 1
@@ -130,11 +130,11 @@ end
 
 
 
-# using JLD2, FileIO
-# result_enhanced = copy(Dict(:solHistory => sddipResult, :solution => _LB, :gapHistory => gapList) )
-# cut_enhanced = copy(cut_collection)
+using JLD2, FileIO, DataFrames
+result_enhanced = copy(Dict(:solHistory => sddipResult, :solution => _LB, :gapHistory => gapList) )
+cut_enhanced = copy(cut_collection)
 
-# @save "runtests_small2_enhanced.jld2" result_enhanced cut_enhanced
+@save "runtests_small2_enhanced.jld2" result_enhanced cut_enhanced
 # # @load "runtests_small2_enhanced.jld2" result_enhanced cut_enhanced
 
 # result_LC = copy(Dict(:solHistory => sddipResult, :solution => _LB, :gapHistory => gapList) )
