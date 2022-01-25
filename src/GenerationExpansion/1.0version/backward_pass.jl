@@ -98,7 +98,7 @@ end
     This is the oracle in level set method, and it will return [F, dF]
 """
 function backward_step_F(StageProblemData::StageData, demand::Vector{Float64}, sum_generator::Vector{Float64}, π::Vector{Float64}, cut_coefficient::CutCoefficient; 
-                        θ_bound::Real = 0.0, Enhand_Cut::Bool = true,
+                        θ_bound::Real = 0.0, Enhanced_Cut::Bool = true,
                         binaryInfo::BinaryInfo = binaryInfo )
 
     (A, n, d) = (binaryInfo.A, binaryInfo.n, binaryInfo.d)
@@ -122,7 +122,7 @@ function backward_step_F(StageProblemData::StageData, demand::Vector{Float64}, s
 
     @constraint(F, A * sum_generator + x .== A * Lt )  ## to ensure pass a binary variable
 
-    if Enhand_Cut 
+    if Enhanced_Cut 
         @objective(F, Min, StageProblemData.c1' * x + StageProblemData.c2' * y + θ + StageProblemData.penalty * slack + 
                                                             π' * (sum_generator .- Lc) )
         optimize!(F)
@@ -158,7 +158,7 @@ end
 
 function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vector{Float64}, sum_generator::Vector{Float64}, cut_coefficient::CutCoefficient; 
                                         levelSetMethodParam::LevelSetMethodParam = levelSetMethodParam, 
-                                        ϵ::Float64 = 1e-4, interior_value::Float64 = 0.5, Enhand_Cut::Bool = true, binaryInfo::BinaryInfo = binaryInfo)
+                                        ϵ::Float64 = 1e-4, interior_value::Float64 = 0.5, Enhanced_Cut::Bool = true, binaryInfo::BinaryInfo = binaryInfo)
     
     ######################################################################################################################
     ###############################   auxiliary function for function information   ######################################
@@ -173,13 +173,13 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
 
 
     ## collect the information from the objecive f, and constraints G
-    function compute_f_G(π::Vector{Float64}; Enhand_Cut::Bool = true, f_star_value::Float64 = f_star_value, 
+    function compute_f_G(π::Vector{Float64}; Enhanced_Cut::Bool = true, f_star_value::Float64 = f_star_value, 
         StageProblemData::StageData = StageProblemData, demand::Vector{Float64} = demand, 
         sum_generator::Vector{Float64} = sum_generator, cut_coefficient::CutCoefficient = cut_coefficient   )
 
-        F_solution = backward_step_F(StageProblemData, demand, sum_generator, π, cut_coefficient, Enhand_Cut = Enhand_Cut, binaryInfo = binaryInfo)
+        F_solution = backward_step_F(StageProblemData, demand, sum_generator, π, cut_coefficient, Enhanced_Cut = Enhanced_Cut, binaryInfo = binaryInfo)
 
-        if Enhand_Cut
+        if Enhanced_Cut
             function_value_info  = Dict(1 => - F_solution[1] - π' * (l_interior .- sum_generator),
                                         2 => - F_solution[2] - (l_interior .- sum_generator),
                                         3 => Dict(1 => (1- ϵ) * f_star_value - F_solution[1]),
@@ -207,7 +207,7 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
     α = 1/2
 
     ## trajectory
-    function_value_info = compute_f_G(x₀, Enhand_Cut = Enhand_Cut)
+    function_value_info = compute_f_G(x₀, Enhanced_Cut = Enhanced_Cut)
     function_info = FunctionInfo(   Dict(1 => x₀), 
                                     function_value_info[3], 
                                     Dict(1 => function_value_info[1]), 
@@ -312,7 +312,7 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
         if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
             x_nxt = JuMP.value.(x1)
         elseif st == MOI.NUMERICAL_ERROR ## need to figure out why this case happened and fix it
-            if Enhand_Cut
+            if Enhanced_Cut
                 return [ - function_info.f_his[iter] - function_info.x_his[iter]' * l_interior, 
                                                 function_info.x_his[iter]] 
             else
@@ -328,7 +328,7 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
 
         ## stop rule
         if Δ < threshold || iter > max_iter 
-            if Enhand_Cut
+            if Enhanced_Cut
                 return [ - function_info.f_his[iter] - function_info.x_his[iter]' * l_interior, 
                                                 function_info.x_his[iter]] 
             else
@@ -341,7 +341,7 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
         ######################################################################################################################
 
         ## save the trajectory
-        function_value_info = compute_f_G(x_nxt, Enhand_Cut = Enhand_Cut)
+        function_value_info = compute_f_G(x_nxt, Enhanced_Cut = Enhanced_Cut)
         iter = iter + 1
         function_info.x_his[iter]     = x_nxt
         function_info.G_max_his[iter] = function_value_info[3][1]

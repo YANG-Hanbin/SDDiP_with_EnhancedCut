@@ -12,12 +12,12 @@ include("runtests_small.jl")  ## M = 4
 #############################################################################################
 ####################################    main function   #####################################
 #############################################################################################
-max_iter = 200; ϵ = 1e-2; Enhand_Cut = true
+max_iter = 200; ϵ = 1e-2; Enhanced_Cut = true
 
 
 function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict{Int64,Vector{Float64}}, StageCoefficient::Dict{Int64, StageData}; 
     scenario_sequence::Dict{Int64, Dict{Int64, Any}} = scenario_sequence, ϵ::Float64 = 0.001, M::Int64 = 30, max_iter::Int64 = 200, 
-    Enhand_Cut::Bool = true, binaryInfo::BinaryInfo = binaryInfo)
+    Enhanced_Cut::Bool = true, binaryInfo::BinaryInfo = binaryInfo)
     ## d: x dim
     ## M: num of scenarios when doing one iteration
     initial = now()
@@ -89,11 +89,11 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
                 for j in keys(Ω[t])
                     # @info "$t $k $j"
                     ϵ_value = 1e-5 # 1e-5
-                    λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhand_Cut = true; threshold = 1e-5; 
+                    λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e-5; 
                     levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
                     c = c + prob[t][j] * LevelSetMethod_optimization!(StageCoefficient[t], Ω[t][j].d, Sol_collection[t-1,k][1], cut_collection[t], 
                                                                         levelSetMethodParam = levelSetMethodParam, ϵ = ϵ_value, 
-                                                                        Enhand_Cut = Enhand_Cut, 
+                                                                        Enhanced_Cut = Enhanced_Cut, 
                                                                         binaryInfo = binaryInfo) 
                 end
                 # add cut

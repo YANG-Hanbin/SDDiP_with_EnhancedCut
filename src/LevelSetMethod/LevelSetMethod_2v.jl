@@ -80,7 +80,7 @@ function evaluate_function(x::Vector{Float64}; M::Float64 = 1e3, x̂::Float64 = 
 
     # evaluate obj
     f = JuMP.objective_value(model)
-
+    df = x̂ - JuMP.value(x_c)
     # evaluate constraints and their gradients
     d1 = 0.0
     # d2 = [3,9]' * x - 15
@@ -94,8 +94,8 @@ function evaluate_function(x::Vector{Float64}; M::Float64 = 1e3, x̂::Float64 = 
     # Com_grad_G[2] = d2
 
     result = Dict()
-    result[1] = -f
-    result[2] = [JuMP.value(x_c) - JuMP.value(x̂), ]
+    result[1] = -f                                   ## -f
+    result[2] = [ - df, ]                               ## -df
     result[3] = Com_G
     result[4] = Com_grad_G
     result[5] = maximum(Com_G[i] for i in keys(Com_G))
@@ -318,7 +318,6 @@ end
 
 x₀ = [10.0]
 a = LevelSetMethod(x₀, λ = .1, Output = 0)
-
 
 
 
