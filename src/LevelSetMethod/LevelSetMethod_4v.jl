@@ -33,6 +33,108 @@ end
 
 
 #############################################################################################
+###############################   function information   ####################################
+#############################################################################################
+"""
+    This function is to evaluate the obj, gradient of obj, constraints, gradient of constraint.
+
+        Need to note is that we will return a Dict,
+        f     :: Float64 
+        df    ::Vector{Float64}
+        G     ::Dict{Int64, Float64}  
+        dG    ::Dict{Int64, Vector{Float64}}
+        G_max :: Float64
+
+
+"""
+
+struct FunctionCoefficientInfo
+    n       :: Int64  ## dim of x
+    z_coef  :: Vector{Vector{Float64}}
+    y_coef  :: Vector{Vector{Float64}}
+    x_lower :: Vector{Vector{Float64}}
+    x_upper :: Vector{Vector{Float64}}
+end
+
+n = 2
+x_lower = [[0., 3, 7, 12], [0, 4, 8]]
+x_upper = [[3., 7, 12, 15], [4, 8, 15]]
+
+z_coef = [[-1, 1, -1, 1/3], [1, -1, 5]]
+y_coef = [[9., 6, 19, 7], [3, 8, 10]]
+
+functionCoefficientInfo = FunctionCoefficientInfo(n ,z_coef, y_coef, x_lower, x_upper)
+
+function evaluate_function(x::Vector{Float64}, functionCoefficientInfo::FunctionCoefficientInfo; M::Float64 = 1e5, x̂::Vector{Float64} = [3.0, 0.0], Output::Int64 = 0)
+    ## here, x : Lagrangian Multiplier
+    ## here, x̂ : the first stage variable
+    model = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
+                                            "OutputFlag" => Output, 
+                                            "Threads" => 1) 
+					)
+
+    @variable(model, z[i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])] >= 0)
+    @variable(model, y[i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])], Bin)
+
+    @variable(model, x_c[i = 1:functionCoefficientInfo.n] >= 0)  # local copy
+    # @constraint(model, x_c .== x̂)
+
+
+    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])], 
+                            z[i, j] - x_c[i]<= 0 )
+
+    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])], 
+                            x_c[i] - (1 - y[i, j]) * M - z[i, j]<= 0)
+
+    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])], 
+                            z[i, j] <= M * y[i, j])
+
+    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])], 
+                            x_c[i] - functionCoefficientInfo.x_upper[i][j] - M * (1 - y[i, j]) <= 0)
+
+    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])], 
+                            functionCoefficientInfo.x_lower[i][j] - M * (1 - y[i, j]) - x_c[i] <= 0 )
+
+    @constraint(model, [i = 1:functionCoefficientInfo.n], sum(y[i, j] for j in 1:length(functionCoefficientInfo.z_coef[i])) == 1)
+
+    # @objective(model, Min, sum(sum(functionCoefficientInfo.z_coef[i][j] * z[i,j] for j in 1:length(functionCoefficientInfo.z_coef[i])) + 
+    # sum(functionCoefficientInfo.y_coef[i][j] * y[i, j] for j in 1:length(functionCoefficientInfo.z_coef[i])) for i in 1:functionCoefficientInfo.n)) 
+
+    @objective(model, Min, sum(sum(functionCoefficientInfo.z_coef[i][j] * z[i,j] for j in 1:length(functionCoefficientInfo.z_coef[i])) + 
+                           sum(functionCoefficientInfo.y_coef[i][j] * y[i, j] for j in 1:length(functionCoefficientInfo.z_coef[i])) for i in 1:functionCoefficientInfo.n)
+                            + x' * (x̂ - x_c) ) 
+    optimize!(model)
+
+    # evaluate obj
+    f = JuMP.objective_value(model)
+    df = x̂ - JuMP.value.(x_c)
+    # evaluate constraints and their gradients
+    d1 = 0.0
+    # d2 = [3,9]' * x - 15
+    Com_G = Dict{Int64, Float64}()
+    Com_G[1] = d1
+
+    d1 = [0.0, 0.0]
+    # d2 = [3.0, 9.0]
+    Com_grad_G = Dict{Int64, Vector{Float64}}()
+    Com_grad_G[1] = d1
+    # Com_grad_G[2] = d2
+
+    result = Dict()
+    result[1] = -f                                   ## -f
+    result[2] = - df                                 ## -df
+    result[3] = Com_G
+    result[4] = Com_grad_G
+    result[5] = maximum(Com_G[i] for i in keys(Com_G))
+
+    return result
+end
+
+
+
+
+
+#############################################################################################
 ###############################    auxiliary functions   ####################################
 #############################################################################################
 
@@ -86,176 +188,28 @@ function add_constraint(function_info::FunctionInfo, model_info::ModelInfo, iter
     xⱼ = function_info.x_his[iter]
     # add constraints
     @constraint(model_info.model, model_info.z .>= function_info.f_his[iter] + function_info.df' * (model_info.x - xⱼ) )
-    @constraint(model_info.model, [k = 1:m], model_info.y .>= function_info.G[k] + function_info.dG[k]' * (model_info.x - xⱼ) )
+    @constraint(oracle_info.model, [k = 1:m], oracle_info.y .>= function_info.G[k] + function_info.dG[k]' * (oracle_info.x - xⱼ) )
 end
 
 
 
 
-
-
-#############################################################################################
-###############################   function information   ####################################
-#############################################################################################
-"""
-    This function is to evaluate the obj, gradient of obj, constraints, gradient of constraint.
-
-        Need to note is that we will return a Dict,
-        f     :: Float64 
-        df    ::Vector{Float64}
-        G     ::Dict{Int64, Float64}  
-        dG    ::Dict{Int64, Vector{Float64}}
-        G_max :: Float64
-
-
-"""
-
-# function evaluate_function(x::Vector{Float64}; M::Float64 = 1e3, x̂::Float64 = 8.0, Output::Int64 = 0)
-#     ## here, x : Lagrangian Multiplier
-#     ## here, x̂ : the first stage variable
-#     model = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-#                                             "OutputFlag" => Output, 
-#                                             "Threads" => 1) 
-# 					)
-
-#     @variable(model, z[i = 1:4] >= 0)
-#     @variable(model, y[i = 1:4], Bin)
-#     @variable(model, x̄ >= 0)
-#     @variable(model, x_c >= 0)  # local copy
-#     # @constraint(model, x_c == x̂)
-
-
-#     @constraint(model, [i = 1:4], z[i] - x_c<= 0 )
-#     @constraint(model, [i = 1:4], x_c - (1 - y[i]) * M - z[i]<= 0)
-#     @constraint(model, [i = 1:4], z[i] <= M * y[i])
-#     x_lower = [0, 3, 7, 12]
-#     x_upper = [3, 7, 12, 15]
-#     @constraint(model, [i = 1:4], x_c - x_upper[i] - M * (1 - y[i]) <= 0)
-#     @constraint(model, [i = 1:4], x_lower[i] - M * (1 - y[i]) - x_c <= 0 )
-#     @constraint(model, sum(y) == 1)
-
-#     z_coef = [-1, 1, -1, 1/3]
-#     y_coef = [9, 6, 19, 7]
-#     # @objective(model, Min, z_coef' * z + y_coef' * y )
-#     @objective(model, Min, z_coef' * z + y_coef' * y + x[1] * (x̂ - x_c) )
-#     optimize!(model)
-
-#     # evaluate obj
-#     f = JuMP.objective_value(model)
-
-#     # evaluate constraints and their gradients
-#     d1 = 0.0
-#     # d2 = [3,9]' * x - 15
-#     Com_G = Dict{Int64, Float64}()
-#     Com_G[1] = d1
-
-#     d1 = [0.0, ]
-#     # d2 = [3.0, 9.0]
-#     Com_grad_G = Dict{Int64, Vector{Float64}}()
-#     Com_grad_G[1] = d1
-#     # Com_grad_G[2] = d2
-
-#     result = Dict()
-#     result[1] = -f
-#     result[2] = [JuMP.value(x_c) - JuMP.value(x̂), ]
-#     result[3] = Com_G
-#     result[4] = Com_grad_G
-#     result[5] = maximum(Com_G[i] for i in keys(Com_G))
-
-#     return result
-# end
-
-
-
-
-
-
-
-
-function evaluate_function(x::Vector{Float64}; M::Float64 = 1e3, x̂::Vector{Float64} = [1.0,], Output::Int64 = 0, ϵ::Float64 = 1e-3, interior_value::Float64 = .5, Enhanced_Cut::Bool = true)
-    ## here, x : Lagrangian Multiplier
-    ## here, x̂ : the first stage variable
-    n = length(x)
-    x_interior = [interior_value for i in 1:n]
-    ## model to compute F
-    optimization_model(x, x̂ = x̂, Output = Output, Enhanced_Cut = Enhanced_Cut)
-    optimize!(model)
-
-    # evaluate obj
-    f = JuMP.objective_value(model) - x' * (x_interior - x̂) 
-    df = - x̂ + JuMP.value(z)
-
-
-    ## model to compute f*
-
-    if Enhanced_Cut
-        @constraint(model, z .== x̂)
-        @objective(model, Min, one_vec' * y)
-        f_star = JuMP.objective_value(model)
-
-    # evaluate constraints and their gradients
-        g1 = (1 - ϵ) * f_star - f
-        dg1 = [-df, ]
-    else
-        g1 = 0.0
-        dg1 = [0.0, ]
-    end
-    Com_G = Dict{Int64, Float64}()
-    Com_G[1] = g1
-
-    Com_grad_G = Dict{Int64, Vector{Float64}}()
-    Com_grad_G[1] = dg1
-
-
-    result = Dict()
-    result[1] = -f                                    ## -f
-    result[2] = [ - df, ]                             ## - df
-    result[3] = Com_G
-    result[4] = Com_grad_G
-    result[5] = maximum(Com_G[i] for i in keys(Com_G))
-
-    return result
-end
-
-
-function optimization_model(x::Vector{Float64};Output::Int64 = 0, x̂::Vector{Float64} = [1.0,], M::Float64 = 1e3, Enhanced_Cut::Bool = true)
-    n = length(x)
-    model = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-                                            "OutputFlag" => Output, 
-                                            "Threads" => 1) 
-					)
-
-    @variable(model, 0 <= y[1:n] <= 2, Int)
-    @variable(model, 0 <= z[1:n] <= 2)
-
-    @constraint(model, 1.5 * y >= z)
-    
-    one_vec = ones(n)
-    if Enhanced_Cut
-        @objective(model, Min, one_vec' * y + x' * (z - x̂) )
-    else
-        @constraint(model, z .== x̂)
-        @objective(model, Min, one_vec' * y)
-    end
-
-
-    return model
-end
 
 
 #############################################################################################
 ####################################    main function   #####################################
 #############################################################################################
 
-function LevelSetMethod(x₀::Vector{Float64}; μ::Float64 = 0.5, λ::Float64 = 0.1, Output::Int64 = 0, threshold::Float64 = 1e-5)
+function LevelSetMethod(x̂::Vector{Float64}; μ::Float64 = 0.5, λ::Float64 = 0.1, Output::Int64 = 0, threshold::Float64 = 1e-5, 
+                        functionCoefficientInfo::FunctionCoefficientInfo = functionCoefficientInfo)
 
-    n = length(x₀)
-
+    n = length(x̂)
+    x₀ = [0.0 for i in 1:n]
     iter = 1
     α = 1/2
 
     ## trajectory
-    evaluate_function_value = evaluate_function(x₀)
+    evaluate_function_value = evaluate_function(x₀, functionCoefficientInfo, x̂ = x̂)
     function_info = FunctionInfo(   Dict(1 => x₀), 
                                     Dict(1 => evaluate_function_value[5]), 
                                     Dict(1 => evaluate_function_value[1]), 
@@ -291,7 +245,7 @@ function LevelSetMethod(x₀::Vector{Float64}; μ::Float64 = 0.5, λ::Float64 = 
     # @variable(model_nxt, y1)
     # @constraint(model_nxt, level_constraint, α * z1 + (1 - α) * y1 <= 0)
     # nxt_info = ModelInfo(model_nxt, x1, y1, z1)
-    
+
     while true
         add_constraint(function_info, oracle_info, iter)
         optimize!(model_oracle)
@@ -374,7 +328,7 @@ function LevelSetMethod(x₀::Vector{Float64}; μ::Float64 = 0.5, λ::Float64 = 
         ######################################################################################################################
 
         ## save the trajectory
-        evaluate_function_value = evaluate_function(x_nxt)
+        evaluate_function_value = evaluate_function(x_nxt, functionCoefficientInfo, x̂ = x̂)
 
         iter = iter + 1
         function_info.x_his[iter]     = x_nxt
@@ -390,17 +344,17 @@ function LevelSetMethod(x₀::Vector{Float64}; μ::Float64 = 0.5, λ::Float64 = 
 
 end
 
-x₀ = [10.0]
-a = LevelSetMethod(x₀, λ = .1, Output = 0)
+x̂ = [3.0, 10.0]
+a = LevelSetMethod(x̂, λ = .1, Output = 0, functionCoefficientInfo = functionCoefficientInfo, )
+
+a.x_his
+a.f_his
 
 
+π = a.x_his[length(a.x_his)]
+v = - a.f_his[length(a.f_his)] - π' * x̂
 
-
-
-
-
-
-
+## Therefore, the cut is of the form θ ≥ π' * x + v
 
 
 

@@ -7,7 +7,7 @@ include("data_struct.jl")
 include("backward_pass.jl")
 include("forward_pass.jl")
 include("gurobiTest.jl")
-include("runtests_small.jl")  ## M = 4
+include("runtests_small3.jl")  ## M = 4
 
 #############################################################################################
 ####################################    main function   #####################################

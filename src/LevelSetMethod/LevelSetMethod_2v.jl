@@ -48,7 +48,7 @@ end
 
 """
 
-function evaluate_function(x::Vector{Float64}; M::Float64 = 1e3, x̂::Float64 = 8.0, Output::Int64 = 0)
+function evaluate_function(x::Vector{Float64}; M::Float64 = 1e3, x̂::Float64 = 2.0, Output::Int64 = 0)
     ## here, x : Lagrangian Multiplier
     ## here, x̂ : the first stage variable
     model = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
@@ -173,7 +173,8 @@ end
 ####################################    main function   #####################################
 #############################################################################################
 
-function LevelSetMethod(x₀::Vector{Float64}; μ::Float64 = 0.5, λ::Float64 = 0.1, Output::Int64 = 0, threshold::Float64 = 1e-5)
+function LevelSetMethod(x₀::Vector{Float64}, x̂::Float64; 
+    μ::Float64 = 0.5, λ::Float64 = 0.1, Output::Int64 = 0, threshold::Float64 = 1e-5)
 
     n = length(x₀)
 
@@ -181,7 +182,7 @@ function LevelSetMethod(x₀::Vector{Float64}; μ::Float64 = 0.5, λ::Float64 = 
     α = 1/2
 
     ## trajectory
-    evaluate_function_value = evaluate_function(x₀)
+    evaluate_function_value = evaluate_function(x₀, x̂ = x̂)
     function_info = FunctionInfo(   Dict(1 => x₀), 
                                     Dict(1 => evaluate_function_value[5]), 
                                     Dict(1 => evaluate_function_value[1]), 
@@ -300,7 +301,7 @@ function LevelSetMethod(x₀::Vector{Float64}; μ::Float64 = 0.5, λ::Float64 = 
         ######################################################################################################################
 
         ## save the trajectory
-        evaluate_function_value = evaluate_function(x_nxt)
+        evaluate_function_value = evaluate_function(x_nxt, x̂ = x̂)
 
         iter = iter + 1
         function_info.x_his[iter]     = x_nxt
@@ -317,11 +318,19 @@ function LevelSetMethod(x₀::Vector{Float64}; μ::Float64 = 0.5, λ::Float64 = 
 end
 
 x₀ = [10.0]
-a = LevelSetMethod(x₀, λ = .1, Output = 0)
+x̂ = 15.
+a = LevelSetMethod(x₀, x̂, λ = .1, Output = 0)
 
 
+a.x_his
+a.f_his
 
 
+π = a.x_his[length(a.x_his)]
+v = - a.f_his[length(a.f_his)] - π[1] * x̂
+
+π[1] * x̂ + v
+## Therefore, the cut is of the form θ ≥ π' * x + v
 
 
 

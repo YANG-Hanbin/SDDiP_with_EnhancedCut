@@ -166,7 +166,9 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
     ##  μ larger is better
     (μ, λ, threshold, nxt_bound, max_iter, Output, Output_Gap, Adj) = (levelSetMethodParam.μ, levelSetMethodParam.λ, levelSetMethodParam.threshold, levelSetMethodParam.nxt_bound, levelSetMethodParam.max_iter, levelSetMethodParam.Output,levelSetMethodParam.Output_Gap, levelSetMethodParam.Adj)
     (A, n, d) = (binaryInfo.A, binaryInfo.n, binaryInfo.d)
-    l_interior= [interior_value for i in 1:n]
+    l_interior= [.8 for i in 1:n] - .5 * sum_generator
+    # @info "$l_interior"
+    # l_interior= [interior_value for i in 1:n]
 
     f_star = forward_step_optimize!(StageProblemData, demand, sum_generator, cut_coefficient, binaryInfo = binaryInfo)
     f_star_value = f_star[3] + f_star[4]
