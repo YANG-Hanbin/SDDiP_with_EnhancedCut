@@ -65,6 +65,56 @@ y_coef = [[9., 6, 19, 7], [3, 8, 10]]
 
 functionCoefficientInfo = FunctionCoefficientInfo(n ,z_coef, y_coef, x_lower, x_upper)
 
+## original function
+function min_fx(functionCoefficientInfo::FunctionCoefficientInfo; M::Float64 = 1e5, x̂::Vector{Float64} = [3.0, 0.0], Output::Int64 = 0, specify::Bool = true)
+    model = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
+                                            "OutputFlag" => Output, 
+                                            "Threads" => 1) 
+					)
+
+    ## define variables
+    @variable(model, z[i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])] >= 0)
+    @variable(model, y[i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])], Bin)
+
+    @variable(model, x_c[i = 1:functionCoefficientInfo.n] >= 0)  # local copy
+    if specify
+        @constraint(model, x_c .== x̂)
+    end
+
+    ## constraints
+    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])], 
+                            z[i, j] - x_c[i]<= 0 )
+
+    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])], 
+                            x_c[i] - (1 - y[i, j]) * M - z[i, j]<= 0)
+
+    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])], 
+                            z[i, j] <= M * y[i, j])
+
+    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])], 
+                            x_c[i] - functionCoefficientInfo.x_upper[i][j] - M * (1 - y[i, j]) <= 0)
+
+    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])], 
+                            functionCoefficientInfo.x_lower[i][j] - M * (1 - y[i, j]) - x_c[i] <= 0 )
+
+    @constraint(model, [i = 1:functionCoefficientInfo.n], sum(y[i, j] for j in 1:length(functionCoefficientInfo.z_coef[i])) == 1)
+
+
+    ## objective function
+    @objective(model, Min, sum(sum(functionCoefficientInfo.z_coef[i][j] * z[i,j] for j in 1:length(functionCoefficientInfo.z_coef[i])) + 
+    sum(functionCoefficientInfo.y_coef[i][j] * y[i, j] for j in 1:length(functionCoefficientInfo.z_coef[i])) for i in 1:functionCoefficientInfo.n)) 
+
+    optimize!(model)
+
+    # evaluate obj
+    f_star = JuMP.objective_value(model)
+    x_star = JuMP.value.(x_c)
+
+    return [f_star, x_star]
+end
+
+
+## function to evaluate the Lagrangian
 function evaluate_function(x::Vector{Float64}, functionCoefficientInfo::FunctionCoefficientInfo; M::Float64 = 1e5, x̂::Vector{Float64} = [3.0, 0.0], Output::Int64 = 0)
     ## here, x : Lagrangian Multiplier
     ## here, x̂ : the first stage variable
@@ -200,11 +250,10 @@ end
 ####################################    main function   #####################################
 #############################################################################################
 
-function LevelSetMethod(x̂::Vector{Float64}; μ::Float64 = 0.5, λ::Float64 = 0.1, Output::Int64 = 0, threshold::Float64 = 1e-5, 
+function LevelSetMethod(x̂::Vector{Float64}, x₀::Vector{Float64}; μ::Float64 = 0.5, λ::Float64 = 0.1, Output::Int64 = 0, threshold::Float64 = 1e-5, 
                         functionCoefficientInfo::FunctionCoefficientInfo = functionCoefficientInfo)
 
     n = length(x̂)
-    x₀ = [0.0 for i in 1:n]
     iter = 1
     α = 1/2
 
@@ -344,8 +393,9 @@ function LevelSetMethod(x̂::Vector{Float64}; μ::Float64 = 0.5, λ::Float64 = 0
 
 end
 
-x̂ = [3.0, 10.0]
-a = LevelSetMethod(x̂, λ = .1, Output = 0, functionCoefficientInfo = functionCoefficientInfo, )
+x̂ = [3.0, 0.0]
+x₀ = [10.0 for i in 1:n]
+a = LevelSetMethod(x̂, x₀, λ = .1, Output = 0, functionCoefficientInfo = functionCoefficientInfo, )
 
 a.x_his
 a.f_his
@@ -354,6 +404,11 @@ a.f_his
 π = a.x_his[length(a.x_his)]
 v = - a.f_his[length(a.f_his)] - π' * x̂
 
+θ_ = π' * x̂ + v
+θ_star = π' * [3.0, 8.0] + v
+f_true = min_fx(functionCoefficientInfo, x̂ = x̂, specify = true)
+
+gap = f_true[1] - θ_
 ## Therefore, the cut is of the form θ ≥ π' * x + v
 
 
