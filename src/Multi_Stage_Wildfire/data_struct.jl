@@ -7,6 +7,7 @@ struct IndexSets
     L       :: Vector{Tuple{Int64, Int64}}    ## set of transmission lines
     B       :: Vector{Int64}                  ## set of buses
     T       :: Int64  ## set of time periods  1:T
+    Ω       :: Vector{Int64}
     _D
     _G
     out_L
@@ -43,7 +44,9 @@ end
 #############################################################################################
 struct CutCoefficient
     v               ::Dict{Int64,Dict{Int64, Float64}} # [i][k] where i is the iteration index, and k is the scenario index
-    π               ::Dict{Int64,Dict{Int64, Vector{Float64}}}  # [[1.,2.,3.],[1.,2.,3.]]  -- push!(Π, π) to add a new element
+    πb               ::Dict{Int64,Dict{Int64, Vector{Float64}}}  # [[1.,2.,3.],[1.,2.,3.]]  -- push!(Π, π) to add a new element
+    πg               ::Dict{Int64,Dict{Int64, Vector{Float64}}}
+    πl               ::Dict{Int64,Dict{Int64, Vector{Float64}}}
 end
 
 
@@ -51,58 +54,32 @@ end
 ## for period t with realization ω
 struct RandomVariables  
     τ   ::Int64
-    u   ::Vector{Bool}   ## [u_i^ω... ]
-    v   ::Vector{Bool}   ## [v_i^ω... ]
-    I   ::Vector         ## [I_i^ω... ]
+
+    ub   ::Dict{Int64, Bool}                                                ## whether there exists a fault
+    ug   ::Dict{Int64, Bool}   
+    ul   ::Dict{Tuple{Int64, Float64}, Bool} 
+
+    vb   ::Dict{Int64, Bool}                                                ## whether there exists a fire caused by natural condition
+    vg   ::Dict{Int64, Bool}   
+    vl   ::Dict{Tuple{Int64, Float64}, Bool} 
+
+    Ibb   ::Dict{Int64, Int64}                                              ## the set of buses which is affected by a bus
+    Ibg   ::Dict{Int64, Int64}                                              ## the set of generators which is affected by a bus
+    Ibl   ::Dict{Int64, Tuple{Int64, Float64}}                              # the set of lines which is affected by a bus
+
+    Igb   ::Dict{Int64, Int64}                                              ## the set of buses which is affected by a generators
+    Igg   ::Dict{Int64, Int64}                                              ## the set of generators which is affected by a generators
+    Igl   ::Dict{Int64, Tuple{Int64, Float64}}                              ## the set of lines which is affected by a generators
+
+    Ilb   ::Dict{Tuple{Int64, Float64}, Int64}                              ## the set of buses which is affected by a line
+    Ilg   ::Dict{Tuple{Int64, Float64}, Int64}                              ## the set of generators which is affected by a line
+    Ill   ::Dict{Tuple{Int64, Float64}, Tuple{Int64, Float64}}              ## the set of lines which is affected by a line
 end
 
 # Ω_rv = Dict{Int64,RandomVariables}()
 # Ω_rv[ω]= RandomVariables(...) # ω is a number
 # Ω_rv[ω].τ
 
-struct StageData ## with the assumption that only b has stochasticity
-    c1       ::Vector{Float64}
-    c2       ::Vector{Float64}
-    ū        ::Vector{Float64}
-    h        ::Float64
-    N        ::Matrix{Float64}
-    s₀       ::Vector{Float64}
-    penalty  ::Float64
-end
-
-
-
-struct ForwardModelInfo
-    model           :: Model
-    θ_angle         :: JuMP.Containers.DenseAxisArray{VariableRef, 3}
-    P               :: JuMP.Containers.DenseAxisArray{VariableRef, 3}
-    s               :: JuMP.Containers.DenseAxisArray{VariableRef, 3}
-    x               :: JuMP.Containers.DenseAxisArray{VariableRef, 3}
-    zg              :: JuMP.Containers.DenseAxisArray{VariableRef, 3}
-    zb              :: JuMP.Containers.DenseAxisArray{VariableRef, 3}
-    zl              :: JuMP.Containers.DenseAxisArray{VariableRef, 3}
-    yg              :: JuMP.Containers.DenseAxisArray{VariableRef, 3}
-    yb              :: JuMP.Containers.DenseAxisArray{VariableRef, 3}
-    yl              :: JuMP.Containers.DenseAxisArray{VariableRef, 3}
-    νb              :: JuMP.Containers.DenseAxisArray{VariableRef, 3}
-    νg              :: JuMP.Containers.DenseAxisArray{VariableRef, 3}
-    νl              :: JuMP.Containers.DenseAxisArray{VariableRef, 3}
-    θ               :: JuMP.Containers.DenseAxisArray{VariableRef, 1}
-end
-
-
-
-struct BackwardModelInfo
-    model           :: Model
-    x               :: Vector{VariableRef} ## for current state, x is the number of generators
-    Lt              :: Vector{VariableRef} ## stage variable, A * Lt is total number of generators built
-    Lc              :: Vector{VariableRef} ## local cooy variable
-    y               :: Vector{VariableRef} ## amount of electricity
-    θ               :: VariableRef
-    demand          :: Vector{Float64}
-    slack           :: VariableRef
-    sum_generator   :: Vector{Float64}
-end
 
 
 
@@ -138,14 +115,6 @@ end
 
 
 
-struct BinaryInfo
-    A     ::Matrix{Int64}
-    n     ::Int64
-    d     ::Int64
-end
-
-
-
 
 
 
@@ -159,34 +128,6 @@ struct LevelSetMethodParam
     Output_Gap    ::Bool      ## if True will print Δ info
     Adj           ::Bool      ## whether adjust oracle lower bound
 end
-
-
-
-
-
-
-## binarize stage variable, x = A * L, where L ∈ {0, 1}ⁿ
-function binarize_gen(ū::Vector{Float64})
-    row_num = size(ū); row_num = row_num[1];
-
-    var_num = floor.(Int, log.(2,ū) ) .+ 1; col_num = sum(Int, var_num);
-
-    A = zeros(Int64, row_num, col_num)
- 
-    for i in 1:row_num
-        l = sum(var_num[l] for l in 1:i)
-        for j in (l+1-var_num[i]):(l+var_num[i]-var_num[i])
-            A[i,j] = 2^(j-(l+1-var_num[i]))
-        end
-    end
-
-    binaryInfo = BinaryInfo(A, col_num, row_num)
-    return binaryInfo
-end
-
-
-
-
 
 
 

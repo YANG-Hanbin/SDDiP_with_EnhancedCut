@@ -15,25 +15,30 @@ include("runtests_small3.jl")  ## M = 4
 max_iter = 200; ϵ = 1e-2; Enhanced_Cut = true
 
 
-function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict{Int64,Vector{Float64}}, StageCoefficient::Dict{Int64, StageData}; 
-    scenario_sequence::Dict{Int64, Dict{Int64, Any}} = scenario_sequence, ϵ::Float64 = 0.001, M::Int64 = 30, max_iter::Int64 = 200, 
-    Enhanced_Cut::Bool = true, binaryInfo::BinaryInfo = binaryInfo)
+function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}}, 
+                            prob::Dict{Int64,Vector{Float64}}, 
+                            indexSets::IndexSets; 
+                            scenario_sequence::Dict{Int64, Dict{Int64, Any}} = scenario_sequence, 
+                            ϵ::Float64 = 0.001, M::Int64 = 30, max_iter::Int64 = 200, 
+                            Enhanced_Cut::Bool = true, binaryInfo::BinaryInfo = binaryInfo)
     ## d: x dim
     ## M: num of scenarios when doing one iteration
     initial = now()
-    T = length(keys(Ω))
+    T = 2
     
     i = 1
     LB = - Inf 
     UB = Inf
     
-    cut_collection = Dict{Int64, CutCoefficient}()  # here, the index is stage t
+    cut_collection = Dict{Int64, CutCoefficient}()  # here, the index is ω
 
-    for t in 1:T
+    for ω in 1:indexSets.Ω
 
-        cut_collection[t] = CutCoefficient(
+        cut_collection[ω] = CutCoefficient(
                                             Dict(1=> Dict(1=> 0.0), 2 => Dict()),   ## v
-                                            Dict(1=> Dict(1=> zeros(Float64, n)), 2 => Dict())  ## π
+                                            Dict(1=> Dict(1=> zeros(Float64, length(indexSets.B))), 2 => Dict()),  ## πb
+                                            Dict(1=> Dict(1=> zeros(Float64, length(indexSets.G))), 2 => Dict()),  ## πg
+                                            Dict(1=> Dict(1=> zeros(Float64, length(indexSets.L))), 2 => Dict()),  ## πl
                                           )
     end
 
@@ -50,7 +55,8 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
     while true
         t0 = now()
         M = 100
-        Sol_collection = Dict();  # to store every iteration results
+        Stage1_collection = Dict();  # to store every iteration results
+        Stage2_collection = Dict();  # to store every iteration results
         u = Vector{Float64}(undef, M);  # to compute upper bound
         
         Random.seed!(i*3)
@@ -58,19 +64,33 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
         
         ## Forward Step
         for k in 1:M
-            sum_generator= [0.0 for i in 1:n]
-            for t in 1:T
-                if k == 1  ## create data struct for next cut coefficients
-                    cut_collection[t].v[i] = Dict{Int64, Float64}(1=> 0.0)
-                    cut_collection[t].π[i] = Dict{Int64, Vector{Float64}}(1=> zeros(Float64, n))
-                end
-                j = scenario_sequence[Scenarios[k]][1][t]  ## realization of k-th scenario at stage t
+            ## stage 1
+            Stage1_collection[k] = forward_stage1_optimize!(indexSets, 
+                                                            paramDemand, 
+                                                            paramOPF, 
+                                                            Ω_rv，
+                                                            cut_collection;  ## the index is ω
+                                                            θ_bound = 0.0)
+            
+            ## stage 2
+            first_stage_decision = Stage1_collection[k][1]
+            c = 0.0
+            for ω in 1:indexSets.Ω
+                τ = Ω_rv[ω].τ
 
-                Sol_collection[t, k] = forward_step_optimize!(StageCoefficient[t], Ω[t][j].d, sum_generator, cut_collection[t], 
-                                                                binaryInfo = binaryInfo)
-                sum_generator = Sol_collection[t,k][1]
+                ẑ = Dict(   :zg => first_stage_decision[:zg][:, τ - 1], 
+                            :zb => first_stage_decision[:zb][:, τ - 1], 
+                            :zl => first_stage_decision[:zl][:, τ - 1])
+
+                Stage2_collection[ω, k] = forward_stage2_optimize!(indexSets, 
+                                                                paramDemand,
+                                                                paramOPF,
+                                                                ẑ,
+                                                                τ                        ## realization of the random time
+                                                                )[2]
+                c = c + prob[ω] * Stage2_collection[ω, k][2]
             end
-            u[k] = sum(Sol_collection[t, k][4] for t in 1:T)
+            u[k] = Stage1_collection[k][2] + c
         end
 
         ## compute the upper bound
