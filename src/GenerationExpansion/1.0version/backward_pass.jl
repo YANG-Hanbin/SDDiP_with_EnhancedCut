@@ -126,7 +126,7 @@ function backward_step_F(StageProblemData::StageData, demand::Vector{Float64}, s
         @objective(F, Min, StageProblemData.c1' * x + StageProblemData.c2' * y + θ + StageProblemData.penalty * slack + 
                                                             π' * (sum_generator .- Lc) )
         optimize!(F)
-        result = [ JuMP.objective_value(F), sum_generator .- JuMP.value.(Lc) ]
+        result = [ JuMP.objective_value(F), sum_generator .- round.(JuMP.value.(Lc)) ]
     else
         @objective(F, Min, StageProblemData.c1' * x + StageProblemData.c2' * y + θ + StageProblemData.penalty * slack - 
                                                             π' * Lc )

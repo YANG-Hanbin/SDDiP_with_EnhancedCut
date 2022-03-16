@@ -80,7 +80,8 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
 
                 ẑ = Dict(   :zg => first_stage_decision[:zg][:, τ - 1], 
                             :zb => first_stage_decision[:zb][:, τ - 1], 
-                            :zl => first_stage_decision[:zl][:, τ - 1])
+                            :zl => first_stage_decision[:zl][:, τ - 1]
+                            )
 
                 Stage2_collection[ω, k] = forward_stage2_optimize!(indexSets, 
                                                                 paramDemand,

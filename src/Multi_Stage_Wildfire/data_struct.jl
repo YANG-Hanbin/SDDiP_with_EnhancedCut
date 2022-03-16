@@ -94,10 +94,10 @@ end
 
 ## data structure for levelset method
 mutable struct FunctionInfo
-    x_his        :: Dict{Int64, Vector{Float64}}  ## record every x_j point
+    x_his        :: Dict{Int64, Dict{Symbol, Vector}}  ## record every x_j point
     G_max_his    :: Dict{Int64, Float64}          ## record max(g[k] for k in 1:m)(x_j)
     f_his        :: Dict{Int64, Float64}          ## record f(x_j)
-    df           :: Vector{Float64}
+    df           :: Dict{Symbol, Vector{Float64}}
     dG           :: Dict{Int64, Vector{Float64}}  ## actually is a matrix.  But we use dict to store it
     G            :: Dict{Int64, Float64}          
 end

@@ -89,7 +89,7 @@ function forward_stage1_optimize!(indexSets::IndexSets,
 
     optimize!(Q)
 
-    state_variable = Dict(:zg => round.(JuMP.value.(zg)), :zb => round.(JuMP.value.(zb)), :zl => round.(JuMP.value.(zl)))
+    state_variable = Dict{:Symbol, Vector{Int64}}(:zg => round.(JuMP.value.(zg)), :zb => round.(JuMP.value.(zb)), :zl => round.(JuMP.value.(zl)))
     state_value    = JuMP.objective_value(Q) - sum(prob[ω] * JuMP.value(θ[ω]) for ω in Ω)       ## 1a first term
 
     return [state_variable, state_value, JuMP.objective_value(Q)]  ## returen [Lt, y, θ, f]
@@ -156,9 +156,9 @@ function forward_stage2_optimize!(indexSets::IndexSets,
     @constraint(Q, [i in B, j in in_L[i]], yb[i] >= yl[(j, i)])
 
     ## constraint k l m 
-    @constraint(Q, [i in B], yb[i] <= zb[i] )
-    @constraint(Q, [g in G], yg[g] <= zg[g] )
-    @constraint(Q, [l in L], yl[l] <= zl[l] )
+    @constraint(Q, [i in B], yb[i] <= ẑ[:zb][i] )
+    @constraint(Q, [g in G], yg[g] <= ẑ[:zg][g] )
+    @constraint(Q, [l in L], yl[l] <= ẑ[:zl][l] )
 
     @constraint(Q, [i in B], yb[i] <= 1- νb[b] )
     @constraint(Q, [g in G], yg[g] <= 1- νg[g] )
@@ -191,7 +191,7 @@ function forward_stage2_optimize!(indexSets::IndexSets,
             )
 
     optimize!(Q)
-    state_variable = Dict(:zg => round.(JuMP.value.(zg)), :zb => round.(JuMP.value.(zb)), :zl => round.(JuMP.value.(zl)))
+    state_variable = Dict{:Symbol, Vector{Int64}}(:zg => round.(JuMP.value.(zg)), :zb => round.(JuMP.value.(zb)), :zl => round.(JuMP.value.(zl)))
     state_value    = JuMP.objective_value(Q)
 
     return [state_variable, state_value]  ## returen [Lt, y, θ, f]

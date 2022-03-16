@@ -57,36 +57,6 @@ end
 
 
 
-#############################################################################################
-##########################    auxiliary functions for backward   ############################
-#############################################################################################
-
-function add_generator_constraint(StageProblemData::StageData, model_info::BackwardModelInfo;
-                                                        binaryInfo::BinaryInfo = binaryInfo)
-
-    @constraint(model_info.model, binaryInfo.A * model_info.Lc + model_info.x .<= StageProblemData.ū )  ## no more than max num of generators
-    @constraint(model_info.model, sum(model_info.y) + model_info.slack .>= model_info.demand )  # satisfy demand
-    @constraint(model_info.model, StageProblemData.h * StageProblemData.N 
-                            * (binaryInfo.A * model_info.Lc + model_info.x + StageProblemData.s₀ ) .>= model_info.y )  # no more than capacity
-
-end
-
-
-
-
-function add_generator_cut(cut_coefficient::CutCoefficient, model_info::BackwardModelInfo)
-
-
-    iter = length(keys(cut_coefficient.v))  ## iter num
-    k = length(keys(cut_coefficient.v[1]))  ## scenario num
-
-    @constraint(model_info.model, cut[i in 1:iter-1, m in 1:k], model_info.θ >= cut_coefficient.v[i][m] + 
-                                                cut_coefficient.π[i][m]' * model_info.Lt )
-                                                
-end
-
-
-
 
 
 
@@ -95,48 +65,117 @@ end
 #############################################################################################
 
 """
-    This is the oracle in level set method, and it will return [F, dF]
+    This is the oracle in level set method, and it will return [F, ∇F]
+    where ∇F is a Dict{Symbol, Vector}
+
 """
-function backward_step_F(StageProblemData::StageData, demand::Vector{Float64}, sum_generator::Vector{Float64}, π::Vector{Float64}, cut_coefficient::CutCoefficient; 
-                        θ_bound::Real = 0.0, Enhanced_Cut::Bool = true,
-                        binaryInfo::BinaryInfo = binaryInfo )
 
-    (A, n, d) = (binaryInfo.A, binaryInfo.n, binaryInfo.d)
+function backward_stage2_optimize!(indexSets::IndexSets, 
+                                    paramDemand::ParamDemand, 
+                                    paramOPF::ParamOPF, 
+                                    ẑ::Dict{Symbol, Vector{Int64}},
+                                    τ::Int64,                          ## realization of the random time
+                                    π::Dict{Symbol, Vector{Float64}}
+                                    )
 
-    F = Model(
-        optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-                                    "OutputFlag" => 0,
-                                    "Threads"=>1)
-            )
+    (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, IndexSets.Ω)
+    (_D, _G, in_L, out_L) = (indexSets._D, indexSets._G, indexSets.in_L, indexSets.out_L) 
 
-    @variable(F, x[i = 1:d] >=0, Int)   # the number of generators will be built in this stage
-    @variable(F, 0 <= Lc[i = 1:n]<= 1)  # auxiliary variable (copy variable)
-    @variable(F, Lt[i = 1:n], Bin)      # stage variable, A * Lt is total number of generators built after this stage
-    @variable(F, y[i = 1:d] >= 0)
-    @variable(F, slack >= 0 )
-    @variable(F, θ >= θ_bound)
+    Q = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
+                "OutputFlag" => 0, 
+                "Threads" => 1) 
+                )
 
-    model_info = BackwardModelInfo(F, x, Lt, Lc, y, θ, demand, slack, sum_generator)
-    add_generator_constraint(StageProblemData, model_info, binaryInfo = binaryInfo)
-    add_generator_cut(cut_coefficient, model_info)
+    @variable(Q, θ_angle[B, 1:T]) 
+    @variable(Q, P[L, 1:T] >= 0) ## elements in L is Tuple (i, j)
+    @variable(Q, s[G, 1:T] >= 0)
+    @variable(Q, 0 <= x[1:T, D] <= 1)
 
-    @constraint(F, A * sum_generator + x .== A * Lt )  ## to ensure pass a binary variable
+    @variable(Q, yb[B], Bin)
+    @variable(Q, yg[G], Bin)
+    @variable(Q, yl[L], Bin)
 
-    if Enhanced_Cut 
-        @objective(F, Min, StageProblemData.c1' * x + StageProblemData.c2' * y + θ + StageProblemData.penalty * slack + 
-                                                            π' * (sum_generator .- Lc) )
-        optimize!(F)
-        result = [ JuMP.objective_value(F), sum_generator .- JuMP.value.(Lc) ]
-    else
-        @objective(F, Min, StageProblemData.c1' * x + StageProblemData.c2' * y + θ + StageProblemData.penalty * slack - 
-                                                            π' * Lc )
-        optimize!(F)
-        result = [ JuMP.objective_value(F), - round.(JuMP.value.(Lc)) ]
+    @variable(Q, νb[B], Bin)
+    @variable(Q, νg[G], Bin)
+    @variable(Q, νl[L], Bin)
+
+    @variable(Q, 0 <= zg[G] <= 1)
+    @variable(Q, 0 <= zb[B] <= 1)
+    @variable(Q, 0 <= zl[L] <= 1)
+
+    ## constraint 3b 3c
+    for l in L
+      i = l[1]
+      j = l[2]
+      @constraint(Q, [t in τ:T], P[l, t] <= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + ParamOPF.θmax * (1 - yl[l] ) ) )
+      @constraint(Q, [t in τ:T], P[l, t] >= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + ParamOPF.θmin * (1 - yl[l] ) ) )
     end
 
-    return result
-end
+    ## constraint 3d
+    @constraint(Q, [l in L, t in τ:T], - ParamOPF.W[l] * yl[l] <= P[l, t] <= ParamOPF.W[l] * yl[l] )
 
+    ## constraint 3e
+    @constraint(Q, [i in B, t in τ:T], sum(s[g, t] for g in _G[i]) + sum(P[(i, j), t] for j in out_L[i] ) .== sum(paramDemand.demand[t][d] * x[t, d] for d in _D[i]) )
+
+    ## constraint 3f
+    @constraint(Q, [g in G, t in τ:T], ParamOPF.smin * yg[g] <= s[g, t] <= ParamOPF.smax * yg[g])
+
+    ## constraint g h i j
+    @constraint(Q, [i in B, t in τ:T, d in _D[i]], yb[i] >= x[t, d])
+    @constraint(Q, [i in B, g in _G[i]], yb[i] >= yg[g])
+    @constraint(Q, [i in B, j in out_L[i]], yb[i] >= yl[(i, j)])
+    @constraint(Q, [i in B, j in in_L[i]], yb[i] >= yl[(j, i)])
+
+    ## constraint k l m 
+    @constraint(Q, [i in B], yb[i] <= zb[i] )
+    @constraint(Q, [g in G], yg[g] <= zg[g] )
+    @constraint(Q, [l in L], yl[l] <= zl[l] )
+
+    @constraint(Q, [i in B], yb[i] <= 1- νb[b] )
+    @constraint(Q, [g in G], yg[g] <= 1- νg[g] )
+    @constraint(Q, [l in L], yl[l] <= 1- νl[l] )
+
+    @constraint(Q, [i in B], νb[i] >= vb[i] )
+    @constraint(Q, [g in G], νg[g] >= vg[g] )
+    @constraint(Q, [l in L], νl[l] >= vl[l] )
+
+    ## constraint n
+    @constraint(Q, [i in B, j in Ibb[i]], νb[j] >= ub[i] * zb[i] )
+    @constraint(Q, [i in B, j in Ibg[i]], νg[j] >= ub[i] * zb[i] )
+    @constraint(Q, [i in B, j in Ibl[i]], νl[j] >= ub[i] * zb[i] )
+
+    @constraint(Q, [i in G, j in Igb[i]], νb[j] >= ug[i] * zg[i] )
+    @constraint(Q, [i in G, j in Igg[i]], νg[j] >= ug[i] * zg[i] )
+    @constraint(Q, [i in G, j in Igl[i]], νl[j] >= ug[i] * zg[i] )
+
+    @constraint(Q, [i in L, j in Ilb[i]], νb[j] >= ul[i] * zl[i] )
+    @constraint(Q, [i in L, j in Ilg[i]], νg[j] >= ul[i] * zl[i] )
+    @constraint(Q, [i in L, j in Ill[i]], νl[j] >= ul[i] * zl[i] )
+
+
+    ## objective function
+    @objecive(Q, Min,  
+            sum( sum(paramDemand.w[d] * paramDemand.demand[t, d] * (1 - x[t, d]) for d in D ) for t in τ:T) +
+            sum(ParamDemand.cb[i] * νb[i] for i in B) + 
+            sum(ParamDemand.cg[g] * νg[g] for g in G) + 
+            sum(ParamDemand.cl[l] * νl[l] for l in L) +
+            π[:zb]' * (ẑ[:zb] .- zb) + π[:zg]' * (ẑ[:zg] .- zg) + π[:zl]' * (ẑ[:zl] .- zl)
+            )
+
+    optimize!(Q)
+    state_variable = Dict{:Symbol, Vector{Int64}}(:zg => round.(JuMP.value.(zg)), 
+                                                    :zb => round.(JuMP.value.(zb)), 
+                                                    :zl => round.(JuMP.value.(zl))
+                                                    )
+    F  = JuMP.objective_value(Q)
+    ∇F = Dict{:Symbol, Vector}(:zg => ẑ[:zb] .- state_variable[:zb],
+                                    :zb => ẑ[:zg] .- state_variable[:zg],
+                                    :zl => ẑ[:zl] .- state_variable[:zl]
+                                    )
+
+
+    return [F, ∇F]
+end
 
 
 struct LevelSetMethodParam
@@ -156,43 +195,67 @@ end
 
 
 
-function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vector{Float64}, sum_generator::Vector{Float64}, cut_coefficient::CutCoefficient; 
+function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vector{Float64}, ẑ::Dict{Symbol, Vector{Int64}}, cut_coefficient::CutCoefficient; 
                                         levelSetMethodParam::LevelSetMethodParam = levelSetMethodParam, 
-                                        ϵ::Float64 = 1e-4, interior_value::Float64 = 0.5, Enhanced_Cut::Bool = true, binaryInfo::BinaryInfo = binaryInfo)
+                                        ϵ::Float64 = 1e-4, interior_value::Float64 = 0.5, Enhanced_Cut::Bool = true)
     
     ######################################################################################################################
     ###############################   auxiliary function for function information   ######################################
     ######################################################################################################################
     ##  μ larger is better
     (μ, λ, threshold, nxt_bound, max_iter, Output, Output_Gap, Adj) = (levelSetMethodParam.μ, levelSetMethodParam.λ, levelSetMethodParam.threshold, levelSetMethodParam.nxt_bound, levelSetMethodParam.max_iter, levelSetMethodParam.Output,levelSetMethodParam.Output_Gap, levelSetMethodParam.Adj)
-    (A, n, d) = (binaryInfo.A, binaryInfo.n, binaryInfo.d)
-    l_interior= [.8 for i in 1:n] - .5 * sum_generator
+
+    x_interior= Dict{Symbol, Vector{Float64}}(:zb => [interior_value for i in 1:length(B)] , 
+                                                :zg => [interior_value for i in 1:length(G)], 
+                                                :zl => [interior_value for i in 1:length(L)]
+                                                )
+    # l_interior= [.8 for i in 1:n] - .5 * sum_generator
     # @info "$l_interior"
     # l_interior= [interior_value for i in 1:n]
 
-    f_star = forward_step_optimize!(StageProblemData, demand, sum_generator, cut_coefficient, binaryInfo = binaryInfo)
-    f_star_value = f_star[3] + f_star[4]
+    f_star = forward_stage2_optimize!(indexSets, 
+                                        paramDemand, 
+                                        paramOPF, 
+                                        ẑ,
+                                        τ                       ## realization of the random time
+                                        )
+    f_star_value = f_star[2]
 
 
     ## collect the information from the objecive f, and constraints G
-    function compute_f_G(π::Vector{Float64}; Enhanced_Cut::Bool = true, f_star_value::Float64 = f_star_value, 
-        StageProblemData::StageData = StageProblemData, demand::Vector{Float64} = demand, 
-        sum_generator::Vector{Float64} = sum_generator, cut_coefficient::CutCoefficient = cut_coefficient   )
+    function compute_f_G(π::Dict{Symbol, Vector{Float64}}; 
+                            Enhanced_Cut::Bool = true, f_star_value::Float64 = f_star_value, 
+                            StageProblemData::StageData = StageProblemData, demand::Vector{Float64} = demand, 
+                            ẑ::Dict{Symbol, Vector{Int64}} = ẑ, cut_coefficient::CutCoefficient = cut_coefficient   )
 
-        F_solution = backward_step_F(StageProblemData, demand, sum_generator, π, cut_coefficient, Enhanced_Cut = Enhanced_Cut, binaryInfo = binaryInfo)
+        F_solution = backward_stage2_optimize!(indexSets, 
+                                                paramDemand, 
+                                                paramOPF, 
+                                                ẑ,
+                                                τ,                          ## realization of the random time
+                                                π
+                                                )
 
         if Enhanced_Cut
-            function_value_info  = Dict(1 => - F_solution[1] - π' * (l_interior .- sum_generator),
-                                        2 => - F_solution[2] - (l_interior .- sum_generator),
+            function_value_info  = Dict(1 => - F_solution[1] - 
+                                                πb' * (x_interior[:zb] .- ẑ[:zb]) - 
+                                                πg' * (x_interior[:zg] .- ẑ[:zg]) - 
+                                                πl' * (x_interior[:zl] .- ẑ[:zl]),
+
+                                        2 => Dict{:Symbol, Vector}(:zg => - F_solution[2][:zb] - (x_interior[:zb] .- ẑ[:zb]),
+                                                                    :zb => - F_solution[2][:zg] - (x_interior[:zg] .- ẑ[:zg]),
+                                                                    :zl => - F_solution[2][:zl] - (x_interior[:zl] .- ẑ[:zl])
+                                                                    ),
                                         3 => Dict(1 => (1- ϵ) * f_star_value - F_solution[1]),
                                         4 => Dict(1 => - F_solution[2]),
                                         )
-        else
-            function_value_info  = Dict(1 => - F_solution[1] - π' *  sum_generator,
-                                        2 => - F_solution[2] - sum_generator,
-                                        3 => Dict(1 => 0.0 ),
-                                        4 => Dict(1 => - F_solution[2] * 0),
-                                        )
+
+            # else
+            #     function_value_info  = Dict(1 => - F_solution[1] - π' *  sum_generator,
+            #                                 2 => - F_solution[2] - sum_generator,
+            #                                 3 => Dict(1 => 0.0 ),
+            #                                 4 => Dict(1 => - F_solution[2] * 0),
+            #                                 )
         end
         return function_value_info
         ## Com_f = function_value_info[1], Com_grad_f = function_value_info[2], 
@@ -203,8 +266,10 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
     ##############################################   level set method   ##################################################
     ######################################################################################################################
     
-    x₀ = ones(n)
-
+    x₀ = Dict{Symbol, Vector}(:zb => [1. for i in 1:length(B)] , 
+                                        :zg => [1. for i in 1:length(G)], 
+                                        :zl => [1. for i in 1:length(L)]
+                                        )
     iter = 1
     α = 1/2
 
@@ -301,30 +366,45 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
             "Threads" => 1)
             )
 
-        @variable(model_nxt, x1[i = 1:n])
+        @variable(model_nxt, xb[B])
+        @variable(model_nxt, xg[G])
+        @variable(model_nxt, xl[L])
         @variable(model_nxt, z1 >= - nxt_bound)
         @variable(model_nxt, y1)
 
         @constraint(model_nxt, level_constraint, α * z1 + (1 - α) * y1 <= level)
-        @constraint(model_nxt, z1 .>= function_info.f_his[iter] + function_info.df' * (x1 - function_info.x_his[iter]) )
+        @constraint(model_nxt, z1 .>= function_info.f_his[iter] + 
+                                        function_info.df[:zb]' * (xb - function_info.x_his[iter][:zb]) +
+                                        function_info.df[:zg]' * (xg - function_info.x_his[iter][:zg]) +
+                                        function_info.df[:zl]' * (xl - function_info.x_his[iter][:zl]) 
+                                        )
         @constraint(model_nxt, [k in keys(function_info.G)], y1 .>= function_info.G[k] + function_info.dG[k]' * (x1 - function_info.x_his[iter]) )
-        @objective(model_nxt, Min, (x1 - function_info.x_his[iter])' * (x1 - function_info.x_his[iter]))
+        @objective(model_nxt, Min, (xb - function_info.x_his[iter][:zb])' * (xb - function_info.x_his[iter][:zb]) +
+                                    (xg - function_info.x_his[iter][:zg])' * (xg - function_info.x_his[iter][:zg])+
+                                    (xl - function_info.x_his[iter][:zl])' * (xl - function_info.x_his[iter][:zl])
+                                    )
         optimize!(model_nxt)
         st = termination_status(model_nxt)
         if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
-            x_nxt = JuMP.value.(x1)
+            x_nxt = Dict{Symbol, Vector}(:zb => JuMP.value.(xb) , 
+                                            :zg => JuMP.value.(xg), 
+                                            :zl => JuMP.value.(xl)
+                                            )
         elseif st == MOI.NUMERICAL_ERROR ## need to figure out why this case happened and fix it
             if Enhanced_Cut
                 return [ - function_info.f_his[iter] - function_info.x_his[iter]' * l_interior, 
                                                 function_info.x_his[iter]] 
-            else
-                return [ - function_info.f_his[iter] - function_info.x_his[iter]' * sum_generator, 
-                                                function_info.x_his[iter]]
+            # else
+            #     return [ - function_info.f_his[iter] - function_info.x_his[iter]' * sum_generator, 
+            #                                     function_info.x_his[iter]]
             end
         else
             set_normalized_rhs( level_constraint, w + 1 * (W - w))
             optimize!(model_nxt)
-            x_nxt = JuMP.value.(x1)
+            x_nxt = Dict{Symbol, Vector}(:zb => JuMP.value.(xb) , 
+                                            :zg => JuMP.value.(xg), 
+                                            :zl => JuMP.value.(xl)
+                                            )
             # break   
         end
 
@@ -333,9 +413,9 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
             if Enhanced_Cut
                 return [ - function_info.f_his[iter] - function_info.x_his[iter]' * l_interior, 
                                                 function_info.x_his[iter]] 
-            else
-                return [ - function_info.f_his[iter] - function_info.x_his[iter]' * sum_generator, 
-                                                function_info.x_his[iter]]
+            # else
+            #     return [ - function_info.f_his[iter] - function_info.x_his[iter]' * sum_generator, 
+            #                                     function_info.x_his[iter]]
             end
         end
         ######################################################################################################################
