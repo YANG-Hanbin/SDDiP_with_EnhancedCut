@@ -195,10 +195,15 @@ end
 
 
 
-function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vector{Float64}, ẑ::Dict{Symbol, Vector{Int64}}, cut_coefficient::CutCoefficient; 
+function LevelSetMethod_optimization!(indexSets::IndexSets, 
+                                        paramDemand::ParamDemand, 
+                                        paramOPF::ParamOPF, 
+                                        ẑ::Dict{Symbol, Vector{Int64}},
+                                        τ::Int64;                          ## realization of the random time
                                         levelSetMethodParam::LevelSetMethodParam = levelSetMethodParam, 
-                                        ϵ::Float64 = 1e-4, interior_value::Float64 = 0.5, Enhanced_Cut::Bool = true)
-    
+                                        ϵ::Float64 = 1e-4, interior_value::Float64 = 0.5, Enhanced_Cut::Bool = true
+                                        )
+
     ######################################################################################################################
     ###############################   auxiliary function for function information   ######################################
     ######################################################################################################################
@@ -225,8 +230,11 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
     ## collect the information from the objecive f, and constraints G
     function compute_f_G(π::Dict{Symbol, Vector{Float64}}; 
                             Enhanced_Cut::Bool = true, f_star_value::Float64 = f_star_value, 
-                            StageProblemData::StageData = StageProblemData, demand::Vector{Float64} = demand, 
-                            ẑ::Dict{Symbol, Vector{Int64}} = ẑ, cut_coefficient::CutCoefficient = cut_coefficient   )
+                            indexSets::IndexSets = indexSets, 
+                            paramDemand::ParamDemand = paramDemand, 
+                            paramOPF::ParamOPF = paramOPF, τ::Int64 = τ, 
+                            ẑ::Dict{Symbol, Vector{Int64}} = ẑ
+                            )
 
         F_solution = backward_stage2_optimize!(indexSets, 
                                                 paramDemand, 
@@ -238,9 +246,9 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
 
         if Enhanced_Cut
             function_value_info  = Dict(1 => - F_solution[1] - 
-                                                πb' * (x_interior[:zb] .- ẑ[:zb]) - 
-                                                πg' * (x_interior[:zg] .- ẑ[:zg]) - 
-                                                πl' * (x_interior[:zl] .- ẑ[:zl]),
+                                                π[:zb]' * (x_interior[:zb] .- ẑ[:zb]) - 
+                                                π[:zg]' * (x_interior[:zg] .- ẑ[:zg]) - 
+                                                π[:zl]' * (x_interior[:zl] .- ẑ[:zl]),
 
                                         2 => Dict{:Symbol, Vector}(:zg => - F_solution[2][:zb] - (x_interior[:zb] .- ẑ[:zb]),
                                                                     :zb => - F_solution[2][:zg] - (x_interior[:zg] .- ẑ[:zg]),
@@ -392,8 +400,9 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
                                             )
         elseif st == MOI.NUMERICAL_ERROR ## need to figure out why this case happened and fix it
             if Enhanced_Cut
-                return [ - function_info.f_his[iter] - function_info.x_his[iter]' * l_interior, 
-                                                function_info.x_his[iter]] 
+                return [ - function_info.f_his[iter] - function_info.x_his[iter][:zb]' * x_interior[:zb] - 
+                                                        function_info.x_his[iter][:zg]' * x_interior[:zg] - 
+                                                        function_info.x_his[iter][:zl]' * x_interior[:zl],  function_info.x_his[iter]] 
             # else
             #     return [ - function_info.f_his[iter] - function_info.x_his[iter]' * sum_generator, 
             #                                     function_info.x_his[iter]]
@@ -411,8 +420,9 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
         ## stop rule
         if Δ < threshold || iter > max_iter 
             if Enhanced_Cut
-                return [ - function_info.f_his[iter] - function_info.x_his[iter]' * l_interior, 
-                                                function_info.x_his[iter]] 
+                return [ - function_info.f_his[iter] - function_info.x_his[iter][:zb]' * x_interior[:zb] - 
+                                                        function_info.x_his[iter][:zg]' * x_interior[:zg] - 
+                                                        function_info.x_his[iter][:zl]' * x_interior[:zl],  function_info.x_his[iter]] 
             # else
             #     return [ - function_info.f_his[iter] - function_info.x_his[iter]' * sum_generator, 
             #                                     function_info.x_his[iter]]

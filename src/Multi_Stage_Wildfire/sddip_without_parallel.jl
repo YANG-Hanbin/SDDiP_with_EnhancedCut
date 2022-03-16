@@ -54,7 +54,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
     println("---------------- print out iteration information -------------------")
     while true
         t0 = now()
-        M = 100
+        M = 1  ## since we will enumerate all of realizations, hence, we only need to set M = 1
         Stage1_collection = Dict();  # to store every iteration results
         Stage2_collection = Dict();  # to store every iteration results
         u = Vector{Float64}(undef, M);  # to compute upper bound
@@ -101,35 +101,40 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
         # UB = round!(UB)[3]
         ##################################### Parallel Computation for backward step ###########################
 
-        M = 4
-        
-
-        for t = reverse(2:T)
-            for k in 1:M 
-                c = [0, zeros(Float64,n)]
-                for j in keys(Ω[t])
-                    # @info "$t $k $j"
-                    ϵ_value = 1e-5 # 1e-5
-                    λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e-5; 
-                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
-                    c = c + prob[t][j] * LevelSetMethod_optimization!(StageCoefficient[t], Ω[t][j].d, Sol_collection[t-1,k][1], cut_collection[t], 
-                                                                        levelSetMethodParam = levelSetMethodParam, ϵ = ϵ_value, 
-                                                                        Enhanced_Cut = Enhanced_Cut, 
-                                                                        binaryInfo = binaryInfo) 
-                end
+        for k in 1:M 
+            for ω in Ω
+                # @info "$t $k $j"
+                ϵ_value = 1e-5 # 1e-5
+                λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e-5; 
+                levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
+                coef = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
+                                                                    ẑ, τ,                 
+                                                                    levelSetMethodParam = levelSetMethodParam, 
+                                                                    ϵ = 1e-4, 
+                                                                    interior_value = 0.5, 
+                                                                    Enhanced_Cut = true
+                                                                    )
                 # add cut
-                cut_collection[t-1].v[i][k] = c[1]
-                cut_collection[t-1].π[i][k] = c[2]
+                cut_collection[ω].v[i][k] = coef[1]
+                cut_collection[ω].πb[i][k] = coef[2][:zb]
+                cut_collection[ω].πg[i][k] = coef[2][:zg]
+                cut_collection[ω].πl[i][k] = coef[2][:zl]
             end
         end
-
+        
         ########################################################################################################
 
 
         ## compute the lower bound
-        _LB = forward_step_optimize!(StageCoefficient[1], Ω[1][1].d, [0.0 for i in 1:n], cut_collection[1], binaryInfo = binaryInfo)
+        _LB = forward_stage1_optimize!(indexSets, 
+                                        paramDemand, 
+                                        paramOPF, 
+                                        Ω_rv，
+                                        cut_collection;  ## the index is ω
+                                        θ_bound = 0.0
+                                        )
         # LB = round!(_LB[3] + _LB[4])[3]
-        LB = _LB[3] + _LB[4]
+        LB = _LB[3]
         t1 = now()
         iter_time = (t1 - t0).value/1000
         total_Time = (t1 - initial).value/1000
