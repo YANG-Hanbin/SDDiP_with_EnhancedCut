@@ -48,7 +48,7 @@ function forward_step_optimize!(StageProblemData::StageData, demand::Vector{Floa
     ## construct forward problem (3.1)
     Q = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                                           "OutputFlag" => 0, 
-                                          "Threads" => 1) 
+                                          "Threads" => 0) 
                                           )
     @variable(Q, x[i = 1:d] >= 0, Int)   ## for current state, x is the number of generators will be built in this stage
     @variable(Q, y[i = 1:d] >= 0)        ## amount of electricity

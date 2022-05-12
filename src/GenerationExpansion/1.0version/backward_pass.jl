@@ -12,7 +12,7 @@ function Δ_model_formulation(function_info::FunctionInfo, f_star::Float64, iter
         optimizer_with_attributes(
             ()->Gurobi.Optimizer(GRB_ENV),
             "OutputFlag" => Output, 
-            "Threads" => 1)
+            "Threads" => 0)
             )
 
     @variable(model_alpha, z)
@@ -106,7 +106,7 @@ function backward_step_F(StageProblemData::StageData, demand::Vector{Float64}, s
     F = Model(
         optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                                     "OutputFlag" => 0,
-                                    "Threads"=>1)
+                                    "Threads" => 0 )
             )
 
     @variable(F, x[i = 1:d] >=0, Int)   # the number of generators will be built in this stage
@@ -139,22 +139,6 @@ end
 
 
 
-struct LevelSetMethodParam
-    μ             ::Float64   ## param for adjust α
-    λ             ::Float64   ## param for adjust level
-    threshold     ::Float64   ## threshold for Δ
-    nxt_bound     ::Float64   ## lower bound for solving next iteration point π
-    max_iter      ::Int64     
-    Output        ::Int64     ## Gurobi Output parameter
-    Output_Gap    ::Bool      ## if True will print Δ info
-    Adj           ::Bool      ## whether adjust oracle lower bound
-end
-
-
-# levelSetMethodParam = LevelSetMethodParam(μ, λ, threshold, nxt_bound, max_iter, Output, Output_Gap, Adj)
-
-
-
 
 function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vector{Float64}, sum_generator::Vector{Float64}, cut_coefficient::CutCoefficient; 
                                         levelSetMethodParam::LevelSetMethodParam = levelSetMethodParam, 
@@ -175,9 +159,14 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
 
 
     ## collect the information from the objecive f, and constraints G
-    function compute_f_G(π::Vector{Float64}; Enhanced_Cut::Bool = true, f_star_value::Float64 = f_star_value, 
-        StageProblemData::StageData = StageProblemData, demand::Vector{Float64} = demand, 
-        sum_generator::Vector{Float64} = sum_generator, cut_coefficient::CutCoefficient = cut_coefficient   )
+    function compute_f_G(π::Vector{Float64}; 
+                                            Enhanced_Cut::Bool = true, 
+                                            f_star_value::Float64 = f_star_value, 
+                                            StageProblemData::StageData = StageProblemData, 
+                                            demand::Vector{Float64} = demand, 
+                                            sum_generator::Vector{Float64} = sum_generator, 
+                                            cut_coefficient::CutCoefficient = cut_coefficient, 
+                                            ϵ::Float64 = ϵ )
 
         F_solution = backward_step_F(StageProblemData, demand, sum_generator, π, cut_coefficient, Enhanced_Cut = Enhanced_Cut, binaryInfo = binaryInfo)
 
@@ -188,7 +177,7 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
                                         4 => Dict(1 => - F_solution[2]),
                                         )
         else
-            function_value_info  = Dict(1 => - F_solution[1] - π' *  sum_generator,
+            function_value_info  = Dict(1 => - F_solution[1] - π' * sum_generator,
                                         2 => - F_solution[2] - sum_generator,
                                         3 => Dict(1 => 0.0 ),
                                         4 => Dict(1 => - F_solution[2] * 0),
@@ -223,7 +212,7 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
         optimizer_with_attributes(
             ()->Gurobi.Optimizer(GRB_ENV), 
             "OutputFlag" => Output, 
-            "Threads" => 1)
+            "Threads" => 0)
             )
 
 
@@ -263,7 +252,7 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
         st = termination_status(model_oracle)
         if st != MOI.OPTIMAL
             @info "oracle is infeasible"
-            # break
+            break
         end
 
         f_star = JuMP.objective_value(model_oracle)
@@ -285,9 +274,9 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
         W = minimum( α * function_info.f_his[j] + (1-α) * function_info.G_max_his[j] for j in 1:iter) 
         level = w + λ * (W - w)
 
-        if Output_Gap == true
-            @info "Gap is $Δ, iter num is $iter, func_val is $( - function_value_info[1]), alpha is $α, w is $w, W is $W"
-            @info "Constraint is $(function_info.G_max_his[iter])"
+        if Output_Gap
+            @info "Gap is $Δ, iter num is $iter, func_val is $( - function_value_info[1]), Constraint is $(function_info.G_max_his[iter])"
+            # @info "Constraint is $(function_info.G_max_his[iter])"
         end
         
         ######################################################################################################################
@@ -298,7 +287,7 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
         model_nxt = Model(
             optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
             "OutputFlag" => Output, 
-            "Threads" => 1)
+            "Threads" => 0)
             )
 
         @variable(model_nxt, x1[i = 1:n])

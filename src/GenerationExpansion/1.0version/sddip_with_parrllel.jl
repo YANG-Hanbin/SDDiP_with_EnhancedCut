@@ -6,11 +6,11 @@ addprocs(4)
 @everywhere const GRB_ENV = Gurobi.Env()
 
 @everywhere begin
-    include("data_struct.jl")
-    include("backward_pass.jl")
-    include("forward_pass.jl")
-    include("runtests_small.jl")
-    include("gurobiTest.jl")
+    include("src/GenerationExpansion/1.0version/data_struct.jl")
+    include("src/GenerationExpansion/1.0version/backward_pass.jl")
+    include("src/GenerationExpansion/1.0version/forward_pass.jl")
+    include("src/GenerationExpansion/1.0version/gurobiTest.jl")
+    include("src/GenerationExpansion/1.0version/runtests_small3.jl")  ## M = 4
 end
 #############################################################################################
 ####################################    main function   #####################################

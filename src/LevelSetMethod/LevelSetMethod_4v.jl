@@ -238,7 +238,7 @@ function add_constraint(function_info::FunctionInfo, model_info::ModelInfo, iter
     xⱼ = function_info.x_his[iter]
     # add constraints
     @constraint(model_info.model, model_info.z .>= function_info.f_his[iter] + function_info.df' * (model_info.x - xⱼ) )
-    @constraint(oracle_info.model, [k = 1:m], oracle_info.y .>= function_info.G[k] + function_info.dG[k]' * (oracle_info.x - xⱼ) )
+    @constraint(model_info.model, [k = 1:m], model_info.y .>= function_info.G[k] + function_info.dG[k]' * (model_info.x - xⱼ) )
 end
 
 

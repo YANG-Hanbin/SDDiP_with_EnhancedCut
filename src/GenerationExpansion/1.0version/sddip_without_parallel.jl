@@ -3,11 +3,11 @@ using JuMP, Test, Statistics, StatsBase, Gurobi, Distributed, ParallelDataTransf
 const GRB_ENV = Gurobi.Env()
 
 
-include("data_struct.jl")
-include("backward_pass.jl")
-include("forward_pass.jl")
-include("gurobiTest.jl")
-include("runtests_small3.jl")  ## M = 4
+include("src/GenerationExpansion/1.0version/data_struct.jl")
+include("src/GenerationExpansion/1.0version/backward_pass.jl")
+include("src/GenerationExpansion/1.0version/forward_pass.jl")
+include("src/GenerationExpansion/1.0version/gurobiTest.jl")
+include("src/GenerationExpansion/1.0version/runtests_small2.jl")  ## M = 4
 
 #############################################################################################
 ####################################    main function   #####################################
@@ -88,8 +88,8 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
                 c = [0, zeros(Float64,n)]
                 for j in keys(Ω[t])
                     # @info "$t $k $j"
-                    ϵ_value = 1e-5 # 1e-5
-                    λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e-5; 
+                    ϵ_value = 1e-3 # 1e-5
+                    λ_value = .7; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e-5; 
                     levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
                     c = c + prob[t][j] * LevelSetMethod_optimization!(StageCoefficient[t], Ω[t][j].d, Sol_collection[t-1,k][1], cut_collection[t], 
                                                                         levelSetMethodParam = levelSetMethodParam, ϵ = ϵ_value, 
