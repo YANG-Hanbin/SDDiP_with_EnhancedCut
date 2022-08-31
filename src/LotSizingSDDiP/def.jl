@@ -1,6 +1,6 @@
-#############################################################################################
-####################################   Data Structure   #####################################
-#############################################################################################
+## ---------------------------------------------------------------------------------------------------- ##
+# Define Data Structs
+## ---------------------------------------------------------------------------------------------------- ##
 struct CutCoefficient
     v               ::Dict{Int64,Dict{Int64, Float64}} # [i][k] where i is the iteration index, and k is the scenario index
     π               ::Dict{Int64,Dict{Int64, Vector{Float64}}}  # [[1.,2.,3.],[1.,2.,3.]]  -- push!(Π, π) to add a new element
@@ -8,21 +8,24 @@ end
 
 
 
-
+"""
+        We should build a Dict(Int, RandomVariables) to record all stage r.v.'s
+"""
 struct RandomVariables
-    d   ::Vector{Float64}
+    d   ::Real               ## discrete demand at node n ∈ N 
+    # f   ::Real               ## setup cost at node n ∈ N 
+    # h   ::Real               ## unit inventory cost at node n ∈ N 
+    # g   ::Real               ## unit production cost at node n ∈ N 
 end
 
 
-
-struct StageData ## with the assumption that only b has stochasticity
-    c1       ::Vector{Float64}
-    c2       ::Vector{Float64}
-    ū        ::Vector{Float64}
-    h        ::Float64
-    N        ::Matrix{Float64}
-    s₀       ::Vector{Float64}
-    penalty  ::Float64
+"""
+        We should build a Dict(Int, StageData) to record all stage problem coefficients
+"""
+struct StageData
+    f   ::Real               ## setup cost at node n ∈ N (stage t)
+    h   ::Real               ## unit inventory cost at node n ∈ N (stage t)
+    g   ::Real               ## unit production cost at node n ∈ N (stage t)
 end
 
 

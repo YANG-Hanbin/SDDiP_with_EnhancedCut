@@ -171,10 +171,10 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
         F_solution = backward_step_F(StageProblemData, demand, sum_generator, π, cut_coefficient, Enhanced_Cut = Enhanced_Cut, binaryInfo = binaryInfo)
 
         if Enhanced_Cut
-            function_value_info  = Dict(1 => - F_solution[1] - π' * (l_interior .- sum_generator),
-                                        2 => - F_solution[2] - (l_interior .- sum_generator),
-                                        3 => Dict(1 => (1- ϵ) * f_star_value - F_solution[1]),
-                                        4 => Dict(1 => - F_solution[2]),
+            function_value_info  = Dict(1 => - F_solution[1] - π' * (l_interior .- sum_generator), ## obj function value
+                                        2 => - F_solution[2] - (l_interior .- sum_generator),      ## gradient of obj value
+                                        3 => Dict(1 => (1 - ϵ) * f_star_value - F_solution[1]),    ## constraint value
+                                        4 => Dict(1 => - F_solution[2]),                           ## gradient of constraint value
                                         )
         else
             function_value_info  = Dict(1 => - F_solution[1] - π' * sum_generator,
@@ -200,7 +200,7 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
     ## trajectory
     function_value_info = compute_f_G(x₀, Enhanced_Cut = Enhanced_Cut)
     function_info = FunctionInfo(   Dict(1 => x₀), 
-                                    function_value_info[3], 
+                                    Dict(1 => max(function_value_info[3][k] for k in keys(function_value_info[3]))), 
                                     Dict(1 => function_value_info[1]), 
                                     function_value_info[2], 
                                     function_value_info[4], 
@@ -208,7 +208,7 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
                                     )
 
     ## model for oracle
-    model_oracle = Model(
+    oracleModel = Model(
         optimizer_with_attributes(
             ()->Gurobi.Optimizer(GRB_ENV), 
             "OutputFlag" => Output, 
@@ -217,45 +217,42 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
 
 
 
-    @variable(model_oracle, z)
-    @variable(model_oracle, x[i = 1:n])
-    @variable(model_oracle, y <= 0)
+    @variable(oracleModel, z)
+    @variable(oracleModel, x[i = 1:n])
+    @variable(oracleModel, y <= 0)
 
     # para_oracle_bound =  abs(α * function_info.f_his[1] + (1-α) * function_info.G_max_his[1] )
-    # @variable(model_oracle, z >= - 10^(ceil(log10(-para_oracle_bound))))
+    # @variable(oracleModel, z >= - 10^(ceil(log10(-para_oracle_bound))))
     para_oracle_bound = abs(function_info.f_his[1])
     z_rhs = 5.3 * 10^(ceil(log10(para_oracle_bound)))
-    @constraint(model_oracle, oracle_bound, z >= - z_rhs)
+    @constraint(oracleModel, oracle_bound, z >= - z_rhs)
 
-    @objective(model_oracle, Min, z)
-    oracle_info = ModelInfo(model_oracle, x, y, z)
+    @objective(oracleModel, Min, z)
+    oracleInfo = ModelInfo(oracleModel, x, y, z)
 
+
+    nxtModel = Model(
+        optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
+        "OutputFlag" => Output, 
+        "Threads" => 0)
+        )
+
+    @variable(nxtModel, x1[i = 1:n])
+    @variable(nxtModel, z1 >= - nxt_bound)
+    @variable(nxtModel, y1 >= - nxt_bound)
 
 
     while true
-        if Adj
-            param_z_rhs = abs(function_info.f_his[iter])
-            if z_rhs <  1.5 * param_z_rhs
-                # @info "z level up $(z_rhs/param_z_rhs)"
-                z_rhs = 2 * z_rhs
-            end
+        add_constraint(function_info, oracleInfo, iter)
+        optimize!(oracleModel)
 
-            if z_rhs > 10 * param_z_rhs
-                # @info "z level down $(z_rhs/param_z_rhs) "
-                z_rhs = .1 * z_rhs
-            end 
-            set_normalized_rhs(oracle_bound, - z_rhs)  
-        end
-        add_constraint(function_info, oracle_info, iter)
-        optimize!(model_oracle)
-
-        st = termination_status(model_oracle)
+        st = termination_status(oracleModel)
         if st != MOI.OPTIMAL
             @info "oracle is infeasible"
             break
         end
 
-        f_star = JuMP.objective_value(model_oracle)
+        f_star = JuMP.objective_value(oracleModel)
 
         ## formulate alpha model
 
@@ -283,23 +280,20 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
         #########################################     next iteration point   #################################################
         ######################################################################################################################
 
-        ## obtain the next iteration point
-        model_nxt = Model(
-            optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-            "OutputFlag" => Output, 
-            "Threads" => 0)
-            )
+        # obtain the next iteration point
+        if iter == 1
+            @constraint(nxtModel, level_constraint, α * z1 + (1 - α) * y1 <= level);
+        else 
+            delete(nxtModel, nxtModel[:level_constraint])
+            unregister(nxtModel, :level_constraint)
+            @constraint(nxtModel, level_constraint, α * z1 + (1 - α) * y1 <= level);
+        end
 
-        @variable(model_nxt, x1[i = 1:n])
-        @variable(model_nxt, z1 >= - nxt_bound)
-        @variable(model_nxt, y1)
-
-        @constraint(model_nxt, level_constraint, α * z1 + (1 - α) * y1 <= level)
-        @constraint(model_nxt, z1 .>= function_info.f_his[iter] + function_info.df' * (x1 - function_info.x_his[iter]) )
-        @constraint(model_nxt, [k in keys(function_info.G)], y1 .>= function_info.G[k] + function_info.dG[k]' * (x1 - function_info.x_his[iter]) )
-        @objective(model_nxt, Min, (x1 - function_info.x_his[iter])' * (x1 - function_info.x_his[iter]))
-        optimize!(model_nxt)
-        st = termination_status(model_nxt)
+        @constraint(nxtModel, z1 .>= function_info.f_his[iter] + function_info.df' * (x1 - function_info.x_his[iter]) )
+        @constraint(nxtModel, [k in keys(function_info.G)], y1 .>= function_info.G[k] + function_info.dG[k]' * (x1 - function_info.x_his[iter]) )
+        @objective(nxtModel, Min, (x1 - function_info.x_his[iter])' * (x1 - function_info.x_his[iter]))
+        optimize!(nxtModel)
+        st = termination_status(nxtModel)
         if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
             x_nxt = JuMP.value.(x1)
         elseif st == MOI.NUMERICAL_ERROR ## need to figure out why this case happened and fix it
@@ -312,7 +306,7 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
             end
         else
             set_normalized_rhs( level_constraint, w + 1 * (W - w))
-            optimize!(model_nxt)
+            optimize!(nxtModel)
             x_nxt = JuMP.value.(x1)
             # break   
         end
@@ -335,7 +329,7 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
         function_value_info = compute_f_G(x_nxt, Enhanced_Cut = Enhanced_Cut)
         iter = iter + 1
         function_info.x_his[iter]     = x_nxt
-        function_info.G_max_his[iter] = function_value_info[3][1]
+        function_info.G_max_his[iter] = max(function_value_info[3][k] for k in keys(function_value_info[3]))
         function_info.f_his[iter]     = function_value_info[1]
         function_info.df              = function_value_info[2]
         function_info.dG              = function_value_info[4]
