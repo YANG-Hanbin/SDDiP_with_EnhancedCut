@@ -3,9 +3,9 @@ using JuMP, Test, Statistics, StatsBase, Gurobi, Distributed, ParallelDataTransf
 const GRB_ENV = Gurobi.Env()
 
 
-include("src/GenerationExpansion/1.0version/data_struct.jl")
-include("src/GenerationExpansion/1.0version/backward_pass.jl")
-include("src/GenerationExpansion/1.0version/forward_pass.jl")
+include("src/GenerationExpansion/1.0version/def.jl")
+include("src/GenerationExpansion/1.0version/backwardPass.jl")
+include("src/GenerationExpansion/1.0version/forwardPass.jl")
 include("src/GenerationExpansion/1.0version/gurobiTest.jl")
 include("src/GenerationExpansion/1.0version/runtests_small2.jl")  ## M = 4
 
@@ -15,10 +15,12 @@ include("src/GenerationExpansion/1.0version/runtests_small2.jl")  ## M = 4
 max_iter = 200; ϵ = 1e-2; Enhanced_Cut = true
 
 
-function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict{Int64,Vector{Float64}}, StageCoefficient::Dict{Int64, StageData}; 
-    scenario_sequence::Dict{Int64, Dict{Int64, Any}} = scenario_sequence, ϵ::Float64 = 0.001, M::Int64 = 30, max_iter::Int64 = 200, 
-    Enhanced_Cut::Bool = true, binaryInfo::BinaryInfo = binaryInfo)
-    ## d: x dim
+function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}}, 
+                            probList::Dict{Int64,Vector{Float64}}, 
+                            stageDataList::Dict{Int64, StageData}; 
+                            scenario_sequence::Dict{Int64, Dict{Int64, Any}} = scenario_sequence, ϵ::Float64 = 0.001, M::Int64 = 30, max_iter::Int64 = 200, 
+                            Enhanced_Cut::Bool = true, binaryInfo::BinaryInfo = binaryInfo)
+    ## d: dimension of x
     ## M: num of scenarios when doing one iteration
     initial = now()
     T = length(keys(Ω))
@@ -42,15 +44,17 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
     named_tuple = (; zip(col_names, type[] for type in col_types )...)
     sddipResult = DataFrame(named_tuple) # 0×7 DataFrame
     gapList = []
-    gurobiResult = gurobiOptimize!(Ω, prob, StageCoefficient,
+    gurobiResult = gurobiOptimize!(Ω, 
+                                    probList, 
+                                    stageDataList,
                                     binaryInfo = binaryInfo)
     # OPT = round!(gurobiResult[1])[3]
-    OPT = gurobiResult[1]
+    OPT = gurobiResult.OPT
     println("---------------- print out iteration information -------------------")
     while true
         t0 = now()
         M = 100
-        Sol_collection = Dict();  # to store every iteration results
+        solCollection = Dict();  # to store every iteration results
         u = Vector{Float64}(undef, M);  # to compute upper bound
         
         Random.seed!(i*3)
@@ -66,11 +70,11 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
                 end
                 j = scenario_sequence[Scenarios[k]][1][t]  ## realization of k-th scenario at stage t
 
-                Sol_collection[t, k] = forward_step_optimize!(StageCoefficient[t], Ω[t][j].d, sum_generator, cut_collection[t], 
+                solCollection[t, k] = forward_step_optimize!(stageDataList[t], Ω[t][j].d, sum_generator, cut_collection[t], 
                                                                 binaryInfo = binaryInfo)
-                sum_generator = Sol_collection[t,k][1]
+                sum_generator = solCollection[t,k][1]
             end
-            u[k] = sum(Sol_collection[t, k][4] for t in 1:T)
+            u[k] = sum(solCollection[t, k][4] for t in 1:T)
         end
 
         ## compute the upper bound
@@ -91,7 +95,7 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
                     ϵ_value = 1e-3 # 1e-5
                     λ_value = .7; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e-5; 
                     levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
-                    c = c + prob[t][j] * LevelSetMethod_optimization!(StageCoefficient[t], Ω[t][j].d, Sol_collection[t-1,k][1], cut_collection[t], 
+                    c = c + probList[t][j] * LevelSetMethod_optimization!(stageDataList[t], Ω[t][j].d, solCollection[t-1,k][1], cut_collection[t], 
                                                                         levelSetMethodParam = levelSetMethodParam, ϵ = ϵ_value, 
                                                                         Enhanced_Cut = Enhanced_Cut, 
                                                                         binaryInfo = binaryInfo) 
@@ -106,7 +110,7 @@ function SDDiP_algorithm(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
 
 
         ## compute the lower bound
-        _LB = forward_step_optimize!(StageCoefficient[1], Ω[1][1].d, [0.0 for i in 1:n], cut_collection[1], binaryInfo = binaryInfo)
+        _LB = forward_step_optimize!(stageDataList[1], Ω[1][1].d, [0.0 for i in 1:n], cut_collection[1], binaryInfo = binaryInfo)
         # LB = round!(_LB[3] + _LB[4])[3]
         LB = _LB[3] + _LB[4]
         t1 = now()

@@ -21,6 +21,25 @@ N = [
 
 ū = [4.0, 10, 10, 1, 45, 4]
 
+function intergerBinarization(ū::Vector{Float64})
+    row_num = size(ū)[1];
+
+    var_num = floor.(Int, log.(2,ū)) .+ 1; 
+
+    col_num = sum(Int, var_num);
+
+    A = zeros(Int64, row_num, col_num)
+ 
+    for i in 1:row_num
+        l = sum(var_num[l] for l in 1:i)
+        for j in (l+1-var_num[i]):(l+var_num[i]-var_num[i])
+            A[i,j] = 2^(j-(l+1-var_num[i]))
+        end
+    end
+    return BinaryInfo(A, col_num, row_num)
+end
+
+
 binaryInfo = intergerBinarization(ū)
 (A, n, d) = (binaryInfo.A, binaryInfo.n, binaryInfo.d)
 
@@ -43,13 +62,13 @@ om_cost = [4.7, 2.11, 3.66, 0.51, 5.00, 2.98]
 c2 = [[fuel_price[i]*heat_rate[i]*1e-3*eff[i] for i in 1:6]*(1.02)^j + om_cost*(1.03)^j for j in 1:T]
 
 
-StageCoefficient = Dict{Int64,StageData}()
+stageDataList = Dict{Int64,StageData}()
 s₀ = [1,2,3,4,5,6]
 penalty = 1e5
 
 
 for t in 1:T 
-    StageCoefficient[t] = StageData(c1[t], c2[t], ū, 8760., N, s₀, penalty)
+    stageDataList[t] = StageData(c1[t], c2[t], ū, 8760., N, s₀, penalty)
 end
 
 
@@ -84,9 +103,9 @@ end
 
 
 
-prob = Dict{Int64,Vector{Float64}}()  # P(node in t-1 --> node in t ) = prob[t]
+probList = Dict{Int64,Vector{Float64}}()  # P(node in t-1 --> node in t ) = prob[t]
 for t in 1:T 
-    prob[t] = [0.1 for i in 1:N_rv[t]]
+    probList[t] = [0.1 for i in 1:N_rv[t]]
 end
 
 
@@ -94,6 +113,33 @@ end
 
 
 
+function recursion_scenario_tree(pathList::Vector{Int64}, 
+                                P::Float64, 
+                                scenario_sequence::Dict{Int64, Dict{Int64, Any}}, 
+                                t::Int64;   
+                                Ω::Dict{Int64,Dict{Int64,RandomVariables}} = Ω, prob::Dict{Int64,Vector{Float64}} = prob, T::Int64 = 2)
+
+    if t ≤ T
+        for ω_key in keys(Ω[t])
+
+            pathList_copy = copy(pathList)
+            P_copy = copy(P)
+
+            push!(pathList_copy, ω_key)
+            P_copy = P_copy * prob[t][ω_key]
+
+            recursion_scenario_tree(pathList_copy, P_copy, scenario_sequence, t+1, Ω = Ω, prob = prob, T = T)
+        end
+    else
+        if haskey(scenario_sequence, 1)
+            scenario_sequence[maximum(keys(scenario_sequence))+1] = Dict(1 => pathList, 2 => P)
+        else
+            scenario_sequence[1] = Dict(1 => pathList, 2 => P)
+        end
+        return scenario_sequence
+    end
+
+end
 
 
 scenario_sequence = Dict{Int64, Dict{Int64, Any}}()  ## the first index is for scenario index, the second one is for stage
@@ -101,7 +147,7 @@ pathList = Vector{Int64}()
 push!(pathList, 1)
 P = 1.0
 
-recursion_scenario_tree(pathList, P, scenario_sequence, 2, T = T)
+recursion_scenario_tree(pathList, P, scenario_sequence, 2, T = T, prob = probList)
 scenario_tree = scenario_sequence
 
 

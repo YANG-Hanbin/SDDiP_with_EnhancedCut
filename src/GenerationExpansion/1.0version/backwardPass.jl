@@ -6,18 +6,18 @@
 This function is to constraint the model for solving gap and alpha
 """
 
-function Δ_model_formulation(function_info::FunctionInfo, f_star::Float64, iter::Int64; Output::Int64 = 0)
+function Δ_model_formulation(functionInfo::FunctionInfo, f_star::Float64, iter::Int64; Output::Int64 = 0)
     
     model_alpha = Model(
         optimizer_with_attributes(
-            ()->Gurobi.Optimizer(GRB_ENV),
-            "OutputFlag" => Output, 
-            "Threads" => 0)
-            )
+                                    ()->Gurobi.Optimizer(GRB_ENV),
+                                    "OutputFlag" => Output, 
+                                    "Threads" => 0)
+                                )
 
     @variable(model_alpha, z)
-    @variable(model_alpha, 0 <= α <= 1)
-    @constraint(model_alpha, con[j = 1:iter], z <=  α * ( function_info.f_his[j] - f_star) + (1 - α) * function_info.G_max_his[j] )
+    @variable(model_alpha, 0 ≤ α ≤ 1)
+    @constraint(model_alpha, con[j = 1:iter], z ≤  α * ( functionInfo.f_his[j] - f_star) + (1 - α) * functionInfo.G_max_his[j] )
     
     # we first compute gap Δ
     @objective(model_alpha, Max, z)
@@ -28,7 +28,7 @@ function Δ_model_formulation(function_info::FunctionInfo, f_star::Float64, iter
     
     ## then we modify above model to compute alpha
     # alpha_min
-    @constraint(model_alpha, z .>= 0)
+    @constraint(model_alpha, z .≥ 0)
     @objective(model_alpha, Min, α)
     optimize!(model_alpha)
     a_min = JuMP.value(α)
@@ -46,13 +46,13 @@ end
 """
     This function is to add constraints for the model f_star and nxt pt.
 """
-function add_constraint(function_info::FunctionInfo, model_info::ModelInfo, iter::Int64)
-    m = length(function_info.G)
+function add_constraint(functionInfo::FunctionInfo, modelInfo::ModelInfo, iter::Int64)
+    m = length(functionInfo.G)
 
-    xⱼ = function_info.x_his[iter]
+    xⱼ = functionInfo.x_his[iter]
     # add constraints
-    @constraint(model_info.model, model_info.z .>= function_info.f_his[iter] + function_info.df' * (model_info.x - xⱼ) )
-    @constraint(model_info.model, [k = 1:m], model_info.y .>= function_info.G[k] + function_info.dG[k]' * (model_info.x - xⱼ) )
+    @constraint(modelInfo.model, modelInfo.z .≥ functionInfo.f_his[iter] + functionInfo.df' * (modelInfo.x - xⱼ) )
+    @constraint(modelInfo.model, [k = 1:m], modelInfo.y .≥ functionInfo.G[k] + functionInfo.dG[k]' * (modelInfo.x - xⱼ) )
 end
 
 
@@ -61,27 +61,27 @@ end
 ##########################    auxiliary functions for backward   ############################
 #############################################################################################
 
-function add_generator_constraint(StageProblemData::StageData, model_info::BackwardModelInfo;
+function add_generator_constraint(StageProblemData::StageData, modelInfo::BackwardModelInfo;
                                                         binaryInfo::BinaryInfo = binaryInfo)
 
-    @constraint(model_info.model, binaryInfo.A * model_info.Lc + model_info.x .<= StageProblemData.ū )  ## no more than max num of generators
-    @constraint(model_info.model, sum(model_info.y) + model_info.slack .>= model_info.demand )  # satisfy demand
-    @constraint(model_info.model, StageProblemData.h * StageProblemData.N 
-                            * (binaryInfo.A * model_info.Lc + model_info.x + StageProblemData.s₀ ) .>= model_info.y )  # no more than capacity
+    @constraint(modelInfo.model, binaryInfo.A * modelInfo.Lc + modelInfo.x .≤ StageProblemData.ū )  ## no more than max num of generators
+    @constraint(modelInfo.model, sum(modelInfo.y) + modelInfo.slack .≥ modelInfo.demand )  # satisfy demand
+    @constraint(modelInfo.model, StageProblemData.h * StageProblemData.N 
+                            * (binaryInfo.A * modelInfo.Lc + modelInfo.x + StageProblemData.s₀ ) .≥ modelInfo.y )  # no more than capacity
 
 end
 
 
 
 
-function add_generator_cut(cut_coefficient::CutCoefficient, model_info::BackwardModelInfo)
+function add_generator_cut(cutCoefficient::CutCoefficient, modelInfo::BackwardModelInfo)
 
 
-    iter = length(keys(cut_coefficient.v))  ## iter num
-    k = length(keys(cut_coefficient.v[1]))  ## scenario num
+    iter = length(keys(cutCoefficient.v))  ## iter num
+    k = length(keys(cutCoefficient.v[1]))  ## scenario num
 
-    @constraint(model_info.model, cut[i in 1:iter-1, m in 1:k], model_info.θ >= cut_coefficient.v[i][m] + 
-                                                cut_coefficient.π[i][m]' * model_info.Lt )
+    @constraint(modelInfo.model, cut[i in 1:iter-1, m in 1:k], modelInfo.θ ≥ cutCoefficient.v[i][m] + 
+                                                cutCoefficient.π[i][m]' * modelInfo.Lt )
                                                 
 end
 
@@ -97,7 +97,7 @@ end
 """
     This is the oracle in level set method, and it will return [F, dF]
 """
-function backward_step_F(StageProblemData::StageData, demand::Vector{Float64}, sum_generator::Vector{Float64}, π::Vector{Float64}, cut_coefficient::CutCoefficient; 
+function backwardOptimize!(StageProblemData::StageData, demand::Vector{Float64}, sum_generator::Vector{Float64}, π::Vector{Float64}, cutCoefficient::CutCoefficient; 
                         θ_bound::Real = 0.0, Enhanced_Cut::Bool = true,
                         binaryInfo::BinaryInfo = binaryInfo )
 
@@ -109,16 +109,16 @@ function backward_step_F(StageProblemData::StageData, demand::Vector{Float64}, s
                                     "Threads" => 0 )
             )
 
-    @variable(F, x[i = 1:d] >=0, Int)   # the number of generators will be built in this stage
-    @variable(F, 0 <= Lc[i = 1:n]<= 1)  # auxiliary variable (copy variable)
+    @variable(F, x[i = 1:d] ≥ 0, Int)   # the number of generators will be built in this stage
+    @variable(F, 0 ≤ Lc[i = 1:n]≤ 1)  # auxiliary variable (copy variable)
     @variable(F, Lt[i = 1:n], Bin)      # stage variable, A * Lt is total number of generators built after this stage
-    @variable(F, y[i = 1:d] >= 0)
-    @variable(F, slack >= 0 )
-    @variable(F, θ >= θ_bound)
+    @variable(F, y[i = 1:d] ≥ 0)
+    @variable(F, slack ≥ 0 )
+    @variable(F, θ ≥ θ_bound)
 
-    model_info = BackwardModelInfo(F, x, Lt, Lc, y, θ, demand, slack, sum_generator)
-    add_generator_constraint(StageProblemData, model_info, binaryInfo = binaryInfo)
-    add_generator_cut(cut_coefficient, model_info)
+    modelInfo = BackwardModelInfo(F, x, Lt, Lc, y, θ, demand, slack, sum_generator)
+    add_generator_constraint(StageProblemData, modelInfo, binaryInfo = binaryInfo)
+    add_generator_cut(cutCoefficient, modelInfo)
 
     @constraint(F, A * sum_generator + x .== A * Lt )  ## to ensure pass a binary variable
 
@@ -140,7 +140,7 @@ end
 
 
 
-function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vector{Float64}, sum_generator::Vector{Float64}, cut_coefficient::CutCoefficient; 
+function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vector{Float64}, sum_generator::Vector{Float64}, cutCoefficient::CutCoefficient; 
                                         levelSetMethodParam::LevelSetMethodParam = levelSetMethodParam, 
                                         ϵ::Float64 = 1e-4, interior_value::Float64 = 0.5, Enhanced_Cut::Bool = true, binaryInfo::BinaryInfo = binaryInfo)
     
@@ -150,11 +150,11 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
     ##  μ larger is better
     (μ, λ, threshold, nxt_bound, max_iter, Output, Output_Gap, Adj) = (levelSetMethodParam.μ, levelSetMethodParam.λ, levelSetMethodParam.threshold, levelSetMethodParam.nxt_bound, levelSetMethodParam.max_iter, levelSetMethodParam.Output,levelSetMethodParam.Output_Gap, levelSetMethodParam.Adj)
     (A, n, d) = (binaryInfo.A, binaryInfo.n, binaryInfo.d)
-    l_interior= [.8 for i in 1:n] - .5 * sum_generator
+    l_interior = [.8 for i in 1:n] - .5 * sum_generator
     # @info "$l_interior"
     # l_interior= [interior_value for i in 1:n]
 
-    f_star = forward_step_optimize!(StageProblemData, demand, sum_generator, cut_coefficient, binaryInfo = binaryInfo)
+    f_star = forward_step_optimize!(StageProblemData, demand, sum_generator, cutCoefficient, binaryInfo = binaryInfo)
     f_star_value = f_star[3] + f_star[4]
 
 
@@ -165,10 +165,10 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
                                             StageProblemData::StageData = StageProblemData, 
                                             demand::Vector{Float64} = demand, 
                                             sum_generator::Vector{Float64} = sum_generator, 
-                                            cut_coefficient::CutCoefficient = cut_coefficient, 
+                                            cutCoefficient::CutCoefficient = cutCoefficient, 
                                             ϵ::Float64 = ϵ )
 
-        F_solution = backward_step_F(StageProblemData, demand, sum_generator, π, cut_coefficient, Enhanced_Cut = Enhanced_Cut, binaryInfo = binaryInfo)
+        F_solution = backwardOptimize!(StageProblemData, demand, sum_generator, π, cutCoefficient, Enhanced_Cut = Enhanced_Cut, binaryInfo = binaryInfo)
 
         if Enhanced_Cut
             function_value_info  = Dict(1 => - F_solution[1] - π' * (l_interior .- sum_generator), ## obj function value
@@ -199,7 +199,7 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
 
     ## trajectory
     function_value_info = compute_f_G(x₀, Enhanced_Cut = Enhanced_Cut)
-    function_info = FunctionInfo(   Dict(1 => x₀), 
+    functionInfo = FunctionInfo(   Dict(1 => x₀), 
                                     Dict(1 => max(function_value_info[3][k] for k in keys(function_value_info[3]))), 
                                     Dict(1 => function_value_info[1]), 
                                     function_value_info[2], 
@@ -219,13 +219,13 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
 
     @variable(oracleModel, z)
     @variable(oracleModel, x[i = 1:n])
-    @variable(oracleModel, y <= 0)
+    @variable(oracleModel, y ≤ 0)
 
-    # para_oracle_bound =  abs(α * function_info.f_his[1] + (1-α) * function_info.G_max_his[1] )
-    # @variable(oracleModel, z >= - 10^(ceil(log10(-para_oracle_bound))))
-    para_oracle_bound = abs(function_info.f_his[1])
+    # para_oracle_bound =  abs(α * functionInfo.f_his[1] + (1-α) * functionInfo.G_max_his[1] )
+    # @variable(oracleModel, z ≥ - 10^(ceil(log10(-para_oracle_bound))))
+    para_oracle_bound = abs(functionInfo.f_his[1])
     z_rhs = 5.3 * 10^(ceil(log10(para_oracle_bound)))
-    @constraint(oracleModel, oracle_bound, z >= - z_rhs)
+    @constraint(oracleModel, oracle_bound, z ≥ - z_rhs)
 
     @objective(oracleModel, Min, z)
     oracleInfo = ModelInfo(oracleModel, x, y, z)
@@ -238,12 +238,12 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
         )
 
     @variable(nxtModel, x1[i = 1:n])
-    @variable(nxtModel, z1 >= - nxt_bound)
-    @variable(nxtModel, y1 >= - nxt_bound)
+    @variable(nxtModel, z1 ≥ - nxt_bound)
+    @variable(nxtModel, y1 ≥ - nxt_bound)
 
 
     while true
-        add_constraint(function_info, oracleInfo, iter)
+        add_constraint(functionInfo, oracleInfo, iter)
         optimize!(oracleModel)
 
         st = termination_status(oracleModel)
@@ -256,11 +256,11 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
 
         ## formulate alpha model
 
-        result = Δ_model_formulation(function_info, f_star, iter, Output = Output)
+        result = Δ_model_formulation(functionInfo, f_star, iter, Output = Output)
         Δ, a_min, a_max = result[1], result[2], result[3]
         
         ## update α
-        if μ/2 <= (α-a_min)/(a_max-a_min) .<= 1-μ/2
+        if μ/2 ≤ (α-a_min)/(a_max-a_min) .≤ 1-μ/2
             α = α
         else
             α = (a_min+a_max)/2
@@ -268,12 +268,12 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
 
         ## update level
         w = α * f_star
-        W = minimum( α * function_info.f_his[j] + (1-α) * function_info.G_max_his[j] for j in 1:iter) 
+        W = minimum( α * functionInfo.f_his[j] + (1-α) * functionInfo.G_max_his[j] for j in 1:iter) 
         level = w + λ * (W - w)
 
         if Output_Gap
-            @info "Gap is $Δ, iter num is $iter, func_val is $( - function_value_info[1]), Constraint is $(function_info.G_max_his[iter])"
-            # @info "Constraint is $(function_info.G_max_his[iter])"
+            @info "Gap is $Δ, iter num is $iter, func_val is $( - function_value_info[1]), Constraint is $(functionInfo.G_max_his[iter])"
+            # @info "Constraint is $(functionInfo.G_max_his[iter])"
         end
         
         ######################################################################################################################
@@ -282,27 +282,27 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
 
         # obtain the next iteration point
         if iter == 1
-            @constraint(nxtModel, level_constraint, α * z1 + (1 - α) * y1 <= level);
+            @constraint(nxtModel, level_constraint, α * z1 + (1 - α) * y1 ≤ level);
         else 
             delete(nxtModel, nxtModel[:level_constraint])
             unregister(nxtModel, :level_constraint)
-            @constraint(nxtModel, level_constraint, α * z1 + (1 - α) * y1 <= level);
+            @constraint(nxtModel, level_constraint, α * z1 + (1 - α) * y1 ≤ level);
         end
 
-        @constraint(nxtModel, z1 .>= function_info.f_his[iter] + function_info.df' * (x1 - function_info.x_his[iter]) )
-        @constraint(nxtModel, [k in keys(function_info.G)], y1 .>= function_info.G[k] + function_info.dG[k]' * (x1 - function_info.x_his[iter]) )
-        @objective(nxtModel, Min, (x1 - function_info.x_his[iter])' * (x1 - function_info.x_his[iter]))
+        @constraint(nxtModel, z1 .≥ functionInfo.f_his[iter] + functionInfo.df' * (x1 - functionInfo.x_his[iter]) )
+        @constraint(nxtModel, [k in keys(functionInfo.G)], y1 .≥ functionInfo.G[k] + functionInfo.dG[k]' * (x1 - functionInfo.x_his[iter]) )
+        @objective(nxtModel, Min, (x1 - functionInfo.x_his[iter])' * (x1 - functionInfo.x_his[iter]))
         optimize!(nxtModel)
         st = termination_status(nxtModel)
         if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
             x_nxt = JuMP.value.(x1)
         elseif st == MOI.NUMERICAL_ERROR ## need to figure out why this case happened and fix it
             if Enhanced_Cut
-                return [ - function_info.f_his[iter] - function_info.x_his[iter]' * l_interior, 
-                                                function_info.x_his[iter]] 
+                return [ - functionInfo.f_his[iter] - functionInfo.x_his[iter]' * l_interior, 
+                                                functionInfo.x_his[iter]] 
             else
-                return [ - function_info.f_his[iter] - function_info.x_his[iter]' * sum_generator, 
-                                                function_info.x_his[iter]]
+                return [ - functionInfo.f_his[iter] - functionInfo.x_his[iter]' * sum_generator, 
+                                                functionInfo.x_his[iter]]
             end
         else
             set_normalized_rhs( level_constraint, w + 1 * (W - w))
@@ -314,11 +314,11 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
         ## stop rule
         if Δ < threshold || iter > max_iter 
             if Enhanced_Cut
-                return [ - function_info.f_his[iter] - function_info.x_his[iter]' * l_interior, 
-                                                function_info.x_his[iter]] 
+                return [ - functionInfo.f_his[iter] - functionInfo.x_his[iter]' * l_interior, 
+                                                functionInfo.x_his[iter]] 
             else
-                return [ - function_info.f_his[iter] - function_info.x_his[iter]' * sum_generator, 
-                                                function_info.x_his[iter]]
+                return [ - functionInfo.f_his[iter] - functionInfo.x_his[iter]' * sum_generator, 
+                                                functionInfo.x_his[iter]]
             end
         end
         ######################################################################################################################
@@ -328,12 +328,12 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
         ## save the trajectory
         function_value_info = compute_f_G(x_nxt, Enhanced_Cut = Enhanced_Cut)
         iter = iter + 1
-        function_info.x_his[iter]     = x_nxt
-        function_info.G_max_his[iter] = max(function_value_info[3][k] for k in keys(function_value_info[3]))
-        function_info.f_his[iter]     = function_value_info[1]
-        function_info.df              = function_value_info[2]
-        function_info.dG              = function_value_info[4]
-        function_info.G               = function_value_info[3]
+        functionInfo.x_his[iter]     = x_nxt
+        functionInfo.G_max_his[iter] = max(function_value_info[3][k] for k in keys(function_value_info[3]))
+        functionInfo.f_his[iter]     = function_value_info[1]
+        functionInfo.df              = function_value_info[2]
+        functionInfo.dG              = function_value_info[4]
+        functionInfo.G               = function_value_info[3]
 
     end
 

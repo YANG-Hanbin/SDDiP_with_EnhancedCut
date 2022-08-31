@@ -1,8 +1,6 @@
 using JuMP, Gurobi, Random
 
 const GRB_ENV = Gurobi.Env()
-
-
 include("def.jl")
 
 ## input data
@@ -50,7 +48,6 @@ function recursion_scenario_constraint(pathList::Vector{Int64}, P::Float64, scen
     end
 
 end
-
 
 ################################################################################################################################################
 ############################################################     Gurobi function   #############################################################
