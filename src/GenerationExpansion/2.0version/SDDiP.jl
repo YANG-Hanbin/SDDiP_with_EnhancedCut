@@ -5,24 +5,9 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
                             Enhanced_Cut::Bool = true, binaryInfo::BinaryInfo = binaryInfo)
     ## d: dimension of x
     ## M: num of scenarios when doing one iteration
-    initial = now(); 
+    initial = now(); iter_time = 0; total_Time = 0; t0 = 0.0;
     T = length(keys(Ω));
-    
-    i = 1;
-    LB = - Inf;
-    UB = Inf;
-
-    iter_time = 0; total_Time = 0; t0 = 0.0;
-    
-    # cutCollection = Dict{Int64, CutCoefficient}()  # here, the index is stage t
-
-    # for t in 1:T
-
-    #     cutCollection[t] = CutCoefficient(
-    #                                         Dict(1=> Dict(1=> 0.0), 2 => Dict()),   ## v
-    #                                         Dict(1=> Dict(1=> zeros(Float64, n)), 2 => Dict())  ## π
-    #                                       )
-    # end
+    i = 1; LB = - Inf; UB = Inf; 
 
     col_names = [:iter, :LB, :OPT, :UB, :gap, :time, :Time]; # needs to be a vector Symbols
     col_types = [Int64, Float64, Float64, Float64, String, Float64, Float64];
@@ -53,22 +38,16 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
         
         ## Forward Step
         for k in 1:M
-            sum_generator= [0.0 for i in 1:binaryInfo.n];
+             L̂= [0.0 for i in 1:binaryInfo.n];
             for t in 1:T
-                # if k == 1  ## create data struct for next cut coefficients
-                #     cutCollection[t].v[i] = Dict{Int64, Float64}(1=> 0.0)
-                #     cutCollection[t].π[i] = Dict{Int64, Vector{Float64}}(1=> zeros(Float64, n))
-                # end
                 forwardInfo = forwardInfoList[t];
-
                 ## realization of k-th scenario at stage t
                 ω = scenario_sequence[Scenarios[k]][1][t];
-
                 ## the following function is used to (1). change the problem coefficients for different node within the same stage t.
                 forward_modify_constraints!(forwardInfo, 
                                                 stageDataList[t], 
                                                 Ω[t][ω].d, 
-                                                sum_generator, 
+                                                 L̂, 
                                                 binaryInfo = binaryInfo
                                                 );
                 optimize!(forwardInfo.model);
@@ -78,7 +57,7 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
                                         OPT = JuMP.objective_value(forwardInfo.model)
                                         );
 
-                sum_generator = solCollection[t, k].stageSolution;
+                 L̂ = solCollection[t, k].stageSolution;
             end
             u[k] = sum(solCollection[t, k].stageValue for t in 1:T);
         end
@@ -97,7 +76,6 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
         end
         @printf("%3d  |   %5.3g                         %5.3g                              %1.3f%s\n", i, LB, UB, gap, "%")
         if UB-LB ≤ 1e-2 * UB || i > max_iter
-            # Stage1_collection[1].state_variable[:zl] == gurobiResult.first_state_variable[:zl]
             return Dict(:solHistory => sddipResult, 
                             :solution => solCollection[1, 1].stageSolution, 
                             :gapHistory => gapList) 
@@ -107,7 +85,7 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
             for k in 1:M 
                 c = [0, zeros(Float64,binaryInfo.n)]
                 for j in keys(Ω[t])
-                    # @info "$t, $k, $j"
+                    @info "$t, $k, $j"
                     backwardInfo = backwardInfoList[t]
                     backward_Constraint_Modification!(backwardInfo, 
                                                     stageDataList[t], 
@@ -123,18 +101,23 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
                                                         binaryInfo = binaryInfo
                                                         )
                         optimize!(forwardInfoList[t].model); f_star_value = JuMP.objective_value(forwardInfoList[t].model);
+                        # L̃ = [.8 for i in 1:n] - .5 *  L̂;
+                        # L̃ = solCollection[t-1,k].stageSolution .* .8 .+ .1;
+                        L̃ = [.5 for i in 1:binaryInfo.n]
+                    else 
+                        L̃ = nothing;
+                        f_star_value = nothing;
                     end
-
-
-                    λ_value = .7; Output = 0; Output_Gap = false; Enhanced_Cut = true; threshold = 1.0; 
+                    λ_value = .3; Output = 0; Output_Gap = true; Enhanced_Cut = true; threshold = 1.0; 
                     levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap)
                     c = c + probList[t][j] * LevelSetMethod_optimization!(  backwardInfo, f_star_value; 
                                                                                 levelSetMethodParam = levelSetMethodParam, 
                                                                                 stageData = stageDataList[t], 
-                                                                                        sum_generator = solCollection[t-1,k].stageSolution, 
+                                                                                         L̂ = solCollection[t-1,k].stageSolution, 
                                                                                             ϵ = 1e-4, 
                                                                                                 Enhanced_Cut = Enhanced_Cut, 
-                                                                                                    binaryInfo = binaryInfo) 
+                                                                                                    binaryInfo = binaryInfo, 
+                                                                                                    L̃ = L̃) 
                 end
                 # # add cut to both backward models and forward models
                 # cutCollection[t-1].v[i][k] = c[1]

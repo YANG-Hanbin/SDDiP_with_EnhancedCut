@@ -64,13 +64,14 @@ end
 ## -------------------------------------------------- Main Function -------------------------------------------- ##
 ######################################################################################################################
 
-function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, f_star_value::Float64; 
+function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, f_star_value::Union{Float64, Nothing}; 
                                         levelSetMethodParam::LevelSetMethodParam = levelSetMethodParam, 
                                         stageData::StageData = stageData, 
-                                        sum_generator::Vector{Float64} = sum_generator, 
+                                        L̂::Vector{Float64} =  L̂, 
                                         ϵ::Float64 = 1e-4, 
                                         Enhanced_Cut = true, 
-                                        binaryInfo::BinaryInfo = binaryInfo) 
+                                        binaryInfo::BinaryInfo = binaryInfo, 
+                                        L̃::Union{Vector{Float64}, Nothing} = nothing) 
     
     ######################################################################################################################
     ###############################   auxiliary function for function information   ######################################
@@ -78,27 +79,25 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, f_star_v
     ##  μ larger is better
     (μ, λ, threshold, nxt_bound, max_iter, Output, Output_Gap) = (levelSetMethodParam.μ, levelSetMethodParam.λ, levelSetMethodParam.threshold, levelSetMethodParam.nxt_bound, levelSetMethodParam.max_iter, levelSetMethodParam.Output,levelSetMethodParam.Output_Gap);
     (A, n, d) = (binaryInfo.A, binaryInfo.n, binaryInfo.d);
-    # l_interior = [.8 for i in 1:n] - .5 * sum_generator;
-    l_interior = sum_generator .* .8 .+ .1;
 
     ## collect the information from the objecive f, and constraints G
     function compute_f_G(x₀::Vector{Float64}; 
                                             Enhanced_Cut::Bool = true, 
                                             f_star_value::Float64 = f_star_value, 
                                             stageData::StageData = stageData, 
-                                            sum_generator::Vector{Float64} = sum_generator, 
+                                            L̂::Vector{Float64} =  L̂, 
                                             ϵ::Float64 = ϵ )
 
         if Enhanced_Cut 
             @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
-                                                                x₀' * (sum_generator .- backwardInfo.Lc) );
+                                                                x₀' * ( L̂ .- backwardInfo.Lc) );
             optimize!(backwardInfo.model);
-            F_solution = [ JuMP.objective_value(backwardInfo.model), sum_generator .- round.(JuMP.value.(backwardInfo.Lc)) ];
+            F_solution = [ JuMP.objective_value(backwardInfo.model),  L̂ .- round.(JuMP.value.(backwardInfo.Lc)) ];
 
             currentInfo  = CurrentInfo(x₀, 
-                                        - F_solution[1] - x₀' * (l_interior .- sum_generator),
+                                        - F_solution[1] - x₀' * ( L̃ .-  L̂),
                                         Dict(1 => (1 - ϵ) * f_star_value - F_solution[1]),
-                                        round.(- F_solution[2] - (l_interior .- sum_generator), digits = 2),
+                                        round.(- F_solution[2] - ( L̃ .-  L̂), digits = 2),
                                         Dict(1 => - F_solution[2])
 
                                         )                                        
@@ -109,9 +108,9 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, f_star_v
             F_solution = [ JuMP.objective_value(backwardInfo.model), - round.(JuMP.value.(backwardInfo.Lc)) ];
 
             currentInfo  = CurrentInfo(x₀, 
-                                        - F_solution[1] - x₀' * sum_generator, 
+                                        - F_solution[1] - x₀' *  L̂, 
                                         Dict(1 => 0.0),
-                                        - F_solution[2] - sum_generator,
+                                        - F_solution[2] -  L̂,
                                         Dict(1 => - F_solution[2] * 0)
                                         );
         end
@@ -122,7 +121,7 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, f_star_v
 
     ## ==================================================== Levelset Method ============================================== ##
     if Enhanced_Cut
-        x₀ = sum_generator .* f_star_value .- .5 .* f_star_value;
+        x₀ =  L̂ .* f_star_value .- .5 .* f_star_value;
     else
         x₀ = zeros(n);
     end 
@@ -146,7 +145,7 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, f_star_v
             );
 
     para_oracle_bound = abs(currentInfo.f);
-    z_rhs = 1 * 10^(ceil(log10(para_oracle_bound)));
+    z_rhs = 3 * 10^(ceil(log10(para_oracle_bound)));
     @variable(oracleModel, z  ≥  - z_rhs);
     @variable(oracleModel, x[i = 1:n]);
     @variable(oracleModel, y ≤ 0);
@@ -169,10 +168,10 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, f_star_v
     Δ = Inf; τₖ = 1; τₘ = .5; μₖ = 1;
 
     if Enhanced_Cut
-        cutInfo =  [ - currentInfo.f - currentInfo.x' * l_interior,  
+        cutInfo =  [ - currentInfo.f - currentInfo.x' *  L̃,  
                                                                     currentInfo.x] 
     else
-        cutInfo = [ - currentInfo.f - currentInfo.x[:zb]' * sum_generator,  
+        cutInfo = [ - currentInfo.f - currentInfo.x[:zb]' *  L̂,  
                                                                     currentInfo.x] 
     end 
 
@@ -206,10 +205,10 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, f_star_v
         if round(previousΔ) > round(Δ)
             x₀ = currentInfo.x; τₖ = μₖ * τₖ;
             if Enhanced_Cut
-                cutInfo =  [ - currentInfo.f - currentInfo.x' * l_interior,  
+                cutInfo =  [ - currentInfo.f - currentInfo.x' *  L̃,  
                                                                             currentInfo.x] 
             else
-                cutInfo = [ - currentInfo.f - currentInfo.x[:zb]' * sum_generator,  
+                cutInfo = [ - currentInfo.f - currentInfo.x[:zb]' *  L̂,  
                                                                             currentInfo.x] 
             end 
         else
@@ -275,13 +274,14 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, f_star_v
             x_nxt = JuMP.value.(x1)
             λₖ = abs(dual(level_constraint)); μₖ = λₖ + 1; 
         else
-            set_normalized_rhs( level_constraint, w + .99 * (W - w))
+            set_normalized_rhs( level_constraint, w + 0.0 * (W - w))
             optimize!(nxtModel)
             x_nxt = JuMP.value.(x1)
         end
 
         ## stop rule: gap ≤ .07 * function-value && constraint ≤ 0.05 * LagrangianFunction
         if ( Δ ≤ 100 && currentInfo.G[1] ≤ threshold ) || iter > max_iter
+            # @info "yes"
             return cutInfo
         end
 

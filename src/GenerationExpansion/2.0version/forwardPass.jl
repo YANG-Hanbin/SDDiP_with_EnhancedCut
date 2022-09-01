@@ -50,7 +50,7 @@ end
 function forward_modify_constraints!(forwardInfo::ForwardModelInfo, 
                                         stageData::StageData, 
                                         demand::Vector{Float64}, 
-                                        sum_generator::Vector{Float64};
+                                        L̂::Vector{Float64};
                                         binaryInfo::BinaryInfo = binaryInfo                     ## realization of the random time
                                         )
 
@@ -65,16 +65,16 @@ function forward_modify_constraints!(forwardInfo::ForwardModelInfo,
     unregister(forwardInfo.model, :totalGenerators)
 
     ## no more than max num of generators
-    @constraint(forwardInfo.model, limitationConstraint,    binaryInfo.A * sum_generator + forwardInfo.x .≤ stageData.ū ) 
+    @constraint(forwardInfo.model, limitationConstraint,    binaryInfo.A * L̂ + forwardInfo.x .≤ stageData.ū ) 
 
     # satisfy demand
     @constraint(forwardInfo.model, demandConstraint,        sum(forwardInfo.y) + forwardInfo.slack .≥ demand )
 
     # no more than capacity
     @constraint(forwardInfo.model, capacityConstraint,      stageData.h * stageData.N 
-                                                            * (binaryInfo.A * sum_generator + forwardInfo.x + stageData.s₀ ) .≥ forwardInfo.y )  
+                                                            * (binaryInfo.A * L̂ + forwardInfo.x + stageData.s₀ ) .≥ forwardInfo.y )  
 
-    @constraint(forwardInfo.model, totalGenerators,         binaryInfo.A * sum_generator + forwardInfo.x .== binaryInfo.A * forwardInfo.Lt)
+    @constraint(forwardInfo.model, totalGenerators,         binaryInfo.A * L̂ + forwardInfo.x .== binaryInfo.A * forwardInfo.Lt)
 
 end
 
