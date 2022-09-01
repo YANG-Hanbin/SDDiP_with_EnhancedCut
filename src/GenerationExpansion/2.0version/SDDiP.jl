@@ -102,8 +102,8 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
                                                         )
                         optimize!(forwardInfoList[t].model); f_star_value = JuMP.objective_value(forwardInfoList[t].model);
                         # L̃ = [.8 for i in 1:n] - .5 *  L̂;
-                        # L̃ = solCollection[t-1,k].stageSolution .* .8 .+ .1;
-                        L̃ = [.5 for i in 1:binaryInfo.n]
+                        L̃ = solCollection[t-1,k].stageSolution .* .6 .+ .2;
+                        # L̃ = [.5 for i in 1:binaryInfo.n]
                     else 
                         L̃ = nothing;
                         f_star_value = nothing;
