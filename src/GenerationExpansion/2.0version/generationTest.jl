@@ -9,7 +9,7 @@
 
 
 r = 0.08
-T = 5
+T = 3
 
 N = [
     1130.0 0 0 0 0 0;
@@ -77,8 +77,6 @@ end
 ##########################################################################################
 ############################  To generate random variable  ###############################
 ##########################################################################################
-T = 5
-
 N_rv = Vector{Int64}()  # the number of realization of each stage
 num_Ω = 10
 N_rv = [num_Ω for t in 1:T]  ## xxxx 需要update
@@ -87,7 +85,7 @@ N_rv = [num_Ω for t in 1:T]  ## xxxx 需要update
 Random.seed!(1234)
 
 Ω = Dict{Int64,Dict{Int64,RandomVariables}}()   # each stage t, its node are included in Ω[t]
-initial_demand = 2e8  #  5.685e8
+initial_demand = 2e6  #  5.685e8
 
 for t in 1:T 
     Ω[t] = Dict{Int64,RandomVariables}()

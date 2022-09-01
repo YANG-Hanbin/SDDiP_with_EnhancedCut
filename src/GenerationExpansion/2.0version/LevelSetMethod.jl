@@ -43,25 +43,6 @@ function Δ_model_formulation(functionHistory::FunctionHistory, f_star::Float64,
 end
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 """
     This function is to add constraints for the model f_star and nxt pt.
 """
@@ -76,7 +57,6 @@ function add_constraint(currentInfo::CurrentInfo, modelInfo::ModelInfo)
     @constraint(modelInfo.model, [k = 1:m], modelInfo.y .≥ currentInfo.G[k] + sum(currentInfo.dG[k] .* (modelInfo.x .- xⱼ))
                                                                                  ) 
 end
-
 
 
 
@@ -118,7 +98,7 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, f_star_v
             currentInfo  = CurrentInfo(x₀, 
                                         - F_solution[1] - x₀' * (l_interior .- sum_generator),
                                         Dict(1 => (1 - ϵ) * f_star_value - F_solution[1]),
-                                        - F_solution[2] - (l_interior .- sum_generator),
+                                        round.(- F_solution[2] - (l_interior .- sum_generator), digits = 2),
                                         Dict(1 => - F_solution[2])
 
                                         )                                        
@@ -142,23 +122,17 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, f_star_v
 
     ## ==================================================== Levelset Method ============================================== ##
     if Enhanced_Cut
-        x₀ = sum_generator .* 2 .* f_star_value .- f_star_value;
+        x₀ = sum_generator .* f_star_value .- .5 .* f_star_value;
     else
-        x₀ = ones(n);
+        x₀ = zeros(n);
     end 
+    # x₀ = zeros(n);
 
     iter = 1;
     α = 1/2;
 
     ## trajectory
     currentInfo = compute_f_G(x₀, Enhanced_Cut = Enhanced_Cut);
-    functionInfo = FunctionInfo(   Dict(1 => x₀), 
-                                    Dict(1 => max(currentInfo[3][k] for k in keys(currentInfo[3]))), 
-                                    Dict(1 => currentInfo[1]), 
-                                    currentInfo[2], 
-                                    currentInfo[4], 
-                                    currentInfo[3]
-                                    );
     functionHistory = FunctionHistory(  Dict(1 => currentInfo.f), 
                                     Dict(1 => maximum(currentInfo.G[k] for k in keys(currentInfo.G)) )
                                     );
@@ -171,15 +145,14 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, f_star_v
             "Threads" => 0)
             );
 
-    para_oracle_bound = abs(functionInfo.f_his[1]);
-    z_rhs = 5.3 * 10^(ceil(log10(para_oracle_bound)));
-    @variable(oracleModel, z  ≥ - z_rhs);
+    para_oracle_bound = abs(currentInfo.f);
+    z_rhs = 1 * 10^(ceil(log10(para_oracle_bound)));
+    @variable(oracleModel, z  ≥  - z_rhs);
     @variable(oracleModel, x[i = 1:n]);
     @variable(oracleModel, y ≤ 0);
 
     @objective(oracleModel, Min, z);
     oracleInfo = ModelInfo(oracleModel, x, y, z);
-
 
     nxtModel = Model(
         optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
@@ -204,8 +177,8 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, f_star_v
     end 
 
     while true
-        add_constraint(currentInfo, oracleInfo)
-        optimize!(oracleModel)
+        add_constraint(currentInfo, oracleInfo);
+        optimize!(oracleModel);
 
         st = termination_status(oracleModel)
         if st != MOI.OPTIMAL
@@ -275,11 +248,11 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, f_star_v
         end
 
         add_constraint(currentInfo, nxtInfo);
-        @objective(nxtModel, Min, (x1 - x₀)' * (x1 - x₀))
+        @objective(nxtModel, Min, sum((x1 .- x₀) .* (x1 .- x₀)))
         optimize!(nxtModel)
         st = termination_status(nxtModel)
         if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
-            x_nxt = JuMP.value.(x1)
+            x_nxt = JuMP.value.(x1);
             λₖ = abs(dual(level_constraint)); μₖ = λₖ + 1; 
         elseif st == MOI.NUMERICAL_ERROR ## need to figure out why this case happened and fix it
             @info "Numerical Error occures! -- Build a new nxtModel"
@@ -308,7 +281,7 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, f_star_v
         end
 
         ## stop rule: gap ≤ .07 * function-value && constraint ≤ 0.05 * LagrangianFunction
-        if ( Δ ≤ abs.(currentInfo.f)/15 && currentInfo.G[1] ≤ threshold ) || iter > max_iter
+        if ( Δ ≤ 100 && currentInfo.G[1] ≤ threshold ) || iter > max_iter
             return cutInfo
         end
 

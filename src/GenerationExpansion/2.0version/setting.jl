@@ -86,10 +86,7 @@ function SampleScenarios(scenario_sequence::Dict{Int64, Dict{Int64, Any}}; T::In
     return scenarios
 end
 
-
-
-
-
+## rounding data
 function round!(a::Float64)               ## a = 1.3333e10
     b = floor(log10(a))                   ## b = 10
     c = round(a/10^b,digits = 2)          ## c = 1.33
@@ -98,5 +95,68 @@ function round!(a::Float64)               ## a = 1.3333e10
 end
 
 
+## setup coefficients
+function dataGeneration(; T::Int64 = 2, 
+                            r::Float64 = 0.08, ## the annualized interest rate
+                            N::Matrix{Float64} = N, ## Generator rating
+                            ū::Vector{Float64} = ū, ## maximum number of each type of generators
+                            c::Vector{Float64} = c, # c_g from table 4, cost/MW to build a generator of type g
+                            mg::Vector{Int64} = mg,
+                            fuel_price::Vector{Float64} = fuel_price,
+                            heat_rate::Vector{Int64} = heat_rate,
+                            eff::Vector{Float64} = eff,
+                            om_cost::Vector{Float64} = om_cost, 
+                            s₀::Vector{Int64} = s₀,
+                            penalty::Float64 = 1e5, 
+                            initial_demand::Float64 = 1e7, 
+                            seed::Int64 = 1234
+                            )
 
+    binaryInfo = intergerBinarization(ū)
+    (A, n, d) = (binaryInfo.A, binaryInfo.n, binaryInfo.d)
+
+    #  compute c1
+    c1 = [[c[i]*mg[i]/(1+r)^j for i in 1:6 ]  for j in 1:T ] 
+    #  compute c2
+    c2 = [[fuel_price[i]*heat_rate[i]*1e-3*eff[i] for i in 1:6]*(1.02)^j + om_cost*(1.03)^j for j in 1:T]
+
+
+    stageDataList = Dict{Int64,StageData}()
+    for t in 1:T 
+        stageDataList[t] = StageData(c1[t], c2[t], ū, 8760., N, s₀, penalty)
+    end
+
+    ##########################################################################################
+    ############################  To generate random variable  ###############################
+    ##########################################################################################
+    N_rv = Vector{Int64}()  # the number of realization of each stage
+    num_Ω = 10
+    N_rv = [num_Ω for t in 1:T]  
+
+    Random.seed!(seed)
+
+    Ω = Dict{Int64,Dict{Int64,RandomVariables}}()   # each stage t, its node are included in Ω[t]
+
+    for t in 1:T 
+        Ω[t] = Dict{Int64,RandomVariables}()
+        for i in 1:N_rv[t]
+            if t == 1
+                Ω[t][i]= RandomVariables([initial_demand])
+            else
+                Ω[t][i]= RandomVariables( rand(Uniform(0.95, 1.3))*Ω[t-1][i].d )
+            end
+        end
+    end
+
+
+    probList = Dict{Int64,Vector{Float64}}()  # P(node in t-1 --> node in t ) = prob[t]
+    for t in 1:T 
+        probList[t] = [0.1 for i in 1:N_rv[t]]
+    end
+
+    return (probList = probList, 
+            stageDataList = stageDataList, 
+            Ω = Ω, 
+            binaryInfo = binaryInfo)
+end
 

@@ -12,7 +12,6 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
     LB = - Inf;
     UB = Inf;
 
-    initial = now(); T = 2; i = 1; LB = - Inf; UB = Inf;
     iter_time = 0; total_Time = 0; t0 = 0.0;
     
     # cutCollection = Dict{Int64, CutCoefficient}()  # here, the index is stage t
@@ -45,7 +44,7 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
     println("---------------- print out iteration information -------------------")
     while true
         t0 = now();
-        M = 100;
+        M = 4;
         solCollection = Dict();  # to store every iteration results
         u = Vector{Float64}(undef, M);  # to compute upper bound
         
@@ -54,7 +53,7 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
         
         ## Forward Step
         for k in 1:M
-            sum_generator= [0.0 for i in 1:n];
+            sum_generator= [0.0 for i in 1:binaryInfo.n];
             for t in 1:T
                 # if k == 1  ## create data struct for next cut coefficients
                 #     cutCollection[t].v[i] = Dict{Int64, Float64}(1=> 0.0)
@@ -88,7 +87,7 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
         LB = solCollection[1, 1].OPT;
         μ̄ = mean(u);
         σ̂² = var(u);
-        UB = μ̄ + 1.96 * sqrt(σ̂²/M);
+        UB = minimum([μ̄ + 1.96 * sqrt(σ̂²/M), UB]);
         gap = round((UB-LB)/UB * 100 ,digits = 2);
         gapString = string(gap,"%");
         push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, gap);
@@ -100,14 +99,15 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
         if UB-LB ≤ 1e-2 * UB || i > max_iter
             # Stage1_collection[1].state_variable[:zl] == gurobiResult.first_state_variable[:zl]
             return Dict(:solHistory => sddipResult, 
-                            :solution => Stage1_collection[1], 
+                            :solution => solCollection[1, 1].stageSolution, 
                             :gapHistory => gapList) 
         end
 
         for t = reverse(2:T)
             for k in 1:M 
-                c = [0, zeros(Float64,n)]
+                c = [0, zeros(Float64,binaryInfo.n)]
                 for j in keys(Ω[t])
+                    # @info "$t, $k, $j"
                     backwardInfo = backwardInfoList[t]
                     backward_Constraint_Modification!(backwardInfo, 
                                                     stageDataList[t], 
@@ -126,13 +126,13 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
                     end
 
 
-                    λ_value = .7; Output = 0; Output_Gap = true; Enhanced_Cut = true; threshold = 1e-5; 
+                    λ_value = .7; Output = 0; Output_Gap = false; Enhanced_Cut = true; threshold = 1.0; 
                     levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap)
                     c = c + probList[t][j] * LevelSetMethod_optimization!(  backwardInfo, f_star_value; 
                                                                                 levelSetMethodParam = levelSetMethodParam, 
-                                                                                    stageData = stageDataList[t], 
+                                                                                stageData = stageDataList[t], 
                                                                                         sum_generator = solCollection[t-1,k].stageSolution, 
-                                                                                            ϵ = 1e-3, 
+                                                                                            ϵ = 1e-4, 
                                                                                                 Enhanced_Cut = Enhanced_Cut, 
                                                                                                     binaryInfo = binaryInfo) 
                 end
@@ -140,8 +140,10 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
                 # cutCollection[t-1].v[i][k] = c[1]
                 # cutCollection[t-1].π[i][k] = c[2]
 
-                @constraint(forwardInfoList[t-1].model, modelInfo.θ ≥ c[1] + c[2]' * modelInfo.Lt )
-                @constraint(backwardInfoList[t-1].model, modelInfo.θ ≥ c[1] + c[2]' * modelInfo.Lt )              
+                @constraint(forwardInfoList[t-1].model, forwardInfoList[t-1].θ ≥ c[1] + c[2]' * forwardInfoList[t-1].Lt )
+                @constraint(forwardInfoList[t-1].model, forwardInfoList[t-1].θ ≥ c[1] + c[2]' * forwardInfoList[t-1].Lt ) 
+                @constraint(backwardInfoList[t-1].model, backwardInfoList[t-1].θ ≥ c[1] + c[2]' * backwardInfoList[t-1].Lt )
+                @constraint(backwardInfoList[t-1].model, backwardInfoList[t-1].θ ≥ c[1] + c[2]' * backwardInfoList[t-1].Lt )              
             end
         end
 
