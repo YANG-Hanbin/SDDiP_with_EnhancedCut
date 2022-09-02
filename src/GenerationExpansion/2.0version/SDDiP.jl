@@ -102,14 +102,14 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
                                                         )
                         optimize!(forwardInfoList[t].model); f_star_value = JuMP.objective_value(forwardInfoList[t].model);
                         # L̃ = [.8 for i in 1:n] - .5 *  L̂;
-                        L̃ = solCollection[t-1,k].stageSolution .* .6 .+ .2;
-                        # L̃ = [.5 for i in 1:binaryInfo.n]
+                        # L̃ = solCollection[t-1,k].stageSolution .* .5 .+ .3;
+                        L̃ = [.5 for i in 1:binaryInfo.n]
                     else 
                         L̃ = nothing;
                         f_star_value = nothing;
                     end
                     λ_value = .3; Output = 0; Output_Gap = true; Enhanced_Cut = true; threshold = 1.0; 
-                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap)
+                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 30, Output, Output_Gap)
                     c = c + probList[t][j] * LevelSetMethod_optimization!(  backwardInfo, f_star_value; 
                                                                                 levelSetMethodParam = levelSetMethodParam, 
                                                                                 stageData = stageDataList[t], 
