@@ -63,7 +63,7 @@ function backwardModel!(             stageData::StageData;
                 * (binaryInfo.A * Lc + x + stageData.s₀ ) .≥ y )    # no more than capacity
 
     @constraint(F, demandConstraint, sum(y) + slack .≥ 0)
-    @constraint(F, binarizationConstraint, x .== binaryInfo.A * Lt )               ## to ensure pass a binary variable for next stage
+    @constraint(F, binaryInfo.A * Lc + x .== binaryInfo.A * Lt )               ## to ensure pass a binary variable for next stage
 
     return BackwardModelInfo(F, x, Lt, Lc, y, θ, slack)
 end
@@ -79,13 +79,8 @@ function backward_Constraint_Modification!(backwardInfo::BackwardModelInfo,
     delete(backwardInfo.model, backwardInfo.model[:demandConstraint])
     unregister(backwardInfo.model, :demandConstraint)
 
-    delete(backwardInfo.model, backwardInfo.model[:binarizationConstraint])
-    unregister(backwardInfo.model, :binarizationConstraint)
-
     # satisfy demand
     @constraint(backwardInfo.model, demandConstraint, sum(backwardInfo.y) + backwardInfo.slack .≥ demand )
-    @constraint(backwardInfo.model, binarizationConstraint, binaryInfo.A * L̂ + backwardInfo.x .== binaryInfo.A * backwardInfo.Lt )               ## to ensure pass a binary variable for next stage
-
 end
 
 

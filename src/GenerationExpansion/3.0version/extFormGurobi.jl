@@ -10,7 +10,7 @@ include("def.jl")
 ############################################  auxiliary function: nonanticipativity for multistage problem #############################################
 ########################################################################################################################################################
 function recursion_scenario_constraint(pathList::Vector{Int64}, P::Float64, scenario_sequence::Dict{Int64, Dict{Int64, Any}}, t::Int64;   
-                    Ω::Dict{Int64,Dict{Int64,RandomVariables}} = Ω, prob::Dict{Int64,Vector{Float64}} = prob, T::Int64 = 2, gurobiModelInfo::GurobiModelInfo = gurobiModelInfo)
+                    Ω::Dict{Int64,Dict{Int64,RandomVariables}} = Ω, probList::Dict{Int64,Vector{Float64}} = probList, T::Int64 = 2, gurobiModelInfo::GurobiModelInfo = gurobiModelInfo)
 
     if t <= T
         for ω_key in keys(Ω[t])
@@ -19,7 +19,7 @@ function recursion_scenario_constraint(pathList::Vector{Int64}, P::Float64, scen
             P_copy = copy(P)
 
             push!(pathList_copy, ω_key)
-            P_copy = P_copy * prob[t][ω_key]
+            P_copy = P_copy * probList[t][ω_key]
 
             ## nonanticipativity for multi-stage problem
             if t < T
@@ -36,7 +36,7 @@ function recursion_scenario_constraint(pathList::Vector{Int64}, P::Float64, scen
                     @constraint(gurobiModelInfo.model, [i = 1, j in 2:gurobiModelInfo.num_Ω^(T-t)], gurobiModelInfo.slack[t, i] .== gurobiModelInfo.slack[t, j]) 
                 end
             end
-            recursion_scenario_constraint(pathList_copy, P_copy, scenario_sequence, t+1, Ω = Ω, prob = prob, T = T, gurobiModelInfo = gurobiModelInfo)
+            recursion_scenario_constraint(pathList_copy, P_copy, scenario_sequence, t+1, Ω = Ω, probList = probList, T = T, gurobiModelInfo = gurobiModelInfo)
         end
     else
         if haskey(scenario_sequence, 1)
@@ -52,10 +52,11 @@ end
 ################################################################################################################################################
 ############################################################     Gurobi function   #############################################################
 ################################################################################################################################################
-
+# probList = probListList;
+# stageDataList = stageDataList;
 function gurobiOptimize!(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, 
-                        prob::Dict{Int64,Vector{Float64}}, 
-                        StageCoefficient::Dict{Int64, StageData}; 
+                        probList::Dict{Int64,Vector{Float64}}, 
+                        stageDataList::Dict{Int64, StageData}; 
                         binaryInfo::BinaryInfo = binaryInfo)
 
     (A, n, d) = (binaryInfo.A, binaryInfo.n, binaryInfo.d)
@@ -73,23 +74,23 @@ function gurobiOptimize!(Ω::Dict{Int64,Dict{Int64,RandomVariables}},
     @variable(model, S[i = 1:d, t = 1:T, ω in 1:W] ≥ 0 )
 
     @constraint(model, [t in 1:T, ω in 1:W], S[:, t, ω] .== sum(x[:, j, ω] for j in 1:t ) )
-    @constraint(model, [t in 1:T], S[:, t, :] .≤ StageCoefficient[t].ū)
-    @constraint(model, [t in 1:T, ω in 1:W], y[:,t, ω] .≤ StageCoefficient[t].h * StageCoefficient[t].N * (S[:, t, ω] + StageCoefficient[t].s₀))
+    @constraint(model, [t in 1:T], S[:, t, :] .≤ stageDataList[t].ū)
+    @constraint(model, [t in 1:T, ω in 1:W], y[:,t, ω] .≤ stageDataList[t].h * stageDataList[t].N * (S[:, t, ω] + stageDataList[t].s₀))
 
     ## nonanticipativity for multistage problem 
-    @constraint(model, [ω in 2:W], x[:, 1, 1] .== x[:, 1, ω])  ## nonanticipativity for 2-stage problem
-    gurobiModelInfo = GurobiModelInfo(model, x, y, slack, num_Ω)
-    scenario_sequence = Dict{Int64, Dict{Int64, Any}}()  ## the first index is for scenario index, the second one is for stage
-    pathList = Vector{Int64}()
-    push!(pathList, 1)
+    @constraint(model, [ω in 2:W], x[:, 1, 1] .== x[:, 1, ω]);  ## nonanticipativity for 2-stage problem
+    gurobiModelInfo = GurobiModelInfo(model, x, y, slack, num_Ω);
+    scenario_sequence = Dict{Int64, Dict{Int64, Any}}();  ## the first index is for scenario index, the second one is for stage
+    pathList = Vector{Int64}();
+    push!(pathList, 1);
 
-    recursion_scenario_constraint(pathList, 1.0, scenario_sequence, 2, Ω = Ω, prob = prob, T = T, gurobiModelInfo = gurobiModelInfo)
+    recursion_scenario_constraint(pathList, 1.0, scenario_sequence, 2, Ω = Ω, probList = probList, T = T, gurobiModelInfo = gurobiModelInfo);
     
-    scenario_tree = scenario_sequence
+    scenario_tree = scenario_sequence;
     #############################################################################################################################
-    @constraint(model, [t in 1:T, ω in 1:W], sum(y[i, t, ω] for i in 1:d) + slack[t, ω] ≥ Ω[t][scenario_tree[ω][1][t]].d[1] )
+    @constraint(model, [t in 1:T, ω in 1:W], sum(y[i, t, ω] for i in 1:d) + slack[t, ω] ≥ Ω[t][scenario_tree[ω][1][t]].d[1] );
 
-    @objective(model, Min, sum( sum( scenario_tree[ω][2] * (StageCoefficient[t].c1' * x[:, t, ω] + StageCoefficient[t].c2' * y[:, t, ω] + StageCoefficient[t].penalty * slack[t, ω]) for t in 1:T ) for ω in 1:W) )
+    @objective(model, Min, sum( sum( scenario_tree[ω][2] * (stageDataList[t].c1' * x[:, t, ω] + stageDataList[t].c2' * y[:, t, ω] + stageDataList[t].penalty * slack[t, ω]) for t in 1:T ) for ω in 1:W) );
     optimize!(model)
     ####################################################### solve the model and display the result ###########################################################
 
@@ -110,6 +111,10 @@ function gurobiOptimize!(Ω::Dict{Int64,Dict{Int64,RandomVariables}},
 end
 
 
+# sum( sum( scenario_tree[ω][2] * (stageDataList[t].c1' * value.(x[:, t, ω]) + stageDataList[t].c2' * value.(y[:, t, ω])) for t in 1:T ) for ω in 1:W)
 
-# gurobiOptimize!(Ω, prob, StageCoefficient,
+# sum( sum( scenario_tree[ω][2] * (stageDataList[t].c1' * value.(x[:, t, ω])) for t in 1:T ) for ω in 1:W)
+
+# sum( sum( scenario_tree[ω][2] * (stageDataList[t].c2' * value.(y[:, t, ω])) for t in 1:T ) for ω in 1:W)
+# gurobiOptimize!(Ω, probList, stageDataList,
 #                         binaryInfo = binaryInfo)

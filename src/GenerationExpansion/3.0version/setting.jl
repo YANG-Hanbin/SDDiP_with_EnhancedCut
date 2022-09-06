@@ -107,7 +107,7 @@ function dataGeneration(; T::Int64 = 2,
                             eff::Vector{Float64} = eff,
                             om_cost::Vector{Float64} = om_cost, 
                             s₀::Vector{Int64} = s₀,
-                            penalty::Float64 = 1e5, 
+                            penalty::Float64 = 1e10, 
                             initial_demand::Float64 = 1e7, 
                             seed::Int64 = 1234
                             )
@@ -131,7 +131,8 @@ function dataGeneration(; T::Int64 = 2,
     ##########################################################################################
     N_rv = Vector{Int64}()  # the number of realization of each stage
     num_Ω = 10
-    N_rv = [num_Ω for t in 1:T]  
+    N_rv = [num_Ω for t in 1:T] 
+    # N_rv = round.(rand(T) * 10) 
 
     Random.seed!(seed)
 
@@ -143,7 +144,7 @@ function dataGeneration(; T::Int64 = 2,
             if t == 1
                 Ω[t][i]= RandomVariables([initial_demand])
             else
-                Ω[t][i]= RandomVariables( rand(Uniform(0.95, 1.5))*Ω[t-1][i].d )
+                Ω[t][i]= RandomVariables( rand(Uniform(1, 1.5))*Ω[t-1][i].d )
             end
         end
     end
@@ -151,7 +152,8 @@ function dataGeneration(; T::Int64 = 2,
 
     probList = Dict{Int64,Vector{Float64}}()  # P(node in t-1 --> node in t ) = prob[t]
     for t in 1:T 
-        probList[t] = [0.1 for i in 1:N_rv[t]]
+        randomVector = round.(rand(N_rv[t]),digits = 2)
+        probList[t] = round.(randomVector/sum(randomVector),digits = 2)
     end
 
     return (probList = probList, 

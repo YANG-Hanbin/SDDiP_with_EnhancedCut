@@ -105,15 +105,15 @@ end
 
 
 struct LevelSetMethodParam
-    μ             ::Float64   ## param for adjust α
-    λ             ::Float64   ## param for adjust level
-    threshold     ::Float64   ## threshold for Δ
-    nxt_bound     ::Float64   ## lower bound for solving next iteration point π
+    μ             ::Float64                     ## param for adjust α
+    λ             ::Union{Float64, Nothing}     ## param for adjust level
+    threshold     ::Float64                     ## threshold for Δ
+    nxt_bound     ::Float64                     ## lower bound for solving next iteration point π
     max_iter      ::Int64     
-    Output        ::Int64     ## Gurobi Output parameter
-    Output_Gap    ::Bool      ## if True will print Δ info
+    Output        ::Int64                       ## Gurobi Output parameter
+    Output_Gap    ::Bool                        ## if True will print Δ info
     ## the following parameters are problem-specific
-    L̂             ::Vector{Float64}  ## first stage solution
+    L̂             ::Vector{Float64}                 ## first stage solution
     cutSelection  ::String
     L̃             ::Union{Vector{Float64}, Nothing} ## interior point
     f_star_value  ::Union{Float64, Nothing}         ## subproblem optimal value

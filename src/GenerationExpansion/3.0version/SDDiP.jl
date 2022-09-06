@@ -3,7 +3,7 @@ function setupLevelsetPara(t::Int64, j::Int64, k::Int64;
                                     L̂::Vector{Float64} = L̂, 
                                     binaryInfo::BinaryInfo = binaryInfo, 
                                     Output_Gap::Bool = false,
-                                    λ::Float64 = .3)
+                                    λ::Union{Float64, Nothing} = .3, ℓ1::Real = 1.0, ℓ2::Real = 0.8)
     if cutSelection == "ELC"
         forward_modify_constraints!(forwardInfoList[t], 
                                         stageDataList[t], 
@@ -13,12 +13,12 @@ function setupLevelsetPara(t::Int64, j::Int64, k::Int64;
                                         )
         optimize!(forwardInfoList[t].model); f_star_value = JuMP.objective_value(forwardInfoList[t].model);
         # L̃ = [.8 for i in 1:n] - .5 *  L̂;
-        L̃ = solCollection[t-1,k].stageSolution .* .8 .+ .1;
+        L̃ = solCollection[t-1,k].stageSolution .* ℓ2 .+ (1 - ℓ2)/2;
         # L̃ = [.5 for i in 1:binaryInfo.n]
 
         Output = 0; threshold = 1.0; 
         levelSetMethodParam = LevelSetMethodParam(0.95, λ, threshold, 
-                                                            1e14, 1e2, Output, Output_Gap,
+                                                            1e14, 5e2, Output, Output_Gap,
                                                                         L̂, cutSelection, L̃, f_star_value)
 
 
@@ -37,7 +37,7 @@ function setupLevelsetPara(t::Int64, j::Int64, k::Int64;
 
     elseif cutSelection == "ELCwithoutConstraint" 
         # L̃ = [.8 for i in 1:n] - .5 *  L̂;
-        L̃ = solCollection[t-1,k].stageSolution .* .6 .+ .2;
+        L̃ = solCollection[t-1,k].stageSolution .* ℓ2 .+ (1 - ℓ2)/2;
         # L̃ = [.5 for i in 1:binaryInfo.n]
         Output = 0; threshold = 1.0; 
         levelSetMethodParam = LevelSetMethodParam(0.95, λ, threshold, 
@@ -52,7 +52,9 @@ function setupLevelsetPara(t::Int64, j::Int64, k::Int64;
                                                                         L̂,  cutSelection, L̃, 0.0)
     end
 
-    return levelSetMethodParam
+    x₀ =  L̂ .* f_star_value .* ℓ1 .- f_star_value * (ℓ1 ./ 2);
+
+    return (levelSetMethodParam = levelSetMethodParam, x₀ = x₀)
 end
 
 
@@ -73,10 +75,10 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
     named_tuple = (; zip(col_names, type[] for type in col_types )...);
     sddipResult = DataFrame(named_tuple); # 0×7 DataFrame
     gapList = [];
-    @time gurobiResult = gurobiOptimize!(Ω, 
-                                    probList, 
-                                    stageDataList,
-                                    binaryInfo = binaryInfo);
+    # @time gurobiResult = gurobiOptimize!(Ω, 
+    #                                 probList, 
+    #                                 stageDataList,
+    #                                 binaryInfo = binaryInfo);
     OPT = gurobiResult.OPT
     forwardInfoList = Dict{Int, ForwardModelInfo}();
     backwardInfoList = Dict{Int, BackwardModelInfo}();
@@ -88,10 +90,10 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
     println("---------------- print out iteration information -------------------")
     while true
         t0 = now();
-        M = 4;
+        M = 20;
         solCollection = Dict();  # to store every iteration results
         u = Vector{Float64}(undef, M);  # to compute upper bound 
-        Random.seed!(i*3)
+        # Random.seed!(i*3)
         Scenarios = SampleScenarios(scenario_sequence, T = T, M = M);
         
         ## Forward Step
@@ -124,7 +126,7 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
         LB = solCollection[1, 1].OPT;
         μ̄ = mean(u);
         σ̂² = var(u);
-        UB = minimum([μ̄ + 1.96 * sqrt(σ̂²/M), UB]);
+        UB = μ̄ + 1.96 * sqrt(σ̂²/M); # minimum([μ̄ + 1.96 * sqrt(σ̂²/M), UB]);
         gap = round((UB-LB)/UB * 100 ,digits = 2);
         gapString = string(gap,"%");
         push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, gap);
@@ -143,7 +145,7 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
             for k in 1:M 
                 c = [0, zeros(Float64,binaryInfo.n)]
                 for j in keys(Ω[t])
-                    # @info "$t, $k, $j"
+                    @info "$t, $k, $j"
                     backwardInfo = backwardInfoList[t];
                     backward_Constraint_Modification!(backwardInfo, 
                                                     stageDataList[t], 
@@ -151,12 +153,13 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
                                                     solCollection[t-1,k].stageSolution;
                                                     binaryInfo = binaryInfo             
                                                     );
-                    levelSetMethodParam = setupLevelsetPara(t, j , k; cutSelection = "ELC", # "ShrinkageLC", "ELCwithoutConstraint", "LC", "ELC"
+                    (levelSetMethodParam, x₀) = setupLevelsetPara(t, j , k; cutSelection = "ELC", # "ShrinkageLC", "ELCwithoutConstraint", "LC", "ELC"
                                                                 L̂ = solCollection[t-1,k].stageSolution, 
                                                                         binaryInfo = binaryInfo, 
                                                                             Output_Gap = true,
-                                                                                λ = .3);
-                    c = c + probList[t][j] * LevelSetMethod_optimization!(  backwardInfo; 
+                                                                                λ = 0.0, ℓ1 = 1e-5, 
+                                                                                            ℓ2 = .8);
+                    c = c + probList[t][j] .* LevelSetMethod_optimization!(backwardInfo, x₀; 
                                                                                 levelSetMethodParam = levelSetMethodParam, 
                                                                                         stageData = stageDataList[t],   
                                                                                                     ϵ = 1e-4,      
@@ -184,28 +187,7 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
 
 end
 
-
-
-using JLD2, FileIO, DataFrames
-result_enhanced = copy(Dict(:solHistory => sddipResult, :solution => _LB, :gapHistory => gapList) )
-cut_enhanced = copy(cutCollection)
-
-@save "runtests_small2_enhanced.jld2" result_enhanced cut_enhanced
-# # @load "runtests_small2_enhanced.jld2" result_enhanced cut_enhanced
-
-# result_LC = copy(Dict(:solHistory => sddipResult, :solution => _LB, :gapHistory => gapList) )
-# cut_LC = copy(cutCollection)
-
-# @save "runtests_small2_LC.jld2" result_LC cut_LC
-# # @load "runtests_small2_LC.jld2" result_LC cut_LC
-
-
-
 # using DataFrames
 # using Latexify
 # df = DataFrame(A = 'x':'z', B = ["M", "F", "F"])
 # latexify(df; env=:table, latex=false)
-
-
-
-

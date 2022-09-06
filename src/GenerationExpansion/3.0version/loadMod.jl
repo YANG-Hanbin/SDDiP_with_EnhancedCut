@@ -16,11 +16,11 @@ include("src/GenerationExpansion/3.0version/LevelSetMethod.jl")
 include("src/GenerationExpansion/3.0version/setting.jl")
 include("src/GenerationExpansion/3.0version/SDDiP.jl")
 
-stageDataList = load("src/GenerationExpansion/3.0version/testData2/stageDataList.jld2")["stageDataList"]
-Ω = load("src/GenerationExpansion/3.0version/testData2/Ω.jld2")["Ω"]
-binaryInfo = load("src/GenerationExpansion/3.0version/testData2/binaryInfo.jld2")["binaryInfo"]
-scenario_sequence = load("src/GenerationExpansion/3.0version/testData2/scenario_sequence.jld2")["scenario_sequence"]
-probList = load("src/GenerationExpansion/3.0version/testData2/probList.jld2")["probList"]
+stageDataList = load("src/GenerationExpansion/3.0version/testData_5/stageDataList.jld2")["stageDataList"]
+Ω = load("src/GenerationExpansion/3.0version/testData_5/Ω.jld2")["Ω"]
+binaryInfo = load("src/GenerationExpansion/3.0version/testData_5/binaryInfo.jld2")["binaryInfo"]
+scenario_sequence = load("src/GenerationExpansion/3.0version/testData_5/scenario_sequence.jld2")["scenario_sequence"]
+probList = load("src/GenerationExpansion/3.0version/testData_5/probList.jld2")["probList"]
 
 
 
@@ -28,4 +28,4 @@ probList = load("src/GenerationExpansion/3.0version/testData2/probList.jld2")["p
 #############################################################################################
 ####################################    main function   #####################################
 #############################################################################################
-max_iter = 200; ϵ = 1e-2; Enhanced_Cut = true
+max_iter = 200; ϵ = 1e-4; 
