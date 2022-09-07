@@ -52,8 +52,6 @@ end
 ################################################################################################################################################
 ############################################################     Gurobi function   #############################################################
 ################################################################################################################################################
-# probList = probListList;
-# stageDataList = stageDataList;
 function gurobiOptimize!(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, 
                         probList::Dict{Int64,Vector{Float64}}, 
                         stageDataList::Dict{Int64, StageData}; 
@@ -66,7 +64,9 @@ function gurobiOptimize!(Ω::Dict{Int64,Dict{Int64,RandomVariables}},
 
     model = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                                                 "OutputFlag" => 1, 
-                                                "Threads" => 1) 
+                                                "Threads" => 1,
+                                                "MIPGap" => 5e-2, 
+                                                "TimeLimit" => 1000) 
                                                 )
     @variable(model, x[i = 1:d, t = 1:T, ω in 1:W] ≥ 0, Int)   ## for current state, x is the number of generators will be built in this stage
     @variable(model, y[i = 1:d, t = 1:T, ω in 1:W] ≥ 0)        ## amount of electricity

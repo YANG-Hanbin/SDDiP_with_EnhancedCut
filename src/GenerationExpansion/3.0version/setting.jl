@@ -109,7 +109,7 @@ function dataGeneration(; T::Int64 = 2,
                             s₀::Vector{Int64} = s₀,
                             penalty::Float64 = 1e10, 
                             initial_demand::Float64 = 1e7, 
-                            seed::Int64 = 1234
+                            seed::Int64 = 1234, num_Ω::Int64 = 10
                             )
 
     binaryInfo = intergerBinarization(ū)
@@ -130,7 +130,6 @@ function dataGeneration(; T::Int64 = 2,
     ############################  To generate random variable  ###############################
     ##########################################################################################
     N_rv = Vector{Int64}()  # the number of realization of each stage
-    num_Ω = 10
     N_rv = [num_Ω for t in 1:T] 
     # N_rv = round.(rand(T) * 10) 
 
@@ -152,8 +151,9 @@ function dataGeneration(; T::Int64 = 2,
 
     probList = Dict{Int64,Vector{Float64}}()  # P(node in t-1 --> node in t ) = prob[t]
     for t in 1:T 
-        randomVector = round.(rand(N_rv[t]),digits = 2)
-        probList[t] = round.(randomVector/sum(randomVector),digits = 2)
+        # randomVector = round.(rand(N_rv[t]),digits = 2)
+        # probList[t] = round.(randomVector/sum(randomVector),digits = 2)
+        probList[t] = [1/N_rv[t] for i in 1:N_rv[t]]
     end
 
     return (probList = probList, 

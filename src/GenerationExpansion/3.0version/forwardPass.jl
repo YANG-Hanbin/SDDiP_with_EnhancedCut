@@ -12,12 +12,15 @@
 
 function forwardModel!(stageData::StageData;
                                 θ_bound::Real = 0.0, 
-                                binaryInfo::BinaryInfo = binaryInfo )
+                                binaryInfo::BinaryInfo = binaryInfo, 
+                                timelimit::Int64 = 2 )
                             
     ## construct forward problem (3.1)
     Q = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                                           "OutputFlag" => 0, 
-                                          "Threads" => 0) 
+                                          "Threads" => 0,
+                                          "MIPGap" => 1e-4, 
+                                          "TimeLimit" => timelimit) 
                                           )
     @variable(Q, x[i = 1:binaryInfo.d] ≥ 0, Int)    ## for current state, x is the number of generators will be built in this stage
     @variable(Q, y[i = 1:binaryInfo.d] ≥ 0)         ## amount of electricity

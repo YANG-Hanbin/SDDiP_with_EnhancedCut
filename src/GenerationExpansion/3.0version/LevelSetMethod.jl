@@ -88,7 +88,8 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
         @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack - 
                                                             x₀' * backwardInfo.Lc );
         optimize!(backwardInfo.model);
-        F_solution = [ JuMP.objective_value(backwardInfo.model), - JuMP.value.(backwardInfo.Lc) ];
+        F_solution = (F = JuMP.objective_value(backwardInfo.model), 
+                                ∇F = - round.(JuMP.value.(backwardInfo.Lc), digits = 3) );
 
         currentInfo  = CurrentInfo(x₀, 
                                     - F_solution.F - x₀' *  L̂, 
@@ -102,7 +103,7 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
                                                             x₀' * ( L̂ .- backwardInfo.Lc) );
         optimize!(backwardInfo.model);
         F_solution = ( F = JuMP.objective_value(backwardInfo.model), 
-                        ∇F = L̂ .- JuMP.value.(backwardInfo.Lc) );
+                        ∇F = L̂ .- round.(JuMP.value.(backwardInfo.Lc), digits = 3) );
 
         currentInfo  = CurrentInfo(x₀, 
                                     - F_solution.F - x₀' * ( L̃ .-  L̂),
@@ -116,7 +117,7 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
                                                             x₀' * ( L̂ .- backwardInfo.Lc) );
         optimize!(backwardInfo.model);
         F_solution = ( F = JuMP.objective_value(backwardInfo.model), 
-                        ∇F = L̂ .- JuMP.value.(backwardInfo.Lc) );
+                        ∇F = L̂ .- round.(JuMP.value.(backwardInfo.Lc), digits = 3) );
 
         currentInfo  = CurrentInfo(x₀, 
                                     1/2 * sum(x₀ .* x₀),
@@ -207,9 +208,29 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
         optimize!(oracleModel);
 
         st = termination_status(oracleModel)
-        if st != MOI.OPTIMAL
-            @info "oracle is infeasible"
-            break
+        # @info "$st"
+        
+        if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
+            f_star = JuMP.objective_value(oracleModel)
+        else
+            oracleModel = Model(
+            optimizer_with_attributes(
+                ()->Gurobi.Optimizer(GRB_ENV), 
+                "OutputFlag" => Output, 
+                "Threads" => 0)
+                );
+
+            para_oracle_bound = abs(currentInfo.f);
+            z_rhs = 10 * 10^(ceil(log10(para_oracle_bound)));
+            @variable(oracleModel, z  ≥  - z_rhs);
+            @variable(oracleModel, x[i = 1:n]);
+            @variable(oracleModel, y ≤ 0);
+
+            @objective(oracleModel, Min, z);
+            oracleInfo = ModelInfo(oracleModel, x, y, z);
+            add_constraint(currentInfo, oracleInfo);
+            optimize!(oracleModel);
+            f_star = JuMP.objective_value(oracleModel)
         end
 
         f_star = JuMP.objective_value(oracleModel)
@@ -282,6 +303,7 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
         @objective(nxtModel, Min, sum((x1 .- x₀) .* (x1 .- x₀)));
         optimize!(nxtModel)
         st = termination_status(nxtModel)
+        # @info "$st"
         if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
             x_nxt = JuMP.value.(x1);
             λₖ = abs(dual(level_constraint)); μₖ = λₖ + 1; 
@@ -298,7 +320,8 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
             @variable(nxtModel, y1 );
             nxtInfo = ModelInfo(nxtModel, x1, y1, z1);
 
-            @constraint(nxtModel, level_constraint, α * z1 + (1 - α) * y1 ≤ level);
+            level = w + λ * (W - w);
+            @constraint(nxtModel, level_constraint, α * z1 + (1 - α) * y1 ≤ 1e14);
             add_constraint(currentInfo, nxtInfo);
             @objective(nxtModel, Min, (x1 - x₀)' * (x1 - x₀));
             optimize!(nxtModel);
@@ -311,7 +334,7 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
         end
 
         ## stop rule: gap ≤ .07 * function-value && constraint ≤ 0.05 * LagrangianFunction
-        if ( Δ ≤ 100 && currentInfo.G[1] ≤ threshold ) || iter > max_iter
+        if Δ ≤ (abs(f_star_value) * 1e-4 + 1) || iter > max_iter
             # @info "yes"
             return cutInfo
         end
