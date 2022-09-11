@@ -75,7 +75,7 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
                                                             x₀' * ( L̂ .- backwardInfo.Lc) );
         optimize!(backwardInfo.model);
         F_solution = ( F = JuMP.objective_value(backwardInfo.model), 
-                            ∇F = L̂ .- JuMP.value.(backwardInfo.Lc) );
+                            ∇F = L̂ .- round.(JuMP.value.(backwardInfo.Lc), digits = 6) );
 
         currentInfo  = CurrentInfo(x₀, 
                                     - F_solution.F - x₀' * ( L̃ .-  L̂),
@@ -89,7 +89,7 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
                                                             x₀' * backwardInfo.Lc );
         optimize!(backwardInfo.model);
         F_solution = (F = JuMP.objective_value(backwardInfo.model), 
-                                ∇F = - round.(JuMP.value.(backwardInfo.Lc), digits = 3) );
+                                ∇F = - round.(JuMP.value.(backwardInfo.Lc), digits = 6) );
 
         currentInfo  = CurrentInfo(x₀, 
                                     - F_solution.F - x₀' *  L̂, 
@@ -103,7 +103,7 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
                                                             x₀' * ( L̂ .- backwardInfo.Lc) );
         optimize!(backwardInfo.model);
         F_solution = ( F = JuMP.objective_value(backwardInfo.model), 
-                        ∇F = L̂ .- round.(JuMP.value.(backwardInfo.Lc), digits = 3) );
+                        ∇F = L̂ .- round.(JuMP.value.(backwardInfo.Lc), digits = 6) );
 
         currentInfo  = CurrentInfo(x₀, 
                                     - F_solution.F - x₀' * ( L̃ .-  L̂),
@@ -117,7 +117,7 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
                                                             x₀' * ( L̂ .- backwardInfo.Lc) );
         optimize!(backwardInfo.model);
         F_solution = ( F = JuMP.objective_value(backwardInfo.model), 
-                        ∇F = L̂ .- round.(JuMP.value.(backwardInfo.Lc), digits = 3) );
+                        ∇F = L̂ .- round.(JuMP.value.(backwardInfo.Lc), digits = 6) );
 
         currentInfo  = CurrentInfo(x₀, 
                                     1/2 * sum(x₀ .* x₀),
@@ -208,7 +208,7 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
         optimize!(oracleModel);
 
         st = termination_status(oracleModel)
-        # @info "$st"
+        # @info "oracle, $st, grad = $(currentInfo.dG), G = $(currentInfo.G)"
         
         if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
             f_star = JuMP.objective_value(oracleModel)
@@ -250,6 +250,7 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
         end
 
         # push!(gap_list, Δ);
+        x₀ = currentInfo.x;
         if round(previousΔ) > round(Δ)
             x₀ = currentInfo.x; τₖ = μₖ * τₖ;
             if cutSelection == "ELC" || cutSelection == "ELCwithoutConstraint"
@@ -277,14 +278,14 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
         w = α * f_star;
         W = minimum( α * functionHistory.f_his[j] + (1-α) * functionHistory.G_max_his[j] for j in 1:iter);
 
-        λ = iter ≤ 10 ? 0.05 : 0.15;
-        λ = iter ≥ 20 ? 0.25 : λ;
-        λ = iter ≥ 40 ? 0.4 : λ;
-        λ = iter ≥ 50 ? 0.6 : λ;
-        λ = iter ≥ 60 ? 0.7 : λ;
-        λ = iter ≥ 70 ? 0.8 : λ;
-        λ = iter ≥ 80 ? 0.9 : λ;
-        λ = iter ≥ 90 ? 0.95 : λ;
+        λ = iter ≤ 10 ? 0.05 : 0.1;
+        λ = iter ≥ 20 ? 0.2 : λ;
+        λ = iter ≥ 40 ? 0.3 : λ;
+        λ = iter ≥ 50 ? 0.4 : λ;
+        λ = iter ≥ 60 ? 0.5 : λ;
+        λ = iter ≥ 70 ? 0.6 : λ;
+        λ = iter ≥ 80 ? 0.7 : λ;
+        λ = iter ≥ 90 ? 0.8 : λ;
         
         level = w + λ * (W - w);
         
@@ -307,7 +308,7 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
         if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
             x_nxt = JuMP.value.(x1);
             λₖ = abs(dual(level_constraint)); μₖ = λₖ + 1; 
-        elseif st == MOI.NUMERICAL_ERROR 
+        elseif st == MOI.NUMERICAL_ERROR || st == MOI.INFEASIBLE_OR_UNBOUNDED
             # @info "Numerical Error occures! -- Build a new nxtModel"
             nxtModel = Model(
                 optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
@@ -319,22 +320,20 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
             @variable(nxtModel, z1 );
             @variable(nxtModel, y1 );
             nxtInfo = ModelInfo(nxtModel, x1, y1, z1);
-
-            level = w + λ * (W - w);
-            @constraint(nxtModel, level_constraint, α * z1 + (1 - α) * y1 ≤ 1e14);
+            @constraint(nxtModel, level_constraint, α * z1 + (1 - α) * y1 ≤ level);
             add_constraint(currentInfo, nxtInfo);
             @objective(nxtModel, Min, (x1 - x₀)' * (x1 - x₀));
             optimize!(nxtModel);
             x_nxt = JuMP.value.(x1);
             λₖ = abs(dual(level_constraint)); μₖ = λₖ + 1; 
         else
-            set_normalized_rhs( level_constraint, w + 1. * (W - w));
+            set_normalized_rhs( level_constraint, w + .1 * (W - w));
             optimize!(nxtModel);
             x_nxt = JuMP.value.(x1);
         end
 
         ## stop rule: gap ≤ .07 * function-value && constraint ≤ 0.05 * LagrangianFunction
-        if Δ ≤ (abs(f_star_value) * 1e-4 + 1) || iter > max_iter
+        if Δ ≤ (abs(f_star_value) * 1e-5 + 5) || iter > max_iter
             # @info "yes"
             return cutInfo
         end

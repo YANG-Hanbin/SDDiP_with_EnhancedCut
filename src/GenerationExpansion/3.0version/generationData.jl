@@ -14,7 +14,7 @@ include("src/GenerationExpansion/3.0version/setting.jl")
 
 ## the annualized interest rate
 r = 0.08
-T = 15
+T = 3
 ## Generator rating
 N = [
     1130.0 0 0 0 0 0;
@@ -38,7 +38,7 @@ s₀ = [0,1, 0,0,1,0]                                      # initial number of g
 (probList, 
             stageDataList, 
             Ω, 
-            binaryInfo) = dataGeneration(; T = T , initial_demand = 1e6, seed = 347124, num_Ω = 2)
+            binaryInfo) = dataGeneration(; T = T , initial_demand = 1e6, seed = 1500, num_Ω = 5)
 
 
 

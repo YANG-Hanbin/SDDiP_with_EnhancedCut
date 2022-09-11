@@ -1,40 +1,39 @@
-function setupLevelsetPara(t::Int64, j::Int64, k::Int64;
-                                  cutSelection::String = "ELC", 
-                                    L̂::Vector{Float64} = L̂, 
+function setupLevelsetPara(forwardInfo::ForwardModelInfo, stageData::StageData, demand::Vector{Float64}, L̂::Vector{Float64};
+                                    cutSelection::String = "ELC", 
                                     binaryInfo::BinaryInfo = binaryInfo, 
                                     Output_Gap::Bool = false,
                                     λ::Union{Float64, Nothing} = .3, ℓ1::Real = 1.0, ℓ2::Real = 0.8)
     if cutSelection == "ELC"
-        forward_modify_constraints!(forwardInfoList[t], 
-                                        stageDataList[t], 
-                                        Ω[t][j].d, 
-                                        solCollection[t-1,k].stageSolution, 
+        forward_modify_constraints!(forwardInfo, 
+                                        stageData, 
+                                        demand, 
+                                        L̂, 
                                         binaryInfo = binaryInfo
                                         )
-        optimize!(forwardInfoList[t].model); f_star_value = JuMP.objective_value(forwardInfoList[t].model);
-        L̃ = solCollection[t-1,k].stageSolution .* ℓ2 .+ (1 - ℓ2)/2;
+        optimize!(forwardInfo.model); f_star_value = JuMP.objective_value(forwardInfo.model);
+        L̃ = L̂ .* ℓ2 .+ (1 - ℓ2)/2;
 
         Output = 0; threshold = 1.0; 
         levelSetMethodParam = LevelSetMethodParam(0.95, λ, threshold, 
-                                                            1e14, 1e2, Output, Output_Gap,
+                                                            1e14, 2e2, Output, Output_Gap,
                                                                         L̂, cutSelection, L̃, f_star_value)
 
 
     elseif cutSelection == "ShrinkageLC" 
-        forward_modify_constraints!(forwardInfoList[t], 
-                                        stageDataList[t], 
-                                        Ω[t][j].d, 
-                                        solCollection[t-1,k].stageSolution, 
+        forward_modify_constraints!(forwardInfo, 
+                                        stageData, 
+                                        demand, 
+                                        L̂, 
                                         binaryInfo = binaryInfo
                                         )
-        optimize!(forwardInfoList[t].model); f_star_value = JuMP.objective_value(forwardInfoList[t].model);
+        optimize!(forwardInfo.model); f_star_value = JuMP.objective_value(forwardInfo.model);
         Output = 0; threshold = 1.0; 
         levelSetMethodParam = LevelSetMethodParam(0.95, λ, threshold, 
                                                             1e14, 1e2, Output, Output_Gap,
                                                                         L̂,  cutSelection, nothing, f_star_value)
 
     elseif cutSelection == "ELCwithoutConstraint" 
-        L̃ = solCollection[t-1,k].stageSolution .* ℓ2 .+ (1 - ℓ2)/2;
+        L̃ = L̂ .* ℓ2 .+ (1 - ℓ2)/2;
         Output = 0; threshold = 1.0; f_star_value = 0.0;
         levelSetMethodParam = LevelSetMethodParam(0.95, λ, threshold, 
                                                             1e14, 1e2, Output, Output_Gap,
@@ -52,7 +51,6 @@ function setupLevelsetPara(t::Int64, j::Int64, k::Int64;
 
     return (levelSetMethodParam = levelSetMethodParam, x₀ = x₀)
 end
-
 
 
 function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}}, 
@@ -80,8 +78,9 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
     forwardInfoList = Dict{Int, ForwardModelInfo}();
     backwardInfoList = Dict{Int, BackwardModelInfo}();
     for t in 1:T 
-        forwardInfoList[t] = forwardModel!(stageDataList[t], binaryInfo = binaryInfo)
-        backwardInfoList[t] = backwardModel!(stageDataList[t], binaryInfo = binaryInfo)
+        forwardInfoList[t] = forwardModel!(stageDataList[t], binaryInfo = binaryInfo, timelimit = 10, mipGap = 1e-4)
+        backwardInfoList[t] = backwardModel!(stageDataList[t], binaryInfo = binaryInfo, timelimit = 10, mipGap = 1e-4, 
+                                                tightness = true)
     end 
     
     println("---------------- print out iteration information -------------------")
@@ -109,7 +108,7 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
                                                 );
                 optimize!(forwardInfo.model);
 
-                solCollection[t, k] = ( stageSolution = round.(JuMP.value.(forwardInfo.Lt)), 
+                solCollection[t, k] = ( stageSolution = round.(JuMP.value.(forwardInfo.Lt), digits = 2), 
                                         stageValue = JuMP.objective_value(forwardInfo.model) - JuMP.value(forwardInfo.θ),
                                         OPT = JuMP.objective_value(forwardInfo.model)
                                         );
@@ -143,7 +142,7 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
                 c = [0, zeros(Float64,binaryInfo.n)]
                 for j in keys(Ω[t])
                     # @info "$t, $k, $j"
-                    backwardInfo = backwardInfoList[t];
+                    backwardInfo = backwardInfoList[t]
                     backward_Constraint_Modification!(backwardInfo, 
                                                             Ω[t][j].d );
                     # copyVariable_Constraint!(backwardInfo, 
@@ -151,26 +150,23 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
                     #                                 Ω[t-1][j].d;
                     #                                 binaryInfo = binaryInfo             
                     #                                 );
-                    (levelSetMethodParam, x₀) = setupLevelsetPara(t, j , k; cutSelection = "LC", # "ShrinkageLC", "ELCwithoutConstraint", "LC", "ELC"
-                                                                L̂ = solCollection[t-1,k].stageSolution, 
+                    
+                    (levelSetMethodParam, x₀) = setupLevelsetPara(forwardInfoList[t], stageDataList[t], Ω[t][j].d, solCollection[t-1,k].stageSolution;
+                                                                        cutSelection = "ELC",  # "ShrinkageLC", "ELCwithoutConstraint", "LC", "ELC"
                                                                         binaryInfo = binaryInfo, 
-                                                                            Output_Gap = false,
-                                                                                λ = 0.99, ℓ1 = .0, 
-                                                                                            ℓ2 = .9);
+                                                                        Output_Gap = false,
+                                                                        λ = .3, ℓ1 = 0.0, 
+                                                                        ℓ2 = 0.0);
                     c = c + probList[t][j] .* LevelSetMethod_optimization!(backwardInfo, x₀; 
                                                                                 levelSetMethodParam = levelSetMethodParam, 
                                                                                         stageData = stageDataList[t],   
-                                                                                                    ϵ = 1e-3,      
+                                                                                                    ϵ = 1e-5,      
                                                                                                         binaryInfo = binaryInfo
                                                                         ) 
+
                 end
                 # # add cut to both backward models and forward models
-                # cutCollection[t-1].v[i][k] = c[1]
-                # cutCollection[t-1].π[i][k] = c[2]
-
                 @constraint(forwardInfoList[t-1].model, forwardInfoList[t-1].θ ≥ c[1] + c[2]' * forwardInfoList[t-1].Lt )
-                @constraint(forwardInfoList[t-1].model, forwardInfoList[t-1].θ ≥ c[1] + c[2]' * forwardInfoList[t-1].Lt ) 
-                @constraint(backwardInfoList[t-1].model, backwardInfoList[t-1].θ ≥ c[1] + c[2]' * backwardInfoList[t-1].Lt )
                 @constraint(backwardInfoList[t-1].model, backwardInfoList[t-1].θ ≥ c[1] + c[2]' * backwardInfoList[t-1].Lt )              
             end
         end
@@ -190,6 +186,10 @@ end
 # df = DataFrame(A = 'x':'z', B = ["M", "F", "F"])
 # latexify(df; env=:table, latex=false)
 
+# save("src/GenerationExpansion/3.0version/testData_5/sddipResult_LCinterval.jld2", "sddipResult", sddipResult)
+# save("src/GenerationExpansion/3.0version/testData_5/sddipResult_LCbinary.jld2", "sddipResult", sddipResult)
+# save("src/GenerationExpansion/3.0version/testData_5/sddipResult_ELCinterval0.jld2", "sddipResult", sddipResult)
+# save("src/GenerationExpansion/3.0version/testData_5/sddipResult_ELCbinary0.jld2", "sddipResult", sddipResult)
 
 
 

@@ -13,13 +13,13 @@
 function forwardModel!(stageData::StageData;
                                 θ_bound::Real = 0.0, 
                                 binaryInfo::BinaryInfo = binaryInfo, 
-                                timelimit::Int64 = 2 )
+                                timelimit::Int64 = 10, mipGap::Real = 1e-4 )
                             
     ## construct forward problem (3.1)
     Q = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                                           "OutputFlag" => 0, 
                                           "Threads" => 0,
-                                          "MIPGap" => 1e-4, 
+                                          "MIPGap" => mipGap, 
                                           "TimeLimit" => timelimit) 
                                           )
     @variable(Q, x[i = 1:binaryInfo.d] ≥ 0, Int)    ## for current state, x is the number of generators will be built in this stage
@@ -50,6 +50,16 @@ function forwardModel!(stageData::StageData;
 end
 
 
+"""
+    forward_modify_constraints!(forwardInfo::ForwardModelInfo, 
+                                        stageData::StageData, 
+                                        demand::Vector{Float64}, 
+                                        L̂::Vector{Float64};
+                                        binaryInfo::BinaryInfo = binaryInfo                     ## realization of the random time
+                                        )
+
+TBW
+"""
 function forward_modify_constraints!(forwardInfo::ForwardModelInfo, 
                                         stageData::StageData, 
                                         demand::Vector{Float64}, 
@@ -80,6 +90,3 @@ function forward_modify_constraints!(forwardInfo::ForwardModelInfo,
     @constraint(forwardInfo.model, totalGenerators,         binaryInfo.A * L̂ + forwardInfo.x .== binaryInfo.A * forwardInfo.Lt)
 
 end
-
-
-
