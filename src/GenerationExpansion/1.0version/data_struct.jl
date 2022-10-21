@@ -70,7 +70,7 @@ mutable struct FunctionInfo
     f_his        :: Dict{Int64, Float64}          ## record f(x_j)
     df           :: Vector{Float64}
     dG           :: Dict{Int64, Vector{Float64}}  ## actually is a matrix.  But we use dict to store it
-    G            :: Dict{Int64, Float64}          
+    G            :: Dict{Int64, Float64}          ## the index k is k-th constraint
 end
 
 
