@@ -3,14 +3,10 @@ using JuMP, Gurobi, Random
 const GRB_ENV = Gurobi.Env()
 
 
-include("data_struct.jl")
+include("def.jl")
 
 ## input data
-
 # include("generationTest.jl")
-# include("runtests_small2.jl")
-# include("runtests_small3.jl")
-
 
 ########################################################################################################################################################
 ############################################  auxiliary function: nonanticipativity for multistage problem #############################################
@@ -56,16 +52,13 @@ function recursion_scenario_constraint(pathList::Vector{Int64}, P::Float64, scen
 end
 
 
-
-
-
-
-
 ################################################################################################################################################
 ############################################################     Gurobi function   #############################################################
 ################################################################################################################################################
 
-function gurobiOptimize!(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict{Int64,Vector{Float64}}, StageCoefficient::Dict{Int64, StageData}; 
+function gurobiOptimize!(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, 
+                        prob::Dict{Int64,Vector{Float64}}, 
+                        StageCoefficient::Dict{Int64, StageData}; 
                         binaryInfo::BinaryInfo = binaryInfo)
 
     (A, n, d) = (binaryInfo.A, binaryInfo.n, binaryInfo.d)
@@ -77,14 +70,14 @@ function gurobiOptimize!(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
                                                 "OutputFlag" => 1, 
                                                 "Threads" => 1) 
                                                 )
-    @variable(model, x[i = 1:d, t = 1:T, ω in 1:W] >= 0, Int)   ## for current state, x is the number of generators will be built in this stage
-    @variable(model, y[i = 1:d, t = 1:T, ω in 1:W] >= 0)        ## amount of electricity
-    @variable(model, slack[t = 1:T, ω in 1:W] >=0 )
-    @variable(model, S[i = 1:d, t = 1:T, ω in 1:W] >=0 )
+    @variable(model, x[i = 1:d, t = 1:T, ω in 1:W] ≥ 0, Int)   ## for current state, x is the number of generators will be built in this stage
+    @variable(model, y[i = 1:d, t = 1:T, ω in 1:W] ≥ 0)        ## amount of electricity
+    @variable(model, slack[t = 1:T, ω in 1:W] ≥ 0 )
+    @variable(model, S[i = 1:d, t = 1:T, ω in 1:W] ≥ 0 )
 
     @constraint(model, [t in 1:T, ω in 1:W], S[:, t, ω] .== sum(x[:, j, ω] for j in 1:t ) )
-    @constraint(model, [t in 1:T], S[:, t, :] .<= StageCoefficient[t].ū)
-    @constraint(model, [t in 1:T, ω in 1:W], y[:,t, ω] .<= StageCoefficient[t].h * StageCoefficient[t].N * (S[:, t, ω] + StageCoefficient[t].s₀))
+    @constraint(model, [t in 1:T], S[:, t, :] .≤ StageCoefficient[t].ū)
+    @constraint(model, [t in 1:T, ω in 1:W], y[:,t, ω] .≤ StageCoefficient[t].h * StageCoefficient[t].N * (S[:, t, ω] + StageCoefficient[t].s₀))
 
     ## nonanticipativity for multistage problem 
     @constraint(model, [ω in 2:W], x[:, 1, 1] .== x[:, 1, ω])  ## nonanticipativity for 2-stage problem
@@ -97,7 +90,7 @@ function gurobiOptimize!(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
     
     scenario_tree = scenario_sequence
     #############################################################################################################################
-    @constraint(model, [t in 1:T, ω in 1:W], sum(y[i, t, ω] for i in 1:d) + slack[t, ω] >= Ω[t][scenario_tree[ω][1][t]].d[1] )
+    @constraint(model, [t in 1:T, ω in 1:W], sum(y[i, t, ω] for i in 1:d) + slack[t, ω] ≥ Ω[t][scenario_tree[ω][1][t]].d[1] )
 
     @objective(model, Min, sum( sum( scenario_tree[ω][2] * (StageCoefficient[t].c1' * x[:, t, ω] + StageCoefficient[t].c2' * y[:, t, ω] + StageCoefficient[t].penalty * slack[t, ω]) for t in 1:T ) for ω in 1:W) )
     optimize!(model)
@@ -111,7 +104,10 @@ function gurobiOptimize!(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, prob::Dict
     # JuMP.value.(y[:, 2, :])
 
     # JuMP.value.(slack)
-    gurobiResult = Dict(1=> JuMP.objective_value(model), 2 =>  JuMP.value.(x[:, 1, 1]), 3=>  JuMP.value.(y[:, 1, 1]))
+    gurobiResult = (OPT = JuMP.objective_value(model), 
+                        statevariable_x = JuMP.value.(x[:, 1, 1]), 
+                            statevariable_y = JuMP.value.(y[:, 1, 1])
+                        )
 
     return gurobiResult
 end

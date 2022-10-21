@@ -21,7 +21,7 @@ N = [
 
 ū = [4.0, 10, 10, 1, 45, 4]
 
-binaryInfo = binarize_gen(ū)
+binaryInfo = intergerBinarization(ū)
 (A, n, d) = (binaryInfo.A, binaryInfo.n, binaryInfo.d)
 
 
