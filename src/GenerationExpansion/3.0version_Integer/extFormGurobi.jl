@@ -55,7 +55,8 @@ end
 function gurobiOptimize!(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, 
                         probList::Dict{Int64,Vector{Float64}}, 
                         stageDataList::Dict{Int64, StageData}; 
-                        binaryInfo::BinaryInfo = binaryInfo, mipGap::Float64 = 1e-3, timeLimit::Float64 = 1e3, outputFlag::Int64 = 1)
+                        binaryInfo::BinaryInfo = binaryInfo, 
+                        mipGap::Float64 = 1e-3, timeLimit::Float64 = 1e3, outputFlag::Int64 = 1)
 
     (A, n, d) = (binaryInfo.A, binaryInfo.n, binaryInfo.d)
     T = length(Ω); num_Ω = length(Ω[1]);
@@ -71,7 +72,7 @@ function gurobiOptimize!(Ω::Dict{Int64,Dict{Int64,RandomVariables}},
     @variable(model, x[i = 1:d, t = 1:T, ω in 1:W] ≥ 0, Int)   ## for current state, x is the number of generators will be built in this stage
     @variable(model, y[i = 1:d, t = 1:T, ω in 1:W] ≥ 0)        ## amount of electricity
     @variable(model, slack[t = 1:T, ω in 1:W] ≥ 0 )
-    @variable(model, S[i = 1:d, t = 1:T, ω in 1:W] ≥ 0 )
+    @variable(model, S[i = 1:d, t = 1:T, ω in 1:W] ≥ 0)
 
     @constraint(model, [t in 1:T, ω in 1:W], S[:, t, ω] .== sum(x[:, j, ω] for j in 1:t ) )
     @constraint(model, [t in 1:T], S[:, t, :] .≤ stageDataList[t].ū)
