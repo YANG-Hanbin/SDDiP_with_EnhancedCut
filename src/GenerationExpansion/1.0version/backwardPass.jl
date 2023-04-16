@@ -199,11 +199,7 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
 
     ## trajectory
     function_value_info = compute_f_G(x₀, Enhanced_Cut = Enhanced_Cut)
-<<<<<<< HEAD:src/GenerationExpansion/1.0version/backward_pass.jl
     function_info = FunctionInfo(   Dict(1 => x₀), 
-=======
-    functionInfo = FunctionInfo(   Dict(1 => x₀), 
->>>>>>> 5660a860062e7b1221d3486887c76271ff57a5fd:src/GenerationExpansion/1.0version/backwardPass.jl
                                     Dict(1 => max(function_value_info[3][k] for k in keys(function_value_info[3]))), 
                                     Dict(1 => function_value_info[1]), 
                                     function_value_info[2], 
@@ -223,7 +219,6 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
 
     @variable(oracleModel, z)
     @variable(oracleModel, x[i = 1:n])
-<<<<<<< HEAD:src/GenerationExpansion/1.0version/backward_pass.jl
     @variable(oracleModel, y <= 0)
 
     # para_oracle_bound =  abs(α * function_info.f_his[1] + (1-α) * function_info.G_max_his[1] )
@@ -231,15 +226,6 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
     para_oracle_bound = abs(function_info.f_his[1])
     z_rhs = 5.3 * 10^(ceil(log10(para_oracle_bound)))
     @constraint(oracleModel, oracle_bound, z >= - z_rhs)
-=======
-    @variable(oracleModel, y ≤ 0)
-
-    # para_oracle_bound =  abs(α * functionInfo.f_his[1] + (1-α) * functionInfo.G_max_his[1] )
-    # @variable(oracleModel, z ≥ - 10^(ceil(log10(-para_oracle_bound))))
-    para_oracle_bound = abs(functionInfo.f_his[1])
-    z_rhs = 5.3 * 10^(ceil(log10(para_oracle_bound)))
-    @constraint(oracleModel, oracle_bound, z ≥ - z_rhs)
->>>>>>> 5660a860062e7b1221d3486887c76271ff57a5fd:src/GenerationExpansion/1.0version/backwardPass.jl
 
     @objective(oracleModel, Min, z)
     oracleInfo = ModelInfo(oracleModel, x, y, z)
@@ -252,21 +238,12 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
         )
 
     @variable(nxtModel, x1[i = 1:n])
-<<<<<<< HEAD:src/GenerationExpansion/1.0version/backward_pass.jl
     @variable(nxtModel, z1 >= - nxt_bound)
     @variable(nxtModel, y1 >= - nxt_bound)
 
 
     while true
         add_constraint(function_info, oracleInfo, iter)
-=======
-    @variable(nxtModel, z1 ≥ - nxt_bound)
-    @variable(nxtModel, y1 ≥ - nxt_bound)
-
-
-    while true
-        add_constraint(functionInfo, oracleInfo, iter)
->>>>>>> 5660a860062e7b1221d3486887c76271ff57a5fd:src/GenerationExpansion/1.0version/backwardPass.jl
         optimize!(oracleModel)
 
         st = termination_status(oracleModel)
@@ -305,7 +282,6 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
 
         # obtain the next iteration point
         if iter == 1
-<<<<<<< HEAD:src/GenerationExpansion/1.0version/backward_pass.jl
             @constraint(nxtModel, level_constraint, α * z1 + (1 - α) * y1 <= level);
         else 
             delete(nxtModel, nxtModel[:level_constraint])
@@ -316,18 +292,6 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
         @constraint(nxtModel, z1 .>= function_info.f_his[iter] + function_info.df' * (x1 - function_info.x_his[iter]) )
         @constraint(nxtModel, [k in keys(function_info.G)], y1 .>= function_info.G[k] + function_info.dG[k]' * (x1 - function_info.x_his[iter]) )
         @objective(nxtModel, Min, (x1 - function_info.x_his[iter])' * (x1 - function_info.x_his[iter]))
-=======
-            @constraint(nxtModel, level_constraint, α * z1 + (1 - α) * y1 ≤ level);
-        else 
-            delete(nxtModel, nxtModel[:level_constraint])
-            unregister(nxtModel, :level_constraint)
-            @constraint(nxtModel, level_constraint, α * z1 + (1 - α) * y1 ≤ level);
-        end
-
-        @constraint(nxtModel, z1 .≥ functionInfo.f_his[iter] + functionInfo.df' * (x1 - functionInfo.x_his[iter]) )
-        @constraint(nxtModel, [k in keys(functionInfo.G)], y1 .≥ functionInfo.G[k] + functionInfo.dG[k]' * (x1 - functionInfo.x_his[iter]) )
-        @objective(nxtModel, Min, (x1 - functionInfo.x_his[iter])' * (x1 - functionInfo.x_his[iter]))
->>>>>>> 5660a860062e7b1221d3486887c76271ff57a5fd:src/GenerationExpansion/1.0version/backwardPass.jl
         optimize!(nxtModel)
         st = termination_status(nxtModel)
         if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
@@ -364,21 +328,12 @@ function LevelSetMethod_optimization!(StageProblemData::StageData, demand::Vecto
         ## save the trajectory
         function_value_info = compute_f_G(x_nxt, Enhanced_Cut = Enhanced_Cut)
         iter = iter + 1
-<<<<<<< HEAD:src/GenerationExpansion/1.0version/backward_pass.jl
         function_info.x_his[iter]     = x_nxt
         function_info.G_max_his[iter] = max(function_value_info[3][k] for k in keys(function_value_info[3]))
         function_info.f_his[iter]     = function_value_info[1]
         function_info.df              = function_value_info[2]
         function_info.dG              = function_value_info[4]
         function_info.G               = function_value_info[3]
-=======
-        functionInfo.x_his[iter]     = x_nxt
-        functionInfo.G_max_his[iter] = max(function_value_info[3][k] for k in keys(function_value_info[3]))
-        functionInfo.f_his[iter]     = function_value_info[1]
-        functionInfo.df              = function_value_info[2]
-        functionInfo.dG              = function_value_info[4]
-        functionInfo.G               = function_value_info[3]
->>>>>>> 5660a860062e7b1221d3486887c76271ff57a5fd:src/GenerationExpansion/1.0version/backwardPass.jl
 
     end
 
