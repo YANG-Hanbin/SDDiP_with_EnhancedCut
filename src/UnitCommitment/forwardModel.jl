@@ -66,9 +66,9 @@ function forwardModel!(; indexSets::IndexSets = indexSets,
                                                         .== sum(paramDemand.demand[d] * x[d] for d in Dᵢ[i]) )
     
     # on/off status with startup and shutdown decision
-    @constraint(model, ShutUpDown[g in indexSets.G], v[g] - w[g] == model[:y][g])
-    @constraint(model, Ramping1[g in indexSets.G], s[g] <= paramOPF.smin[g] * v[g])
-    @constraint(model, Ramping2[g in indexSets.G], s[g] >= - paramOPF.M[g] * y[g] - paramOPF.smin[g] * w[g])
+    @constraint(model, ShutUpDown[g in G], v[g] - w[g] == y[g])
+    @constraint(model, Ramping1[g in G], s[g] <= paramOPF.smin[g] * v[g])
+    @constraint(model, Ramping2[g in G], s[g] >= - paramOPF.M[g] * y[g] - paramOPF.smin[g] * w[g])
 
     # objective function
     @objective(model, Min, sum(paramOPF.slope[g] * s[g] +
@@ -77,12 +77,6 @@ function forwardModel!(; indexSets::IndexSets = indexSets,
                                         paramOPF.C_down[g] * w[g] for g in G) + 
                                             sum(paramDemand.w[d] * (1 - x[d]) for d in D) + sum(θ)
                 )
-    # @objective(model, Min, sum(paramOPF.slope[g] * s[g] for g in G) + 
-    #                             sum(paramOPF.intercept[g] * y[g] for g in G) + 
-    #                                 sum(paramOPF.C_start[g] * v[g] for g in G) + 
-    #                                     sum(paramOPF.C_down[g] * w[g] for g in G) + 
-    #                                         sum(paramDemand.w[d] * (1 - x[d]) for d in D) + sum(θ[n] for n in N)
-    #             )
     return model
 end
 

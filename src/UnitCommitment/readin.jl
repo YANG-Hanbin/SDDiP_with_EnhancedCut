@@ -144,6 +144,29 @@ function scenario_tree_generation(; T::Int64 = 10, numRealization::Int64 = 3, in
     return scenarioTree
 end
 
+function build_scenarios(; t::Int64 = t, path::Dict{Int64, Int64} = path, prob::Float64 = prob, scenarioTree::ScenarioTree = scenarioTree, indexSets::IndexSets = indexSets, Ξ = Ξ)
+    if t ≤ indexSets.T
+        for n in keys(scenarioTree.tree[t].nodes)
+            path_copy = copy(path); path_copy[t] = n;
+            prob_copy = copy(prob); 
+            if t == 2 
+                prob_copy = prob_copy * scenarioTree.tree[t-1].prob[1];
+            else
+                prob_copy = prob_copy * scenarioTree.tree[t-1].prob[n];
+            end
+            build_scenarios(; t = t+1, path = path_copy, prob = prob_copy, scenarioTree = scenarioTree, indexSets = indexSets, Ξ = Ξ)
+        end
+    else
+        if haskey(Ξ, 1)
+            Ξ[maximum(keys(Ξ))+1] = Dict(:path => path, :prob => prob)
+        else
+            Ξ[1] = Dict(:path => path, :prob => prob)
+        end
+        return 
+    end
+end
+
+
 """
 sample_scenarios(numRealization::Int64 = 3, scenarioTree::ScenarioTree = scenarioTree)
 

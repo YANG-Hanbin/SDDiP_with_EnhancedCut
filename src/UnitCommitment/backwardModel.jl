@@ -75,9 +75,9 @@ function backwardModel!(; tightness::Bool = tightness, indexSets::IndexSets = in
                                                         .== sum(paramDemand.demand[d] * x[d] for d in Dᵢ[i]) )
     
     # on/off status with startup and shutdown decision
-    @constraint(model, ShutUpDown[g in indexSets.G], v[g] - w[g] == y[g] - y_copy[g])
-    @constraint(model, Ramping1[g in indexSets.G], s[g] - s_copy[g] <= paramOPF.M[g] * y_copy[g] + paramOPF.smin[g] * v[g])
-    @constraint(model, Ramping2[g in indexSets.G], s[g] - s_copy[g] >= - paramOPF.M[g] * y[g] - paramOPF.smin[g] * w[g])
+    @constraint(model, ShutUpDown[g in G], v[g] - w[g] == y[g] - y_copy[g])
+    @constraint(model, Ramping1[g in G], s[g] - s_copy[g] <= paramOPF.M[g] * y_copy[g] + paramOPF.smin[g] * v[g])
+    @constraint(model, Ramping2[g in G], s[g] - s_copy[g] >= - paramOPF.M[g] * y[g] - paramOPF.smin[g] * w[g])
 
     return model
 end

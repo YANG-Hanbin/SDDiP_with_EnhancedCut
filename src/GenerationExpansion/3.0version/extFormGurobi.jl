@@ -1,11 +1,3 @@
-using JuMP, Gurobi, Random
-
-const GRB_ENV = Gurobi.Env()
-include("def.jl")
-
-## input data
-# include("generationTest.jl")
-
 ########################################################################################################################################################
 ############################################  auxiliary function: nonanticipativity for multistage problem #############################################
 ########################################################################################################################################################
@@ -93,15 +85,6 @@ function gurobiOptimize!(Ω::Dict{Int64,Dict{Int64,RandomVariables}},
     @objective(model, Min, sum( sum( scenario_tree[ω][2] * (stageDataList[t].c1' * x[:, t, ω] + stageDataList[t].c2' * y[:, t, ω] + stageDataList[t].penalty * slack[t, ω]) for t in 1:T ) for ω in 1:W) );
     optimize!(model)
     ####################################################### solve the model and display the result ###########################################################
-
-    # JuMP.objective_value(model)
-    # JuMP.value.(x[:, 1, :])
-    # JuMP.value.(x[:, 2, :])
-    # JuMP.value.(x[:, 3, :])
-
-    # JuMP.value.(y[:, 2, :])
-
-    # JuMP.value.(slack)
     gurobiResult = (OPT = JuMP.objective_value(model), 
                         statevariable_x = JuMP.value.(x[:, 1, 1]), 
                             statevariable_y = JuMP.value.(y[:, 1, 1])
@@ -109,12 +92,3 @@ function gurobiOptimize!(Ω::Dict{Int64,Dict{Int64,RandomVariables}},
 
     return gurobiResult
 end
-
-
-# sum( sum( scenario_tree[ω][2] * (stageDataList[t].c1' * value.(x[:, t, ω]) + stageDataList[t].c2' * value.(y[:, t, ω])) for t in 1:T ) for ω in 1:W)
-
-# sum( sum( scenario_tree[ω][2] * (stageDataList[t].c1' * value.(x[:, t, ω])) for t in 1:T ) for ω in 1:W)
-
-# sum( sum( scenario_tree[ω][2] * (stageDataList[t].c2' * value.(y[:, t, ω])) for t in 1:T ) for ω in 1:W)
-# gurobiOptimize!(Ω, probList, stageDataList,
-#                         binaryInfo = binaryInfo)
