@@ -1,3 +1,8 @@
+#############################################################################################
+####################################    Without Parallel   ##################################
+#############################################################################################
+using Pkg
+Pkg.activate(".")
 using JuMP, Gurobi, ParallelDataTransfer
 using Distributions, Statistics, StatsBase, Distributed, Random
 using Test, Dates, Printf

@@ -1,7 +1,3 @@
-using JuMP, Test, Statistics, StatsBase, Gurobi, Distributed, Random, Flux
-
-const GRB_ENV = Gurobi.Env()
-
 """
 This algorithm is aimed to minimize a convex optimization
         min f(x)
@@ -13,11 +9,11 @@ This algorithm is aimed to minimize a convex optimization
 #############################################################################################
 
 mutable struct FunctionInfo
-    x_his        :: Dict{Int64, Vector{Float64}}  ## record every x_j point
+    x_his        :: Dict{Int64, Dict{Any, Any}}  ## record every x_j point
     G_max_his    :: Dict{Int64, Float64}          ## record max(g[k] for k in 1:m)(x_j)
     f_his        :: Dict{Int64, Float64}          ## record f(x_j)
     df           :: Vector{Float64}
-    dG           :: Dict{Int64, Vector{Float64}}  ## actually is a matrix.  But we use dict to store it
+    dG           :: Dict{Int64, Vector{Float64}}  ## actually it is a matrix.  But we use dict to store it
     G            :: Dict{Int64, Float64}          
 end
 
@@ -49,73 +45,16 @@ end
 """
 
 struct FunctionCoefficientInfo
-    n       :: Int64  ## dim of x
-    z_coef  :: Vector{Vector{Float64}}
-    y_coef  :: Vector{Vector{Float64}}
-    x_lower :: Vector{Vector{Float64}}
-    x_upper :: Vector{Vector{Float64}}
-end
-
-n = 2
-x_lower = [[0., 3, 7, 12], [0, 4, 8]]
-x_upper = [[3., 7, 12, 15], [4, 8, 15]]
-
-z_coef = [[-1, 1, -1, 1/3], [1, -1, 5]]
-y_coef = [[9., 6, 19, 7], [3, 8, 10]]
-
-functionCoefficientInfo = FunctionCoefficientInfo(n ,z_coef, y_coef, x_lower, x_upper)
-
-## original function
-function min_fx(functionCoefficientInfo::FunctionCoefficientInfo; M::Float64 = 1e5, x̂::Vector{Float64} = [3.0, 0.0], Output::Int64 = 0, specify::Bool = true)
-    model = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-                                            "OutputFlag" => Output, 
-                                            "Threads" => 1) 
-					)
-
-    ## define variables
-    @variable(model, z[i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])] >= 0)
-    @variable(model, y[i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])], Bin)
-
-    @variable(model, x_c[i = 1:functionCoefficientInfo.n] >= 0)  # local copy
-    if specify
-        @constraint(model, x_c .== x̂)
-    end
-
-    ## constraints
-    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])], 
-                            z[i, j] - x_c[i]<= 0 )
-
-    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])], 
-                            x_c[i] - (1 - y[i, j]) * M - z[i, j]<= 0)
-
-    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])], 
-                            z[i, j] <= M * y[i, j])
-
-    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])], 
-                            x_c[i] - functionCoefficientInfo.x_upper[i][j] - M * (1 - y[i, j]) <= 0)
-
-    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])], 
-                            functionCoefficientInfo.x_lower[i][j] - M * (1 - y[i, j]) - x_c[i] <= 0 )
-
-    @constraint(model, [i = 1:functionCoefficientInfo.n], sum(y[i, j] for j in 1:length(functionCoefficientInfo.z_coef[i])) == 1)
-
-
-    ## objective function
-    @objective(model, Min, sum(sum(functionCoefficientInfo.z_coef[i][j] * z[i,j] for j in 1:length(functionCoefficientInfo.z_coef[i])) + 
-    sum(functionCoefficientInfo.y_coef[i][j] * y[i, j] for j in 1:length(functionCoefficientInfo.z_coef[i])) for i in 1:functionCoefficientInfo.n)) 
-
-    optimize!(model)
-
-    # evaluate obj
-    f_star = JuMP.objective_value(model)
-    x_star = JuMP.value.(x_c)
-
-    return [f_star, x_star]
+    n       :: Int64                        ## dim of x
+    a       :: Vector{Vector{Float64}}
+    b       :: Vector{Vector{Float64}}
+    x̲       :: Vector{Vector{Float64}}
+    x̄       :: Vector{Vector{Float64}}
 end
 
 
 ## function to evaluate the Lagrangian
-function evaluate_function(x::Vector{Float64}, functionCoefficientInfo::FunctionCoefficientInfo; M::Float64 = 1e5, x̂::Vector{Float64} = [3.0, 0.0], Output::Int64 = 0)
+function evaluate_function(x::Dict{Any, Any}, functionCoefficientInfo::FunctionCoefficientInfo; M::Float64 = 1e5, x̂::Dict{Any, Any} = Dict{Any, Any}(), Output::Int64 = 0)
     ## here, x : Lagrangian Multiplier
     ## here, x̂ : the first stage variable
     model = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
@@ -123,48 +62,61 @@ function evaluate_function(x::Vector{Float64}, functionCoefficientInfo::Function
                                             "Threads" => 1) 
 					)
 
-    @variable(model, z[i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])] >= 0)
-    @variable(model, y[i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])], Bin)
+    @variable(model, z[i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.a[i])])
+    @variable(model, y[i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.a[i])], Bin)
 
-    @variable(model, x_c[i = 1:functionCoefficientInfo.n] >= 0)  # local copy
-    # @constraint(model, x_c .== x̂)
+    @variable(model, x_c[i = 1:functionCoefficientInfo.n])  # local copy
+    @variable(model, λc[σ in [1,2]], Bin)
+    # @constraint(model, x_c .== x̂[:x])
+    # @constraint(model, λc .== x̂[:λ])
 
 
-    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])], 
-                            z[i, j] - x_c[i]<= 0 )
+    # McCormick relaxation
+    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.a[i])], 
+                            z[i, j] - x_c[i] ≤ 0 )
 
-    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])], 
-                            x_c[i] - (1 - y[i, j]) * M - z[i, j]<= 0)
+    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.a[i])], 
+                            x_c[i] - (1 - y[i, j]) * M - z[i, j] ≤ 0)
 
-    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])], 
-                            z[i, j] <= M * y[i, j])
+    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.a[i])], 
+                            z[i, j] ≤ M * y[i, j])
+    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.a[i])], 
+                            z[i, j] ≥ - M * y[i, j])
+                            
+    # choose x region
+    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.a[i])], 
+                            x_c[i] - functionCoefficientInfo.x̄[i][j] - M * (1 - y[i, j]) ≤ 0)
 
-    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])], 
-                            x_c[i] - functionCoefficientInfo.x_upper[i][j] - M * (1 - y[i, j]) <= 0)
+    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.a[i])], 
+                            functionCoefficientInfo.x̲[i][j] - M * (1 - y[i, j]) - x_c[i] ≤ 0 )
 
-    @constraint(model, [i = 1:functionCoefficientInfo.n, j = 1:length(functionCoefficientInfo.z_coef[i])], 
-                            functionCoefficientInfo.x_lower[i][j] - M * (1 - y[i, j]) - x_c[i] <= 0 )
+    @constraint(model, [i = 1:functionCoefficientInfo.n], sum(y[i, j] for j in 1:length(functionCoefficientInfo.a[i])) == 1)
 
-    @constraint(model, [i = 1:functionCoefficientInfo.n], sum(y[i, j] for j in 1:length(functionCoefficientInfo.z_coef[i])) == 1)
+    # lifting
+    # @variable(model, λc[i = 1:functionCoefficientInfo.n, σ in T[i]], Bin)
+    @constraint(model, sum(λc[:]) == 1)
+    @constraint(model, [i = 1:functionCoefficientInfo.n], x_c[i] ≤ 1.5 + M * (1 - λc[1]))
+    @constraint(model, [i = 1:functionCoefficientInfo.n], x_c[i] ≥ 1.5 - M * (1 - λc[2]))
 
-    # @objective(model, Min, sum(sum(functionCoefficientInfo.z_coef[i][j] * z[i,j] for j in 1:length(functionCoefficientInfo.z_coef[i])) + 
-    # sum(functionCoefficientInfo.y_coef[i][j] * y[i, j] for j in 1:length(functionCoefficientInfo.z_coef[i])) for i in 1:functionCoefficientInfo.n)) 
 
-    @objective(model, Min, sum(sum(functionCoefficientInfo.z_coef[i][j] * z[i,j] for j in 1:length(functionCoefficientInfo.z_coef[i])) + 
-                           sum(functionCoefficientInfo.y_coef[i][j] * y[i, j] for j in 1:length(functionCoefficientInfo.z_coef[i])) for i in 1:functionCoefficientInfo.n)
-                            + x' * (x̂ - x_c) ) 
+    # @objective(model, Min, sum(sum(functionCoefficientInfo.a[i][j] * z[i,j] for j in 1:length(functionCoefficientInfo.a[i])) + 
+    # sum(functionCoefficientInfo.b[i][j] * y[i, j] for j in 1:length(functionCoefficientInfo.a[i])) for i in 1:functionCoefficientInfo.n)) 
+
+    @objective(model, Min, sum(sum(functionCoefficientInfo.a[i][j] * z[i,j] for j in 1:length(functionCoefficientInfo.a[i])) + 
+                           sum(functionCoefficientInfo.b[i][j] * y[i, j] for j in 1:length(functionCoefficientInfo.a[i])) for i in 1:functionCoefficientInfo.n)
+                            + x[:x]' * (x̂[:x] - x_c) + x[:λ]' * (x̂[:λ] .- λc) ) 
     optimize!(model)
 
     # evaluate obj
-    f = JuMP.objective_value(model)
-    df = x̂ - JuMP.value.(x_c)
+    f = round(JuMP.objective_value(model), digits = 7)
+    df = round.([x̂[:x] .- JuMP.value.(x_c); x̂[:λ] .- JuMP.value.(λc)], digits = 6)
     # evaluate constraints and their gradients
     d1 = 0.0
     # d2 = [3,9]' * x - 15
     Com_G = Dict{Int64, Float64}()
     Com_G[1] = d1
 
-    d1 = [0.0, 0.0]
+    d1 = [0.0 for i in 1:(length(x[:x])+length(x[:λ]))]
     # d2 = [3.0, 9.0]
     Com_grad_G = Dict{Int64, Vector{Float64}}()
     Com_grad_G[1] = d1
@@ -179,8 +131,6 @@ function evaluate_function(x::Vector{Float64}, functionCoefficientInfo::Function
 
     return result
 end
-
-
 
 
 
@@ -235,7 +185,7 @@ end
 function add_constraint(function_info::FunctionInfo, model_info::ModelInfo, iter::Int64)
     m = length(function_info.G)
 
-    xⱼ = function_info.x_his[iter]
+    xⱼ = [function_info.x_his[iter][:x];function_info.x_his[iter][:λ]]
     # add constraints
     @constraint(model_info.model, model_info.z .>= function_info.f_his[iter] + function_info.df' * (model_info.x - xⱼ) )
     @constraint(model_info.model, [k = 1:m], model_info.y .>= function_info.G[k] + function_info.dG[k]' * (model_info.x - xⱼ) )
@@ -243,17 +193,14 @@ end
 
 
 
-
-
-
 #############################################################################################
 ####################################    main function   #####################################
 #############################################################################################
 
-function LevelSetMethod(x̂::Vector{Float64}, x₀::Vector{Float64}; μ::Float64 = 0.5, λ::Float64 = 0.1, Output::Int64 = 0, threshold::Float64 = 1e-5, 
-                        functionCoefficientInfo::FunctionCoefficientInfo = functionCoefficientInfo)
+function LevelSetMethod(x̂::Dict{Any, Any}, x₀::Dict{Any, Any}; μ::Float64 = 0.5, λ::Float64 = 0.1, Output::Int64 = 0, threshold::Float64 = 1e-5, 
+                        functionCoefficientInfo::FunctionCoefficientInfo = functionCoefficientInfo, maxIter::Int64 = 1000)
 
-    n = length(x̂)
+    n = length(x̂[:x]) + length(x̂[:λ])
     iter = 1
     α = 1/2
 
@@ -282,27 +229,14 @@ function LevelSetMethod(x̂::Vector{Float64}, x₀::Vector{Float64}; μ::Float64
     oracle_info = ModelInfo(model_oracle, x, y, z)
 
 
-    # Method 1:  model for next point
-    # model_nxt = Model(
-    #         optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-    #         "OutputFlag" => Output, 
-    #         "Threads" => 1)
-    #         )
-
-    # @variable(model_nxt, x1[i = 1:n])
-    # @variable(model_nxt, z1 >= -10)
-    # @variable(model_nxt, y1)
-    # @constraint(model_nxt, level_constraint, α * z1 + (1 - α) * y1 <= 0)
-    # nxt_info = ModelInfo(model_nxt, x1, y1, z1)
-
     while true
         add_constraint(function_info, oracle_info, iter)
         optimize!(model_oracle)
 
         st = termination_status(model_oracle)
+        # @assert st == MOI.OPTIMAL "oracle is infeasible"
         if st != MOI.OPTIMAL
             @info "oracle is infeasible"
-            # break
         end
 
         f_star = JuMP.objective_value(model_oracle)
@@ -311,7 +245,8 @@ function LevelSetMethod(x̂::Vector{Float64}, x₀::Vector{Float64}; μ::Float64
 
         result = Δ_model_formulation(function_info, f_star, iter, Output = Output)
         Δ, a_min, a_max = result[1], result[2], result[3]
-        if Δ < threshold
+        if Δ < threshold || iter ≥ maxIter
+            # @info "arrive at the optimal point, $Δ"
             return function_info
         end
 
@@ -330,27 +265,7 @@ function LevelSetMethod(x̂::Vector{Float64}, x₀::Vector{Float64}; μ::Float64
         ######################################################################################################################
         #########################################     next iteration point   #################################################
         ######################################################################################################################
-
-        ######################################################################################################################
-        ##  Method 1: obtain the next iteration point Method 1
-        # add_constraint(function_info, nxt_info, iter)
-        # set_normalized_rhs( level_constraint, level)
-        # @objective(model_nxt, Min, (x1 - function_info.x_his[iter])' * (x1 - function_info.x_his[iter]))
-        # @info "$model_nxt"
-        # optimize!(model_nxt)
-        # st = termination_status(model_nxt)
-        # if st != MOI.OPTIMAL
-        #     @info "Next point model is infeasible"
-        #     break
-        # end
-        # x_nxt = JuMP.value.(x1)
-
-        # but something worry here
-        ######################################################################################################################
-
-
-
-        ## Method 2:  obtain the next iteration point
+        ## obtain the next iteration point
         model_nxt = Model(
             optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
             "OutputFlag" => Output, 
@@ -362,9 +277,9 @@ function LevelSetMethod(x̂::Vector{Float64}, x₀::Vector{Float64}; μ::Float64
         @variable(model_nxt, y1)
 
         @constraint(model_nxt, α * z1 + (1 - α) * y1 <= level)
-        @constraint(model_nxt, z1 .>= function_info.f_his[iter] + function_info.df' * (x1 - function_info.x_his[iter]) )
-        @constraint(model_nxt, [k in keys(function_info.G)], y1 .>= function_info.G[k] + function_info.dG[k]' * (x1 - function_info.x_his[iter]) )
-        @objective(model_nxt, Min, (x1 - function_info.x_his[iter])' * (x1 - function_info.x_his[iter]))
+        @constraint(model_nxt, z1 .>= function_info.f_his[iter] + function_info.df' * (x1 - [function_info.x_his[iter][:x]; function_info.x_his[iter][:λ]]) )
+        @constraint(model_nxt, [k in keys(function_info.G)], y1 .>= function_info.G[k] + function_info.dG[k]' * (x1 - [function_info.x_his[iter][:x]; function_info.x_his[iter][:λ]]) )
+        @objective(model_nxt, Min, (x1 - [function_info.x_his[iter][:x]; function_info.x_his[iter][:λ]])' * (x1 - [function_info.x_his[iter][:x]; function_info.x_his[iter][:λ]]))
         optimize!(model_nxt)
         st = termination_status(model_nxt)
         if st != MOI.OPTIMAL
@@ -377,6 +292,7 @@ function LevelSetMethod(x̂::Vector{Float64}, x₀::Vector{Float64}; μ::Float64
         ######################################################################################################################
 
         ## save the trajectory
+        x_nxt = Dict{Any, Any}(:x => x_nxt[1:n-length(x̂[:λ])], :λ => x_nxt[n-length(x̂[:λ])+1:n])
         evaluate_function_value = evaluate_function(x_nxt, functionCoefficientInfo, x̂ = x̂)
 
         iter = iter + 1
@@ -392,25 +308,6 @@ function LevelSetMethod(x̂::Vector{Float64}, x₀::Vector{Float64}; μ::Float64
     end
 
 end
-
-x̂ = [3.0, 0.0]
-x₀ = [10.0 for i in 1:n]
-a = LevelSetMethod(x̂, x₀, λ = .1, Output = 0, functionCoefficientInfo = functionCoefficientInfo, )
-
-a.x_his
-a.f_his
-
-
-π = a.x_his[length(a.x_his)]
-v = - a.f_his[length(a.f_his)] - π' * x̂
-
-θ_ = π' * x̂ + v
-θ_star = π' * [3.0, 8.0] + v
-f_true = min_fx(functionCoefficientInfo, x̂ = x̂, specify = true)
-
-gap = f_true[1] - θ_
-## Therefore, the cut is of the form θ ≥ π' * x + v
-
 
 
 

@@ -1,8 +1,5 @@
 using JuMP, Gurobi, Random
 
-const GRB_ENV = Gurobi.Env()
-include("def.jl")
-
 ## input data
 # include("generationTest.jl")
 
@@ -10,10 +7,10 @@ include("def.jl")
 ################################################################################################################################################
 ############################################################     Gurobi function   #############################################################
 ################################################################################################################################################
-function gurobiOptimize!(Ω::Dict{Int64,ScenarioData}, 
+function gurobiOptimize!(;Ω::Dict{Int64,ScenarioData} = Ω, 
                         indexSets::IndexSets = indexSets,
-                        prob::Prob, 
-                        stageData::StageData; 
+                        prob::Prob = prob, 
+                        stageData::StageData = stageData,
                         mipGap::Float64 = 1e-3, timeLimit::Float64 = 1e3, outputFlag::Int64 = 1)
 
     ## construct forward second-stage problem 
@@ -27,7 +24,7 @@ function gurobiOptimize!(Ω::Dict{Int64,ScenarioData},
     @variable(model, π[indexSets.N, indexSets.Ω] ≥ 0)  
     @variable(model, x[indexSets.D], Bin) 
 
-    @constraint(model, sum(stageData.c[(i,j)] * x[(i,j)] for (i,j) in indexSet.D) ≤ stageData.b ) 
+    @constraint(model, sum(stageData.c[(i,j)] * x[(i,j)] for (i,j) in indexSets.D) ≤ stageData.b ) 
     @constraint(model, [ω in indexSets.Ω], π[Ω[ω].t, ω] == 1)
     @constraint(model, [(i,j) in indexSets.D, ω in indexSets.Ω], π[i, ω] - prob.q[(i,j)] * π[j, ω] ≥ 0)
     @constraint(model, [(i,j) in indexSets.Dᶜ,ω in indexSets.Ω], π[i, ω] - prob.r[(i,j)] * π[j, ω] ≥ 0)

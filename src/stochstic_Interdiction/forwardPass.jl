@@ -24,8 +24,8 @@ function forward_stage1_Model!(; stageData::StageData = stageData, indexSets::In
     @variable(model, x[indexSets.D], Bin) # first-stage binary variables denote if a sensor is installed on arc (i,j) ∈ D
     @variable(model, θ[indexSets.Ω] ≥ 0)  # approximation of value functions for each scenario
 
-    @constraint(model, θ[ω in indexSets.Ω] ≤ 1)
-    @constraint(model, sum(stageData.c[(i,j)] * x[(i,j)] for (i,j) in indexSet.D) ≤ stageData.b )    
+    @constraint(model, [ω in indexSets.Ω], θ[ω] ≤ 1)
+    @constraint(model, sum(stageData.c[(i,j)] * x[(i,j)] for (i,j) in indexSets.D) ≤ stageData.b )    
 
     @objective(model, Min, sum(prob.p[ω] * θ[ω] for ω in indexSets.Ω))
 
@@ -63,10 +63,10 @@ function forward_stage2_Model!(scenarioData::ScenarioData, x̂::Any;
     @constraint(model, destinationConstraint, π[scenarioData.t] == 1)
     @constraint(model, [(i,j) in indexSets.D ], π[i] - prob.q[(i,j)] * π[j] ≥ 0)
     @constraint(model, [(i,j) in indexSets.Dᶜ], π[i] - prob.r[(i,j)] * π[j] ≥ 0)
-    @constraint(model, SensorConstraint, [(i,j) in indexSets.D ], π[i] - prob.r[(i,j)] * π[j] ≥ 
+    @constraint(model, SensorConstraint[(i,j) in indexSets.D ], π[i] - prob.r[(i,j)] * π[j] ≥ 
                                                     (prob.q[(i,j)] - prob.r[(i,j)]) * scenarioData.ϕ[j] * x[(i,j)]
                     )
-    @constraint(model, nonantipativity, x .== x̂)
+    @constraint(model, nonantipativity[i in 1:length(keys(indexSets.D))], x[indexSets.D[keys(indexSets.D)[i]]] .== x̂[i])
     @objective(model, Min, π[scenarioData.s])
 
     forward_stage2_Info = Forward_stage2_Info(model, x, π)
@@ -88,13 +88,16 @@ TBW
 """
 function forward_modify_constraints!(forward_stage2_Info::Forward_stage2_Info, 
                                         scenarioData::ScenarioData, 
-                                        x̂::Any; 
-                                        prob::Prob = prob                 
+                                        x̂::Vector{Float64}; 
+                                        prob::Prob = prob, indexSets::IndexSets = indexSets               
                                         )
 
     delete(forward_stage2_Info.model, forward_stage2_Info.model[:destinationConstraint])
-    delete(forward_stage2_Info.model, forward_stage2_Info.model[:SensorConstraint])
-    delete(forward_stage2_Info.model, forward_stage2_Info.model[:nonantipativity])
+    for i in 1:length(keys(indexSets.D))
+        delete(forward_stage2_Info.model, forward_stage2_Info.model[:SensorConstraint][indexSets.D[keys(indexSets.D)[i]]])
+        delete(forward_stage2_Info.model, forward_stage2_Info.model[:nonantipativity][i])
+    end
+    
 
     unregister(forward_stage2_Info.model, :destinationConstraint)
     unregister(forward_stage2_Info.model, :SensorConstraint)
@@ -102,10 +105,11 @@ function forward_modify_constraints!(forward_stage2_Info::Forward_stage2_Info,
 
     ## no more than max num of generators
     @constraint(forward_stage2_Info.model, destinationConstraint,  forward_stage2_Info.π[scenarioData.t] == 1) 
-    @constraint(forward_stage2_Info.model, SensorConstraint,  [(i,j) in indexSets.D ], forward_stage2_Info.π[i] - prob.r[(i,j)] * π[j] ≥ 
-                                                                (prob.q[(i,j)] - prob.r[(i,j)]) * scenarioData.ϕ[j] * forward_stage2_Info.x[(i,j)]
+    @constraint(forward_stage2_Info.model, SensorConstraint[(i,j) in indexSets.D ], forward_stage2_Info.π[i] - prob.r[(i,j)] * forward_stage2_Info.π[j] ≥ 
+                                                                (prob.q[(i,j)] - prob.r[(i,j)]) * scenarioData.ϕ[j] * forward_stage2_Info.model[:x][(i,j)]
                                         )
-    @constraint(model, nonantipativity, x .== x̂)
 
-    @objective(model, Min, forward_stage2_Info.π[scenarioData.s])
+    @constraint(forward_stage2_Info.model, nonantipativity[i in 1:length(keys(indexSets.D))], forward_stage2_Info.model[:x][indexSets.D[keys(indexSets.D)[i]]] .== x̂[i])
+
+    @objective(forward_stage2_Info.model, Min, forward_stage2_Info.π[scenarioData.s])
 end

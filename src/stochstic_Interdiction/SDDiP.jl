@@ -38,11 +38,12 @@ function setupLevelsetPara(f_star_value::Real, x̂::Vector{Float64};
 end
 
 
-function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}}, 
-                            probList::Dict{Int64,Vector{Float64}}, 
-                            stageDataList::Dict{Int64, StageData}; 
-                            scenario_sequence::Dict{Int64, Dict{Int64, Any}} = scenario_sequence, ϵ::Float64 = 0.001, M::Int64 = 30, max_iter::Int64 = 200, 
-                            cutSelection::String = "ELC", binaryInfo::BinaryInfo = binaryInfo)
+function SDDiP_algorithm( ;stageData::StageData = stageData, 
+                            indexSets::IndexSets = indexSets,
+                            prob::Prob = prob,
+                            Ω::Dict{Int64, ScenarioData} = Ω, 
+                            ϵ::Float64 = 0.001, max_iter::Int64 = 200, cutSelection::String = "ELC"
+                                )
     ## d: dimension of x
     ## M: num of scenarios when doing one iteration
     initial = now(); iter_time = 0; total_Time = 0; t0 = 0.0;
@@ -54,7 +55,7 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
     named_tuple = (; zip(col_names, type[] for type in col_types )...);
     sddipResult = DataFrame(named_tuple); # 0×7 DataFrame
     gapList = [];
-    @time gurobiResult = gurobiOptimize!(Ω, indexSets, prob, stageData);
+    @time gurobiResult = gurobiOptimize!();
     OPT = gurobiResult.OPT 
 
     forward_stage1_Info = forward_stage1_Model!(); forward_stage2_Info = forward_stage2_Model!(Ω[1], incumbent);
@@ -63,12 +64,9 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
     println("---------------- print out iteration information -------------------")
     while true
         t0 = now();
-        M = 4;
-        u = Vector{Float64}(undef, M);  # to compute upper bound 
-        
+      
         ## Forward Step
         if true             # the first-stage problem
-            t = 1;
             optimize!(forward_stage1_Info.model); 
             LB = JuMP.objective_value(forward_stage1_Info.model);
             x̂ = round.(JuMP.value.(forward_stage1_Info.x), digits = 3);
@@ -76,11 +74,11 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
         end
 
         if true             # the second-stage problem
-            stage2_Value = 0;
+            stage2_Value = Dict();
             for ω in indexSets.Ω
                 forward_modify_constraints!(forward_stage2_Info, Ω[ω], x̂); 
                 optimize!(forward_stage2_Info.model); 
-                stage2_Value = stage2_Value + prob.p[ω] * JuMP.objective_value(forward_stage2_Info.model)
+                stage2_Value[ω] = JuMP.objective_value(forward_stage2_Info.model)
 
                 # obtain dual variables 
                 vω = JuMP.objective_value(forward_stage2_Info.model)
@@ -90,10 +88,10 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
         end
 
         ## compute the upper bound
-        if stage1_Value + stage2_Value < UB 
+        if stage1_Value + sum(prob.p[ω] * stage2_Value[ω] for ω in indexSets.Ω) < UB 
             incumbent = x̂
         end
-        UB = minimum([stage1_Value + stage2_Value, UB])
+        UB = minimum([stage1_Value + sum(prob.p[ω] * stage2_Value[ω] for ω in indexSets.Ω), UB])
 
         gap = round((UB-LB)/UB * 100 ,digits = 2);
         gapString = string(gap,"%");
@@ -112,9 +110,9 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
 
         for ω in indexSets.Ω 
             backward_modify_constraints!(backward_stage2_Info, Ω[ω], x̂)
-            (levelSetMethodParam, x₀) = setupLevelsetPara(f_star_value, x̂; cutSelection = "ELC",  # "ShrinkageLC", "ELCwithoutConstraint", "LC", "ELC"
+            (levelSetMethodParam, x₀) = setupLevelsetPara(stage2_Value[ω], x̂; cutSelection = cutSelection,  # "ShrinkageLC", "ELCwithoutConstraint", "LC", "ELC"
                                                                         Output_Gap = false, λ = .3, ℓ1 = 0.0, ℓ2 = 0.0);
-            (vω, πω) = LevelSetMethod_optimization!(backward_stage2_Info, x₀; ϵ = 1e-4, levelSetMethodParam = levelSetMethodParam) 
+            (vω, πω) = LevelSetMethod_optimization!(backward_stage2_Info, x₀; ϵ = ϵ, levelSetMethodParam = levelSetMethodParam) 
             cutInfo[ω] = LagrangianCut(vω, πω, nothing)
         end
 
@@ -122,9 +120,9 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
         ## Add cuts 
         for ω in indexSets.Ω 
             if cutInfo[ω] === nothing
-                @constraint(forward_stage1_Info.model, forward_stage1_Info.θ ≥ cutInfo[ω].v + cutInfo[ω].π' * forward_stage1_Info.x )
+                @constraint(forward_stage1_Info.model, forward_stage1_Info.θ[ω] ≥ cutInfo[ω].v + sum(cutInfo[ω].π .* forward_stage1_Info.x) )
             else
-                @constraint(forward_stage1_Info.model, forward_stage1_Info.θ ≥ cutInfo[ω].v + cutInfo[ω].π' * (forward_stage1_Info.x - cutInfo[ω].x))
+                @constraint(forward_stage1_Info.model, forward_stage1_Info.θ[ω] ≥ cutInfo[ω].v + sum(cutInfo[ω].π .* (forward_stage1_Info.x .- cutInfo[ω].x)))
             end
         end
 

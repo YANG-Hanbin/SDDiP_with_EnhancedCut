@@ -2,9 +2,16 @@
 ####################################   Data Structure   #####################################
 #############################################################################################
 struct LagrangianCut
-    v               ::Dict{Int64,Dict{Int64, Float64}} # [i][k] where i is the iteration index, and k is the scenario index
-    π               ::Dict{Int64,Dict{Int64, Vector{Float64}}}  # [[1.,2.,3.],[1.,2.,3.]]  -- push!(Π, π) to add a new element
+    v               ::Float64                         # [i][k] where i is the iteration index, and k is the scenario index
+    π               ::Vector{Float64}                 # [[1.,2.,3.],[1.,2.,3.]]  -- push!(Π, π) to add a new element
     x               ::Union{Vector{Real}, Nothing}
+end
+
+# the scenario data
+struct ScenarioData 
+    s        ::  Int64                                # s is the origin of the intruder under scenario ω
+    t        ::  Int64                                # t is the desination of the intruder under scenario ω
+    ϕ        ::  Dict{Int64, Real}                    # ϕ[j] is the value of maximum-reliablility path from j to t
 end
 
 
@@ -13,7 +20,7 @@ struct IndexSets
     A        ::  Vector{Tuple{Int64, Int64}}         # set of arcs of the network
     D        ::  Vector{Tuple{Int64, Int64}}         # subset of arcs on which sensors are allowed to be placed
     Dᶜ       ::  Vector{Tuple{Int64, Int64}}         # subset of arcs on which sensors are NOt allowed to be placed
-    Ω        ::  Dict{Int64, ScenarioData}           # set of scenarios
+    Ω        ::  Vector{Int64}                       # set of scenarios
 end
 
 
@@ -23,15 +30,6 @@ end
 struct StageData 
     c        ::  Dict{Tuple{Int64, Int64}, Real}     # c is the cost of installing a sensor on arc (i,j)
     b        ::  Real                                # total budge
-end
-
-
-
-# the scenario data
-struct ScenarioData 
-    s        ::  Int64                                # s is the origin of the intruder under scenario ω
-    t        ::  Int64                                # t is the desination of the intruder under scenario ω
-    ϕ        ::  Dict{Int64, Real}                    # ϕ[j] is the value of maximum-reliablility path from j to t
 end
 
 
