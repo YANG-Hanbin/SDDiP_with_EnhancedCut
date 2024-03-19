@@ -50,7 +50,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                 optimize!(forwardInfoList[t]);
                 stageDecision[:s] = Dict{Int64, Float64}(g => JuMP.value(forwardInfoList[t][:s][g]) for g in indexSets.G);
                 stageDecision[:y] = Dict{Int64, Float64}(g => JuMP.value(forwardInfoList[t][:y][g]) for g in indexSets.G);
-                solCollection[i, t, ω] = ( stageSolution = stageDecision, 
+                solCollection[i, t, ω] = ( stageSolution = copy(stageDecision), 
                                         stageValue = JuMP.objective_value(forwardInfoList[t]) - sum(JuMP.value.(forwardInfoList[t][:θ])), 
                                         OPT = JuMP.objective_value(forwardInfoList[t]));
 
@@ -105,11 +105,3 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         t1 = now(); iter_time = (t1 - t0).value/1000; total_Time = (t1 - initial).value/1000; i += 1;
     end
 end
-
-# i = 1; j = 2; 
-# solCollection[i, 1, ω].stageSolution == solCollection[j, 1, ω].stageSolution
-
-# λ₀ + sum(λ₁[:s][g] * stageDecision[:s][g] + λ₁[:y][g] * stageDecision[:y][g] for g in indexSets.G)
-# λ₀ + sum(λ₁[:s][g] * solCollection[i, t-1, ω].stageSolution[:s][g] + λ₁[:y][g] * solCollection[i, t-1, ω].stageSolution[:y][g] for g in indexSets.G)
-
-# stageDecision == solCollection[1, 1, ω].stageSolution

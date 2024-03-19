@@ -9,7 +9,7 @@ include("src/UnitCommitment/readin.jl");
 
 network_data = PowerModels.parse_file("src/UnitCommitment/data/RTS_GMLC/case_RTS_GMLC.m");
 branchInfo = CSV.read("src/UnitCommitment/data/RTS_GMLC/branch.csv", DataFrame);
-T = 2; numRealization = 2;
+T = 3; numRealization = 3;
 (indexSets, paramOPF, paramDemand) = prepareIndexSets(T = T, network_data = network_data, branchInfo = branchInfo);
 
 scenarioTree = scenario_tree_generation(T = T, numRealization = numRealization, indexSets = indexSets)
