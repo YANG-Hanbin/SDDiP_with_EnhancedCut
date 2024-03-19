@@ -17,16 +17,19 @@ include("src/UnitCommitment/backwardModel.jl");
 include("src/UnitCommitment/forwardModel.jl");
 include("src/UnitCommitment/LevelSetMethod.jl");
 include("src/UnitCommitment/sddip.jl");
+include("src/UnitCommitment/extForm.jl");
+
 
 indexSets = load("src/UnitCommitment/experiment/indexSets.jld2")["indexSets"]
 paramOPF = load("src/UnitCommitment/experiment/paramOPF.jld2")["paramOPF"]
 paramDemand = load("src/UnitCommitment/experiment/paramDemand.jld2")["paramDemand"]
 scenarioTree = load("src/UnitCommitment/experiment/scenarioTree.jld2")["scenarioTree"]
+Ξ = load("src/UnitCommitment/experiment/Ξ.jld2")["Ξ"]
 
 #############################################################################################
 ########################################## Run Test #########################################
 #############################################################################################
-Output_Gap = false; max_iter::Int64 = 100; ϵ = 1e-4; cutSelection = "LC";
+Output_Gap = false; max_iter = 100; ϵ = 1e-4; cutSelection = "LC";
 
 sddpResult = SDDiP_algorithm(scenarioTree = scenarioTree, 
                                 indexSets = indexSets, 

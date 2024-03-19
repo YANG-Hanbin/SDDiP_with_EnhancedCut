@@ -71,16 +71,21 @@ function extensive_form(; indexSets::IndexSets = indexSets,
                                                         .== sum(paramDemand.demand[d] * scenarioTree.tree[t].nodes[Ξ[ω][:path][t]].deviation[d] * x[d, t, ω] for d in Dᵢ[i]) )
 
     # on/off status with startup and shutdown decision
+    ## t = 1
+    @constraint(model, [ω in 1:W, g in indexSets.G], v[g, 1, ω] - w[g, 1, ω] == y[g, 1, ω])
+    @constraint(model, [ω in 1:W, g in indexSets.G], s[g, 1, ω] <= paramOPF.smin[g] * v[g, 1, ω])
+    @constraint(model, [ω in 1:W, g in indexSets.G], s[g, 1, ω] >= - paramOPF.M[g] * y[g, 1, ω] - paramOPF.smin[g] * w[g, 1, ω])
+    # t ≥ 2
     @constraint(model, [t in 2:T, ω in 1:W, g in indexSets.G], v[g, t, ω] - w[g, t, ω] == y[g, t, ω] - y[g, t-1, ω])
     @constraint(model, [t in 2:T, ω in 1:W, g in indexSets.G], s[g, t, ω] - s[g, t-1, ω] <= paramOPF.M[g] * y[g, t-1, ω] + paramOPF.smin[g] * v[g, t, ω])
     @constraint(model, [t in 2:T, ω in 1:W, g in indexSets.G], s[g, t, ω] - s[g, t-1, ω] >= - paramOPF.M[g] * y[g, t, ω] - paramOPF.smin[g] * w[g, t, ω])
 
     # objective function
-    @objective(model, Min, sum(Ξ[ω][:prob] * sum(sum(paramOPF.slope[g] * s[g, t, ω] +
-                                paramOPF.intercept[g] * y[g, t, ω] +
-                                    paramOPF.C_start[g] * v[g, t, ω] + 
-                                        paramOPF.C_down[g] * w[g, t, ω] for g in G) + 
-                                            sum(paramDemand.w[d] * (1 - x[d, t, ω]) for d in D) for t in 1:T) for ω in 1:W)
+    @objective(model, Min, sum(Ξ[ω][:prob] * 
+    
+                            sum(sum(paramOPF.slope[g] * s[g, t, ω] + paramOPF.intercept[g] * y[g, t, ω] + paramOPF.C_start[g] * v[g, t, ω] + paramOPF.C_down[g] * w[g, t, ω] for g in G) + sum(paramDemand.w[d] * (1 - x[d, t, ω]) for d in D) for t in 1:T) 
+                                            
+                                            for ω in 1:W)
                 );
     # nonanticipativity constraints
     nonanticipativity(model = model, scenarioList = keys(Ξ), t = 1)

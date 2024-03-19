@@ -14,8 +14,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
     named_tuple = (; zip(col_names, type[] for type in col_types )...);
     sddipResult = DataFrame(named_tuple); # 0×7 DataFrame
     gapList = [];
-    # @time gurobiResult = gurobiOptimize!(indexSets, paramDemand, paramOPF, Ξ; β = β);  OPT = gurobiResult.OPT;
-
+    @time extResult = extensive_form(indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF, scenarioTree = scenarioTree, Ξ = Ξ); OPT = extResult.OPT;
     forwardInfoList = Dict{Int, Model}();
     backwardInfoList = Dict{Int, Model}();
     for t in 1:indexSets.T 
@@ -24,37 +23,36 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                                                     paramOPF = paramOPF, 
                                                         stageRealization = scenarioTree.tree[t], 
                                                                 outputFlag = 0, 
-                                                                        mipGap = 1e-2
+                                                                        mipGap = 1e-2, θ_bound = 0.0
                                                 );
         backwardInfoList[t] = backwardModel!(indexSets = indexSets, 
                                                 paramDemand = paramDemand, 
                                                     paramOPF = paramOPF, 
                                                         stageRealization = scenarioTree.tree[t], 
                                                                 outputFlag = 0, 
-                                                                        mipGap = 1e-2, tightness = true
+                                                                        mipGap = 1e-2, tightness = true, θ_bound = 0.0
                                                 );
     end 
     stageDecision = Dict{Symbol, Dict{Int64, Float64}}(); stageDecision[:s] = Dict{Int64, Float64}(); stageDecision[:y] = Dict{Int64, Float64}();
     λ₀ = 0.0; λ₁ = Dict{Symbol, Dict{Int64, Float64}}();
     solCollection = Dict();  # to store every iteration results
+
+    ####################################################### Main Loop ###########################################################
     while true
         t0 = now(); 
-        Ξ = sample_scenarios(; scenarioTree = scenarioTree, numScenarios = numScenarios);
+        Ξ̃ = sample_scenarios(; scenarioTree = scenarioTree, numScenarios = numScenarios);
         u = Dict{Int64, Float64}();  # to store the value of each scenario
         ####################################################### Forward Steps ###########################################################
-        for ω in keys(Ξ)
+        for ω in keys(Ξ̃)
             stageDecision[:s] = Dict{Int64, Float64}(g => 0.0 for g in indexSets.G); stageDecision[:y] = Dict{Int64, Float64}(g => 0.0 for g in indexSets.G);  
             for t in 1:indexSets.T
-                model = forwardInfoList[t];
-                randomVariables = Ξ[ω][t];
-                forwardModification!(model = model, randomVariables = randomVariables, paramOPF = paramOPF, indexSets = indexSets, stageDecision = stageDecision);
-                optimize!(model);
-                stageDecision[:s] = Dict{Int64, Float64}(g => JuMP.value(model[:s][g]) for g in indexSets.G);
-                stageDecision[:y] = Dict{Int64, Float64}(g => round(JuMP.value(model[:y][g]), digits = 1) for g in indexSets.G);
+                forwardModification!(model = forwardInfoList[t], randomVariables = Ξ̃[ω][t], paramOPF = paramOPF, indexSets = indexSets, stageDecision = stageDecision);
+                optimize!(forwardInfoList[t]);
+                stageDecision[:s] = Dict{Int64, Float64}(g => JuMP.value(forwardInfoList[t][:s][g]) for g in indexSets.G);
+                stageDecision[:y] = Dict{Int64, Float64}(g => JuMP.value(forwardInfoList[t][:y][g]) for g in indexSets.G);
                 solCollection[i, t, ω] = ( stageSolution = stageDecision, 
-                                        # stageValue = sum(paramOPF.slope[g] * JuMP.value(model[:s][g]) + paramOPF.intercept[g] * JuMP.value(model[:y][g]) + paramOPF.C_start[g] * JuMP.value(model[:v][g]) + paramOPF.C_down[g] * JuMP.value(model[:w][g]) for g in indexSets.G) + sum(paramDemand.w[d] * (1 - JuMP.value(model[:x][d])) for d in indexSets.D),
-                                        stageValue = JuMP.objective_value(model) - sum(JuMP.value.(model[:θ])), 
-                                        OPT = JuMP.objective_value(model));
+                                        stageValue = JuMP.objective_value(forwardInfoList[t]) - sum(JuMP.value.(forwardInfoList[t][:θ])), 
+                                        OPT = JuMP.objective_value(forwardInfoList[t]));
 
             end
             u[ω] = sum(solCollection[i, t, ω].stageValue for t in 1:indexSets.T);
@@ -79,36 +77,39 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
 
         ####################################################### Backward Steps ###########################################################
         for t = reverse(2:indexSets.T)
-            for ω in keys(Ξ)
+            for ω in keys(Ξ̃)
                 # λ₀ = 0.0; λ₁ = Dict{Symbol, Dict{Int64, Float64}}(); λ₁[:s] = Dict{Int64, Float64}(g => 0.0 for g in indexSets.G); λ₁[:y] = Dict{Int64, Float64}(g => 0.0 for g in indexSets.G);
                 for n in keys(scenarioTree.tree[t].nodes)
                     # @info "$t, $k, $j"
-                    forwardModification!(model = forwardInfoList[t], randomVariables = scenarioTree.tree[t].nodes[n], paramOPF = paramOPF, indexSets = indexSets, stageDecision = solCollection[i, t-1, ω].stageSolution);
+                    forwardModification!(model = forwardInfoList[t], randomVariables = scenarioTree.tree[t].nodes[n], stageDecision = solCollection[i, t-1, ω].stageSolution, paramOPF = paramOPF, indexSets = indexSets);
                     optimize!(forwardInfoList[t]); f_star_value = JuMP.objective_value(forwardInfoList[t]);
 
-                    backwardModification!(; model = backwardInfoList[t], randomVariables = scenarioTree.tree[t].nodes[n], paramOPF = paramOPF, indexSets = indexSets);
+                    backwardModification!(model = backwardInfoList[t], randomVariables = scenarioTree.tree[t].nodes[n], paramOPF = paramOPF, indexSets = indexSets);
 
-                    (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(; stageDecision = solCollection[i, t-1, ω].stageSolution, 
+                    (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(stageDecision = solCollection[i, t-1, ω].stageSolution, 
                                                                         f_star_value = f_star_value, 
                                                                             cutSelection = cutSelection, 
-                                                                                Output_Gap = Output_Gap, ℓ = .0, λ = .1 )
-                   
-                   
-                    model = backwardInfoList[t];
-                    stageDecision = solCollection[i, t-1, ω].stageSolution
-
-                    (λ₀, λ₁) = LevelSetMethod_optimization!(levelSetMethodParam = levelSetMethodParam, model = model,
+                                                                                Output_Gap = Output_Gap, ℓ = .0, λ = .1 );
+                    # model = backwardInfoList[t]; stageDecision = solCollection[i, t-1, ω].stageSolution;
+                    (λ₀, λ₁) = LevelSetMethod_optimization!(levelSetMethodParam = levelSetMethodParam, model = backwardInfoList[t],
                                                             cutSelection = cutSelection,
-                                                                stageDecision = stageDecision,
-                                                                        x_interior = x_interior, x₀ = x₀, tightness = false, indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF, ϵ = ϵ)
+                                                                stageDecision = solCollection[i, t-1, ω].stageSolution,
+                                                                        x_interior = x_interior, x₀ = x₀, tightness = false, indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF, ϵ = ϵ);
                     # add cut to both backward models and forward models
-                    @constraint(forwardInfoList[t-1], forwardInfoList[t-1][:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + sum(λ₁[:s][g] * forwardInfoList[t-1][:s][g] + λ₁[:y][g] * forwardInfoList[t-1][:y][g] for g in indexSets.G) )
-                    @constraint(backwardInfoList[t-1], backwardInfoList[t-1][:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + sum(λ₁[:s][g] * backwardInfoList[t-1][:s][g] + λ₁[:y][g] * backwardInfoList[t-1][:y][g] for g in indexSets.G) )
+                    @constraint(forwardInfoList[t-1], forwardInfoList[t-1][:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + sum(λ₁[:s][g] * forwardInfoList[t-1][:s][g] + λ₁[:y][g] * forwardInfoList[t-1][:y][g] for g in indexSets.G));
+                    @constraint(backwardInfoList[t-1], backwardInfoList[t-1][:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + sum(λ₁[:s][g] * backwardInfoList[t-1][:s][g] + λ₁[:y][g] * backwardInfoList[t-1][:y][g] for g in indexSets.G));
                 end            
             end
         end
-
+        
         t1 = now(); iter_time = (t1 - t0).value/1000; total_Time = (t1 - initial).value/1000; i += 1;
     end
-
 end
+
+# i = 1; j = 2; 
+# solCollection[i, 1, ω].stageSolution == solCollection[j, 1, ω].stageSolution
+
+# λ₀ + sum(λ₁[:s][g] * stageDecision[:s][g] + λ₁[:y][g] * stageDecision[:y][g] for g in indexSets.G)
+# λ₀ + sum(λ₁[:s][g] * solCollection[i, t-1, ω].stageSolution[:s][g] + λ₁[:y][g] * solCollection[i, t-1, ω].stageSolution[:y][g] for g in indexSets.G)
+
+# stageDecision == solCollection[1, 1, ω].stageSolution

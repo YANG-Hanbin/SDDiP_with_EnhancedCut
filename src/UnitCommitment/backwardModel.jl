@@ -46,7 +46,8 @@ function backwardModel!(; tightness::Bool = tightness, indexSets::IndexSets = in
 
     # copy variables: :s, :y
     if tightness
-        @variable(model, paramOPF.smin[g] ≤ s_copy[g in G] ≤ paramOPF.smax[g])
+        # @variable(model, paramOPF.smin[g] ≤ s_copy[g in G] ≤ paramOPF.smax[g])
+        @variable(model, 0 ≤ s_copy[g in G] ≤ paramOPF.smax[g])
         @variable(model, y_copy[G], Bin)        
     else
         @variable(model, s_copy[G])

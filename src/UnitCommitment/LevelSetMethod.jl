@@ -113,7 +113,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Float64}} = x₀,
                         model::Model = model, 
                         f_star_value::Float64 = f_star_value, 
                         stageDecision::Dict{Symbol, Dict{Int64, Float64}} = stageDecision, 
-                        cutSelection::String = "LC", 
+                        cutSelection::String = cutSelection, 
                         paramDemand::ParamDemand = paramDemand, paramOPF::ParamOPF = paramOPF, indexSets::IndexSets = indexSets, 
                         ϵ::Float64 = 1e-4)
     if cutSelection == "ELC"
@@ -126,7 +126,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Float64}} = x₀,
                                                     sum(x₀[:s][g] * (stageDecision[:s][g] - model[:s_copy][g]) + x₀[:y][g] * (stageDecision[:y][g] - model[:y_copy][g]) for g in indexSets.G) 
                     );
         ## ==================================================== solve the model and display the result ==================================================== ##
-        optimize!(model)
+        optimize!(model);
         F  = JuMP.objective_value(model);
         negative_∇F = Dict( :s => Dict(g => round.(JuMP.value(model[:s_copy][g]), digits = 5) - stageDecision[:s][g] for g in indexSets.G),
                             :y => Dict(g => round.(JuMP.value(model[:y_copy][g]), digits = 5) - stageDecision[:y][g] for g in indexSets.G)
@@ -230,8 +230,8 @@ function LevelSetMethod_optimization!(; model::Model = model,
     α = 1/2;
 
     # trajectory
-    currentInfo, currentInfo_f = function_info(x₀ = x₀, model = model, f_star_value = f_star_value, stageDecision = stageDecision, cutSelection = "LC", 
-                                                    paramDemand = paramDemand, paramOPF = paramOPF, indexSets = indexSets, ϵ = ϵ)
+    currentInfo, currentInfo_f = function_info(x₀ = x₀, model = model, f_star_value = f_star_value, stageDecision = stageDecision, cutSelection = cutSelection, 
+                                                    paramDemand = paramDemand, paramOPF = paramOPF, indexSets = indexSets, ϵ = ϵ);
 
     functionHistory = FunctionHistory(  Dict(1 => currentInfo.f), 
                                         Dict(1 => maximum(currentInfo.G[k] for k in keys(currentInfo.G)) )
@@ -398,7 +398,7 @@ function LevelSetMethod_optimization!(; model::Model = model,
         
         ## ==================================================== end ============================================== ##
         ## save the trajectory
-        currentInfo, currentInfo_f = function_info(x₀ = x_nxt, model = model, f_star_value = f_star_value, stageDecision = stageDecision, cutSelection = "LC", paramDemand = paramDemand, paramOPF = paramOPF, indexSets = indexSets, ϵ = ϵ)
+        currentInfo, currentInfo_f = function_info(x₀ = x_nxt, model = model, f_star_value = f_star_value, stageDecision = stageDecision, cutSelection = cutSelection, paramDemand = paramDemand, paramOPF = paramOPF, indexSets = indexSets, ϵ = ϵ)
         iter = iter + 1;
         functionHistory.f_his[iter] = currentInfo.f;
         functionHistory.G_max_his[iter] = maximum(currentInfo.G[k] for k in keys(currentInfo.G));
