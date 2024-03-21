@@ -62,20 +62,20 @@ end
 function setupLevelSetMethod(; stageDecision::Dict{Symbol, Dict{Int64, Float64}} = stageDecision, 
                                 f_star_value::Float64 = f_star_value,
                                     cutSelection::String = cutSelection, 
-                                        Output_Gap::Bool = false, ℓ::Real = .0, λ::Union{Real, Nothing} = .1  
+                                        Output_Gap::Bool = false, max_iter::Int64 =100, ℓ::Real = .0, λ::Union{Real, Nothing} = .1
                             )
     if cutSelection == "SMC" 
         λ_value = λ; Output = 0; threshold = 1e-3 * f_star_value; 
-        levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, 100, Output, Output_Gap, f_star_value);
+        levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, max_iter, Output, Output_Gap, f_star_value);
         x_interior = nothing;
     elseif cutSelection == "ELC"
         λ_value = λ; Output = 0; threshold = 5e-3 * f_star_value; 
-        levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, 100, Output, Output_Gap, f_star_value);
+        levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, max_iter, Output, Output_Gap, f_star_value);
         x_interior = Dict{Symbol, Dict{Int64, Float64}}(:s => Dict( g => stageDecision[:s][g] * ℓ  .+ (1 - ℓ)/2 for g in keys(stageDecision[:y])), 
                                                         :y => Dict( g => stageDecision[:y][g] * ℓ  .+ (1 - ℓ)/2 for g in keys(stageDecision[:s])));
     elseif cutSelection == "LC"
         λ_value = λ; Output = 0; threshold = 1e-5 * f_star_value; 
-        levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 30, Output, Output_Gap, f_star_value);
+        levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, max_iter, Output, Output_Gap, f_star_value);
         x_interior = nothing;
     end
 
@@ -115,7 +115,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Float64}} = x₀,
                         stageDecision::Dict{Symbol, Dict{Int64, Float64}} = stageDecision, 
                         cutSelection::String = cutSelection, 
                         paramDemand::ParamDemand = paramDemand, paramOPF::ParamOPF = paramOPF, indexSets::IndexSets = indexSets, 
-                        ϵ::Float64 = 1e-4)
+                        ϵ::Float64 = 1e-4, δ::Float64 = 50.)
     if cutSelection == "ELC"
         # objective function
         @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
@@ -128,13 +128,13 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Float64}} = x₀,
         ## ==================================================== solve the model and display the result ==================================================== ##
         optimize!(model);
         F  = JuMP.objective_value(model);
-        negative_∇F = Dict( :s => Dict(g => round.(JuMP.value(model[:s_copy][g]), digits = 5) - stageDecision[:s][g] for g in indexSets.G),
+        negative_∇F = Dict( :s => Dict(g => JuMP.value(model[:s_copy][g]) - stageDecision[:s][g] for g in indexSets.G),
                             :y => Dict(g => round.(JuMP.value(model[:y_copy][g]), digits = 5) - stageDecision[:y][g] for g in indexSets.G)
                             );
 
-        currentInfo = CurrentInfo1(  x₀,                                                                                                                                                                ## current point
+        currentInfo = CurrentInfo(  x₀,                                                                                                                                                                ## current point
                                     - F - sum(x₀[:s][g] * (x_interior[:s][g] .- stageDecision[:s][g]) + x₀[:y][g] * (x_interior[:y][g] - stageDecision[:y][g]) for g in indexSets.G),                   ## obj function value
-                                    Dict(1 => (1 - ϵ) * f_star_value - F),                                                                                                                              ## constraint value
+                                    Dict(1 => f_star_value - F - δ),                                                                                                                              ## constraint value
                                     Dict{Symbol, Dict{Int64, Float64}}( :s => Dict(g => negative_∇F[:s][g] + stageDecision[:s][g] - x_interior[:s][g] for g in indexSets.G),
                                                                         :y => Dict(g => negative_∇F[:y][g] + stageDecision[:y][g] - x_interior[:y][g] for g in indexSets.G)),                           ## obj gradient
                                     Dict(1 => negative_∇F )                                                                                                                                             ## constraint gradient
@@ -151,7 +151,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Float64}} = x₀,
         ## ==================================================== solve the model and display the result ==================================================== ##
         optimize!(model);
         F  = JuMP.objective_value(model);
-        negative_∇F = Dict( :s => Dict(g => round.(JuMP.value(model[:s_copy][g]), digits = 5) for g in indexSets.G),
+        negative_∇F = Dict( :s => Dict(g => JuMP.value(model[:s_copy][g]) for g in indexSets.G),
                             :y => Dict(g => round.(JuMP.value(model[:y_copy][g]), digits = 5) for g in indexSets.G)
                             );
 
@@ -175,13 +175,13 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Float64}} = x₀,
         ## ==================================================== solve the model and display the result ==================================================== ##
         optimize!(model)
         F  = JuMP.objective_value(model);
-        negative_∇F = Dict( :s => Dict(g => round.(JuMP.value(model[:s_copy][g]), digits = 5) - stageDecision[:s][g] for g in indexSets.G),
+        negative_∇F = Dict( :s => Dict(g => JuMP.value(model[:s_copy][g]) - stageDecision[:s][g] for g in indexSets.G),
                             :y => Dict(g => round.(JuMP.value(model[:y_copy][g]), digits = 5) - stageDecision[:y][g] for g in indexSets.G)
                             );
 
-        currentInfo = CurrentInfo1( x₀,                                                                                                ## current point
+        currentInfo = CurrentInfo( x₀,                                                                                                ## current point
                                     1/2 * sum(x₀[:s][g] * x₀[:s][g] for g in indexSets.G) + 1/2 * sum(x₀[:y][g] * x₀[:y][g] for g in indexSets.G),                                        ## obj function value
-                                    Dict(1 => (1 - ϵ) * f_star_value - F),                                                            ## constraint value
+                                    Dict(1 => f_star_value - F - δ),                                                            ## constraint value
                                     x₀,                                                                                               ## obj gradient
                                     Dict(1 => negative_∇F )                                                                           ## constraint gradient
                                     );
@@ -217,7 +217,7 @@ function LevelSetMethod_optimization!(; model::Model = model,
                                         stageDecision::Dict{Symbol, Dict{Int64, Float64}} = stageDecision,
                                         x_interior::Union{Dict{Symbol, Dict{Int64, Float64}}, Nothing} = nothing, 
                                         x₀::Dict{Symbol, Dict{Int64, Float64}} = x₀, tightness::Bool = false,
-                                        indexSets::IndexSets = indexSets, paramDemand::ParamDemand = paramDemand, paramOPF::ParamOPF = paramOPF, ϵ::Float64 = 1e-4
+                                        indexSets::IndexSets = indexSets, paramDemand::ParamDemand = paramDemand, paramOPF::ParamOPF = paramOPF, ϵ::Float64 = 1e-4, δ::Float64 = 50.
                                         )
 
     ## ==================================================== auxiliary function for function information ==================================================== ##
@@ -275,8 +275,9 @@ function LevelSetMethod_optimization!(; model::Model = model,
     if cutSelection == "ELC"
         cutInfo =  [ - currentInfo.f - sum(currentInfo.x[:s][g] * x_interior[:s][g] + currentInfo.x[:y][g] * x_interior[:y][g] for g in G), currentInfo.x] 
     elseif cutSelection == "LC"
-        cutInfo =  [ - currentInfo.f - sum(currentInfo.x[:s][g] * stageDecision[:s][g] + currentInfo.x[:y][g] * stageDecision[:y][g] for g in G), currentInfo.x] 
-    elseif cutSelection == "ShrinkageLC"
+        # cutInfo =  [ - currentInfo.f - sum(currentInfo.x[:s][g] * stageDecision[:s][g] + currentInfo.x[:y][g] * stageDecision[:y][g] for g in G), currentInfo.x] 
+        cutInfo =  [ currentInfo_f, currentInfo.x] 
+    elseif cutSelection == "SMC"
         cutInfo =  [ currentInfo_f - sum(currentInfo.x[:s][g] * stageDecision[:s][g] + currentInfo.x[:y][g] * stageDecision[:y][g] for g in G), currentInfo.x] 
     end 
 
@@ -287,6 +288,7 @@ function LevelSetMethod_optimization!(; model::Model = model,
         if st == MOI.OPTIMAL
             f_star = JuMP.objective_value(oracleModel);
         else 
+            @info "Oracle Model is not optimal!"
             return cutInfo
         end
 
@@ -311,8 +313,9 @@ function LevelSetMethod_optimization!(; model::Model = model,
             if cutSelection == "ELC"
                 cutInfo =  [ - currentInfo.f - sum(currentInfo.x[:s][g] * x_interior[:s][g] + currentInfo.x[:y][g] * x_interior[:y][g] for g in G), currentInfo.x] 
             elseif cutSelection == "LC"
-                cutInfo =  [ - currentInfo.f - sum(currentInfo.x[:s][g] * stageDecision[:s][g] + currentInfo.x[:y][g] * stageDecision[:y][g] for g in G), currentInfo.x] 
-            elseif cutSelection == "ShrinkageLC"
+                cutInfo =  [ currentInfo_f, currentInfo.x] 
+                # cutInfo =  [ - currentInfo.f - sum(currentInfo.x[:s][g] * stageDecision[:s][g] + currentInfo.x[:y][g] * stageDecision[:y][g] for g in G), currentInfo.x] 
+            elseif cutSelection == "SMC"
                 cutInfo =  [ currentInfo_f - sum(currentInfo.x[:s][g] * stageDecision[:s][g] + currentInfo.x[:y][g] * stageDecision[:y][g] for g in G), currentInfo.x] 
             end 
             τₖ = (τₖ + τₘ) / 2;
@@ -357,7 +360,7 @@ function LevelSetMethod_optimization!(; model::Model = model,
         optimize!(nxtModel);
         st = termination_status(nxtModel)
         if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
-            x_nxt = Dict{Symbol, Dict{Int64, Float64}}(:s => Dict(g => round.(JuMP.value(xs[g]), digits = 5) for g in G), 
+            x_nxt = Dict{Symbol, Dict{Int64, Float64}}(:s => Dict(g => JuMP.value(xs[g]) for g in G), 
                                                         :y => Dict(g => round.(JuMP.value(xy[g]), digits = 5) for g in G)
                                                     );
             λₖ = abs(dual(levelConstraint)); μₖ = λₖ + 1; 
@@ -378,7 +381,7 @@ function LevelSetMethod_optimization!(; model::Model = model,
                                             sum((xy[g] - x₀[:y][g]) * (xy[g] - x₀[:y][g]) for g in G)  #+ 2 * (α * z1 + (1 - α) * y1) * τₖ 
                                     );
             optimize!(nxtModel);
-            x_nxt = Dict{Symbol, Dict{Int64, Float64}}(:s => Dict(g => round.(JuMP.value(xs[g]), digits = 5) for g in G), 
+            x_nxt = Dict{Symbol, Dict{Int64, Float64}}(:s => Dict(g => JuMP.value(xs[g]) for g in G), 
                                                         :y => Dict(g => round.(JuMP.value(xy[g]), digits = 5) for g in G)
                                                     );
             λₖ = abs(dual(levelConstraint)); μₖ = λₖ + 1; 
@@ -386,7 +389,7 @@ function LevelSetMethod_optimization!(; model::Model = model,
             # @info "Re-compute Next Iteration Point -- change to a safe level!"
             set_normalized_rhs( levelConstraint, w + .99 * (W - w))
             optimize!(nxtModel)
-            x_nxt = Dict{Symbol, Dict{Int64, Float64}}(:s => Dict(g => round.(JuMP.value(xs[g]), digits = 5) for g in G), 
+            x_nxt = Dict{Symbol, Dict{Int64, Float64}}(:s => Dict(g => JuMP.value(xs[g]) for g in G), 
                                                         :y => Dict(g => round.(JuMP.value(xy[g]), digits = 5) for g in G)
                                                     );
         end

@@ -28,8 +28,9 @@ end
 function extensive_form(; indexSets::IndexSets = indexSets, 
                             paramDemand::ParamDemand = paramDemand, 
                                 paramOPF::ParamOPF = paramOPF, 
-                                    scenarioTree::ScenarioTree = scenarioTree, Ξ::Dict{Any, Any} = Ξ,
-                                        outputFlag::Int64 = 0, timelimit::Real = 1e3, mipGap::Float64 = 1e-3
+                                    initialStageDecision::Dict{Symbol, Dict{Int64, Float64}} = initialStageDecision,
+                                        scenarioTree::ScenarioTree = scenarioTree, Ξ::Dict{Any, Any} = Ξ,
+                                            outputFlag::Int64 = 0, timelimit::Real = 1e3, mipGap::Float64 = 1e-3
                             )
     (D, G, L, B, T) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T);
     (Dᵢ, Gᵢ, in_L, out_L) = (indexSets.Dᵢ, indexSets.Gᵢ, indexSets.in_L, indexSets.out_L); 
@@ -72,9 +73,9 @@ function extensive_form(; indexSets::IndexSets = indexSets,
 
     # on/off status with startup and shutdown decision
     ## t = 1
-    @constraint(model, [ω in 1:W, g in indexSets.G], v[g, 1, ω] - w[g, 1, ω] == y[g, 1, ω])
-    @constraint(model, [ω in 1:W, g in indexSets.G], s[g, 1, ω] <= paramOPF.smin[g] * v[g, 1, ω])
-    @constraint(model, [ω in 1:W, g in indexSets.G], s[g, 1, ω] >= - paramOPF.M[g] * y[g, 1, ω] - paramOPF.smin[g] * w[g, 1, ω])
+    @constraint(model, [ω in 1:W, g in indexSets.G], v[g, 1, ω] - w[g, 1, ω] == y[g, 1, ω] - initialStageDecision[:y][g])
+    @constraint(model, [ω in 1:W, g in indexSets.G], s[g, 1, ω]  - initialStageDecision[:s][g] <= paramOPF.M[g] * initialStageDecision[:y][g] + paramOPF.smin[g] * v[g, 1, ω])
+    @constraint(model, [ω in 1:W, g in indexSets.G], s[g, 1, ω]  - initialStageDecision[:s][g] >= - paramOPF.M[g] * y[g, 1, ω] - paramOPF.smin[g] * w[g, 1, ω])
     # t ≥ 2
     @constraint(model, [t in 2:T, ω in 1:W, g in indexSets.G], v[g, t, ω] - w[g, t, ω] == y[g, t, ω] - y[g, t-1, ω])
     @constraint(model, [t in 2:T, ω in 1:W, g in indexSets.G], s[g, t, ω] - s[g, t-1, ω] <= paramOPF.M[g] * y[g, t-1, ω] + paramOPF.smin[g] * v[g, t, ω])
@@ -99,8 +100,31 @@ function extensive_form(; indexSets::IndexSets = indexSets,
     return extResult
 end
 
+# # total cost
+# sum(Ξ[ω][:prob] * sum(sum(paramOPF.slope[g] * value(s[g, t, ω]) + 
+#                             paramOPF.intercept[g] * value(y[g, t, ω]) + 
+#                                 paramOPF.C_start[g] * value(v[g, t, ω]) + 
+#                                     paramOPF.C_down[g] * value(w[g, t, ω]) for g in G) +                  
+#                                         sum(paramDemand.w[d] * (1 - value(x[d, t, ω])) for d in D) for t in 1:T) for ω in 1:W)
 
 
+# # unsatisfied demand cost
+# t1 = 1; t2 = 3;
+# sum(Ξ[ω][:prob] * sum(                  
+#                 sum(paramDemand.w[d] * (1 - value(x[d, t, ω])) for d in D) for t in t1:t2) for ω in 1:W)
 
+# # operation cost
+# sum(Ξ[ω][:prob] * sum(sum(paramOPF.slope[g] * value(s[g, t, ω]) + 
+#     paramOPF.intercept[g] * value(y[g, t, ω]) + 
+#         paramOPF.C_start[g] * value(v[g, t, ω]) + 
+#             paramOPF.C_down[g] * value(w[g, t, ω]) for g in G) for t in 1:T) for ω in 1:W)
+
+# # generation cost
+# sum(Ξ[ω][:prob] * sum(sum(paramOPF.slope[g] * value(s[g, t, ω]) for g in G) for t in 1:T) for ω in 1:W) + sum(Ξ[ω][:prob] * sum(sum(paramOPF.intercept[g] * value(y[g, t, ω])  for g in G) for t in 1:T) for ω in 1:W)
+
+# # startup cost
+# sum(Ξ[ω][:prob] * sum(sum(
+#         paramOPF.C_start[g] * value(v[g, t, ω]) + 
+#             paramOPF.C_down[g] * value(w[g, t, ω]) for g in G) for t in 1:T) for ω in 1:W)
 
 

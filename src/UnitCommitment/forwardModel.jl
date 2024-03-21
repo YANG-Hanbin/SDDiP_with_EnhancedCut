@@ -33,10 +33,10 @@ function forwardModel!(; indexSets::IndexSets = indexSets,
                                             "MIPGap" => mipGap, 
                                             "TimeLimit" => timelimit)
                                 ) 
-    @variable(model, θ_angle[B])      ## phase angle of the bus i
-    @variable(model, P[L])            ## real power flow on line l; elements in L is Tuple (i, j)
-    @variable(model, s[G])            ## real power generation at generator g
-    @variable(model, 0 ≤ x[D] ≤ 1)    ## load shedding
+    @variable(model, θ_angle[B])                            ## phase angle of the bus i
+    @variable(model, P[L])                                  ## real power flow on line l; elements in L is Tuple (i, j)
+    @variable(model, 0 ≤ s[g in G] ≤ paramOPF.smax[g])      ## real power generation at generator g
+    @variable(model, 0 ≤ x[D] ≤ 1)                          ## load shedding
 
     @variable(model, y[G], Bin)                 ## binary variable for generator commitment status
     @variable(model, v[G], Bin)                 ## binary variable for generator startup decision

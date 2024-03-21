@@ -35,7 +35,7 @@ function backwardModel!(; tightness::Bool = tightness, indexSets::IndexSets = in
                                 ) 
     @variable(model, θ_angle[B])      ## phase angle of the bus i
     @variable(model, P[L])            ## real power flow on line l; elements in L is Tuple (i, j)
-    @variable(model, s[G])            ## real power generation at generator g
+    @variable(model, s[G] ≥ 0)            ## real power generation at generator g
     @variable(model, 0 ≤ x[D] ≤ 1)    ## load shedding
 
     @variable(model, y[G], Bin)                 ## binary variable for generator commitment status
@@ -46,7 +46,7 @@ function backwardModel!(; tightness::Bool = tightness, indexSets::IndexSets = in
 
     # copy variables: :s, :y
     if tightness
-        # @variable(model, paramOPF.smin[g] ≤ s_copy[g in G] ≤ paramOPF.smax[g])
+        # @variable(model, s_copy[G])
         @variable(model, 0 ≤ s_copy[g in G] ≤ paramOPF.smax[g])
         @variable(model, y_copy[G], Bin)        
     else
