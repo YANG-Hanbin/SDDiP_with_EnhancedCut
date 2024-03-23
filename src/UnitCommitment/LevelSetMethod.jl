@@ -381,14 +381,22 @@ function LevelSetMethod_optimization!(; model::Model = model,
                                             sum((xy[g] - x₀[:y][g]) * (xy[g] - x₀[:y][g]) for g in G)  #+ 2 * (α * z1 + (1 - α) * y1) * τₖ 
                                     );
             optimize!(nxtModel);
+            st = termination_status(nxtModel);
+            if st != MOI.OPTIMAL 
+                return cutInfo
+            end
             x_nxt = Dict{Symbol, Dict{Int64, Float64}}(:s => Dict(g => JuMP.value(xs[g]) for g in G), 
                                                         :y => Dict(g => round.(JuMP.value(xy[g]), digits = 5) for g in G)
                                                     );
             λₖ = abs(dual(levelConstraint)); μₖ = λₖ + 1; 
         else
             # @info "Re-compute Next Iteration Point -- change to a safe level!"
-            set_normalized_rhs( levelConstraint, w + .99 * (W - w))
-            optimize!(nxtModel)
+            set_normalized_rhs( levelConstraint, w + .99 * (W - w));
+            optimize!(nxtModel);
+            st = termination_status(nxtModel);
+            if st != MOI.OPTIMAL 
+                return cutInfo
+            end
             x_nxt = Dict{Symbol, Dict{Int64, Float64}}(:s => Dict(g => JuMP.value(xs[g]) for g in G), 
                                                         :y => Dict(g => round.(JuMP.value(xy[g]), digits = 5) for g in G)
                                                     );

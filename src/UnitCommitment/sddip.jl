@@ -3,11 +3,11 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                                 indexSets::IndexSets = indexSets, 
                                     paramDemand::ParamDemand = paramDemand, 
                                         paramOPF::ParamOPF = paramOPF, 
-                                            Output_Gap::Bool = true, max_iter::Int64 = 100, ϵ::Float64 = 1e-3, cutSelection::String = "LC", δ::Float64 = 50.
+                                            Output_Gap::Bool = true, max_iter::Int64 = 100, ϵ::Float64 = 1e-3, cutSelection::String = "LC", δ::Float64 = 50., numScenarios::Int64 = 2
                         )
     ## d: x dim
     initial = now(); i = 1; LB = - Inf; UB = Inf; OPT = Inf;
-    iter_time = 0; total_Time = 0; t0 = 0.0; numScenarios = 5;
+    iter_time = 0; total_Time = 0; t0 = 0.0;
 
     col_names = [:iter, :LB, :OPT, :UB, :gap, :time, :Time]; # needs to be a vector Symbols
     col_types = [Int64, Float64, Union{Float64,Nothing}, Float64, String, Float64, Float64];
@@ -71,7 +71,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
             println("Iter |   LB                              UB                             gap")
         end
         @printf("%3d  |   %5.3g                         %5.3g                              %1.3f%s\n", i, LB, UB, gap, "%")
-        if UB-LB ≤ 1e-2 * UB || total_Time > 6000
+        if UB-LB ≤ 1e-2 * UB || total_Time > 18000 
             return Dict(:solHistory => sddipResult, 
                             :solution => solCollection[i, 1, 1].stageSolution, 
                                 :gapHistory => gapList) 
