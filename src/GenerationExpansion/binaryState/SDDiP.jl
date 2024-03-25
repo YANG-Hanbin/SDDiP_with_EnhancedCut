@@ -29,7 +29,7 @@ function setupLevelsetPara(forwardInfo::ForwardModelInfo, stageData::StageData, 
         optimize!(forwardInfo.model); f_star_value = JuMP.objective_value(forwardInfo.model);
         Output = 0; threshold = 1.0; 
         levelSetMethodParam = LevelSetMethodParam(0.95, λ, threshold, 
-                                                            1e14, 1e2, Output, Output_Gap,
+                                                            1e14, 2e2, Output, Output_Gap,
                                                                         L̂,  cutSelection, nothing, f_star_value)
 
     elseif cutSelection == "ELCwithoutConstraint" 
@@ -57,7 +57,7 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
                             probList::Dict{Int64,Vector{Float64}}, 
                             stageDataList::Dict{Int64, StageData}; 
                             scenario_sequence::Dict{Int64, Dict{Int64, Any}} = scenario_sequence, ϵ::Float64 = 0.001, M::Int64 = 1, max_iter::Int64 = 100, 
-                            Output_Gap::Bool = false,
+                            Output_Gap::Bool = false, tightness::Bool = false,
                             cutSelection::String = "LC", binaryInfo::BinaryInfo = binaryInfo)
     ## d: dimension of x
     ## M: num of scenarios when doing one iteration
@@ -66,7 +66,8 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
                                     stageDataList,
                                     binaryInfo = binaryInfo);
     OPT = gurobiResult.OPT # 1.58e8, 3.8e8, 2.05e9    time 120s 720s 791s
-    initial = now(); iter_time = 0; total_Time = 0; t0 = 0.0; OPT = Inf;
+    # OPT = 4.22e7;
+    initial = now(); iter_time = 0; total_Time = 0; t0 = 0.0; 
     T = length(keys(Ω));
     i = 1; LB = - Inf; UB = Inf; solCollection = Dict(); u = 0;Scenarios = 0;
 
@@ -80,7 +81,7 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
     for t in 1:T 
         forwardInfoList[t] = forwardModel!(stageDataList[t], binaryInfo = binaryInfo, timelimit = 10, mipGap = 1e-4)
         backwardInfoList[t] = backwardModel!(stageDataList[t], binaryInfo = binaryInfo, timelimit = 10, mipGap = 1e-4, 
-                                                tightness = true)
+                                                tightness = tightness)
     end 
     
     println("---------------- print out iteration information -------------------")
@@ -119,10 +120,9 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
 
         ## compute the upper bound
         LB = solCollection[1, 1].OPT;
-        μ̄ = mean(u);
+        μ̄ = mean(u); UB = μ̄;
         # σ̂² = var(u);
         # UB = μ̄ + 1.96 * sqrt(σ̂²/M); # minimum([μ̄ + 1.96 * sqrt(σ̂²/M), UB]);
-        UB = μ̄
         gap = round((UB-LB)/UB * 100 ,digits = 2);
         gapString = string(gap,"%");
         push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, gap);
@@ -131,7 +131,7 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
             println("Iter |   LB                              UB                             gap")
         end
         @printf("%3d  |   %5.3g                         %5.3g                              %1.3f%s\n", i, LB, UB, gap, "%")
-        if OPT-LB ≤ 1e-2 * OPT || total_Time > 18000 
+        if UB-LB ≤ 1e-2 * UB || total_Time > 18000 || i >= max_iter
             return Dict(:solHistory => sddipResult, 
                             :solution => solCollection[1, 1].stageSolution, 
                             :gapHistory => gapList) 

@@ -53,8 +53,8 @@ P = 1.0
 recursion_scenario_tree(pathList, P, scenario_sequence, 2, T = T, prob = probList)
 scenario_tree = scenario_sequence
 
-save("src/GenerationExpansion/3.0version/testData_stage($T)_real($num_Ω)/stageDataList.jld2", "stageDataList", stageDataList)
-save("src/GenerationExpansion/3.0version/testData_stage($T)_real($num_Ω)/Ω.jld2", "Ω", Ω)
-save("src/GenerationExpansion/3.0version/testData_stage($T)_real($num_Ω)/binaryInfo.jld2", "binaryInfo", binaryInfo)
-save("src/GenerationExpansion/3.0version/testData_stage($T)_real($num_Ω)/scenario_sequence.jld2", "scenario_sequence", scenario_sequence)
-save("src/GenerationExpansion/3.0version/testData_stage($T)_real($num_Ω)/probList.jld2", "probList", probList)
+save("src/GenerationExpansion/data/testData_stage($T)_real($num_Ω)/stageDataList.jld2", "stageDataList", stageDataList)
+save("src/GenerationExpansion/data/testData_stage($T)_real($num_Ω)/Ω.jld2", "Ω", Ω)
+save("src/GenerationExpansion/data/testData_stage($T)_real($num_Ω)/binaryInfo.jld2", "binaryInfo", binaryInfo)
+save("src/GenerationExpansion/data/testData_stage($T)_real($num_Ω)/scenario_sequence.jld2", "scenario_sequence", scenario_sequence)
+save("src/GenerationExpansion/data/testData_stage($T)_real($num_Ω)/probList.jld2", "probList", probList)

@@ -57,7 +57,7 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
                             probList::Dict{Int64,Vector{Float64}}, 
                             stageDataList::Dict{Int64, StageData}; 
                             scenario_sequence::Dict{Int64, Dict{Int64, Any}} = scenario_sequence, ϵ::Float64 = 0.001, M::Int64 = 1, max_iter::Int64 = 100, 
-                            Output_Gap::Bool = false,
+                            Output_Gap::Bool = false, tightness::Bool = false,
                             cutSelection::String = "LC", binaryInfo::BinaryInfo = binaryInfo)
     ## d: dimension of x
     ## M: num of scenarios when doing one iteration
@@ -66,6 +66,7 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
                                     stageDataList;
                                     binaryInfo = binaryInfo, mipGap = 1e-2);
     OPT = gurobiResult.OPT # 1.555e8, 3.76e8, 2.05e9    time 443s 720s 791s
+    # OPT = 4.22e7;
     initial = now(); iter_time = 0; total_Time = 0; t0 = 0.0;
     T = length(keys(Ω));
     i = 1; LB = - Inf; UB = Inf; solCollection = Dict(); u = 0;Scenarios = 0;
@@ -80,13 +81,12 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
     for t in 1:T 
         forwardInfoList[t] = forwardModel!(stageDataList[t], binaryInfo = binaryInfo, timelimit = 10, mipGap = 1e-4)
         backwardInfoList[t] = backwardModel!(stageDataList[t], binaryInfo = binaryInfo, timelimit = 10, mipGap = 1e-4, 
-                                                tightness = true)
+                                                tightness = tightness)
     end 
     
     println("---------------- print out iteration information -------------------")
     while true
         t0 = now();
-        M = 4;
         solCollection = Dict();  # to store every iteration results
         u = Vector{Float64}(undef, M);  # to compute upper bound 
         Random.seed!(i)
@@ -120,10 +120,9 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
 
         ## compute the upper bound
         LB = solCollection[1, 1].OPT;
-        μ̄ = mean(u);
-        # σ̂² = var(u);
-        # UB = μ̄ + 1.96 * sqrt(σ̂²/M); # minimum([μ̄ + 1.96 * sqrt(σ̂²/M), UB]);
-        UB = μ̄; # minimum([μ̄ + 1.96 * sqrt(σ̂²/M), UB]);
+        μ̄ = mean(u); UB = μ̄;
+        σ̂² = var(u);
+        UB = μ̄ + 1.96 * sqrt(σ̂²/M); # minimum([μ̄ + 1.96 * sqrt(σ̂²/M), UB]);
         gap = round((UB-LB)/UB * 100 ,digits = 2);
         gapString = string(gap,"%");
         push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, gap);

@@ -166,7 +166,8 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
         optimizer_with_attributes(
             ()->Gurobi.Optimizer(GRB_ENV), 
             "OutputFlag" => Output, 
-            "Threads" => 0)
+            "Threads" => 0, 
+            "TimeLimit" => 5)
             );
 
     para_oracle_bound = abs(currentInfo.f);
@@ -181,7 +182,8 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
     nxtModel = Model(
         optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
         "OutputFlag" => Output, 
-        "Threads" => 0)
+        "Threads" => 0, 
+        "TimeLimit" => 5)
         );
 
     @variable(nxtModel, x1[i = 1:n]);
@@ -217,7 +219,8 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
             optimizer_with_attributes(
                 ()->Gurobi.Optimizer(GRB_ENV), 
                 "OutputFlag" => Output, 
-                "Threads" => 0)
+                "Threads" => 0, 
+                "TimeLimit" => 5)
                 );
 
             para_oracle_bound = abs(currentInfo.f);
@@ -313,7 +316,8 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
             nxtModel = Model(
                 optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                 "OutputFlag" => Output, 
-                "Threads" => 0)
+                "Threads" => 0, 
+                "TimeLimit" => 5)
                 );
         
             @variable(nxtModel, x1[i = 1:n]);

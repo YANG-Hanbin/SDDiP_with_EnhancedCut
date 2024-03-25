@@ -32,9 +32,9 @@ include("src/GenerationExpansion/binaryState/SDDiP.jl")
 #############################################################################################
 ####################################    main function   #####################################
 #############################################################################################
-max_iter = 500; ϵ = 1e-4; cutSelection = "ShrinkageLC"; M = 2; Output_Gap = false;
+max_iter = 50; ϵ = 1e-3; cutSelection = "ShrinkageLC"; M = 2; Output_Gap = false; tightness = false;
 for cutSelection in ["LC", "ELC", "ShrinkageLC"]
-    for T in [3, 5, 8]
+    for T in [3, 5]
         for num in [5, 10]
             stageDataList = load("src/GenerationExpansion/data/testData_stage($T)_real($num)/stageDataList.jld2")["stageDataList"]
             Ω = load("src/GenerationExpansion/data/testData_stage($T)_real($num)/Ω.jld2")["Ω"]
@@ -44,9 +44,9 @@ for cutSelection in ["LC", "ELC", "ShrinkageLC"]
 
             result = SDDiP_algorithm(Ω, probList, stageDataList, 
                                         scenario_sequence = scenario_sequence,
-                                            ϵ = ϵ, M = M, max_iter = max_iter, Output_Gap = Output_Gap, 
+                                            ϵ = ϵ, M = M, max_iter = max_iter, Output_Gap = Output_Gap, tightness = tightness,
                                                 cutSelection = cutSelection, binaryInfo = binaryInfo)
-            save("src/GenerationExpansion/data/testData_stage($T)_real($num)/binary_result_stage($T)_real($num)_$cutSelection.jld2", "result", result)
+            save("src/GenerationExpansion/data/testData_stage($T)_real($num)/binary_Interval_result_stage($T)_real($num)_$cutSelection.jld2", "result", result)
             
             
         end
@@ -54,5 +54,5 @@ for cutSelection in ["LC", "ELC", "ShrinkageLC"]
 end
 
 T = 3; num = 5; cutSelection = "LC"
-result = load("src/GenerationExpansion/data/testData_stage($T)_real($num)/binary_result_stage($T)_real($num)_$cutSelection.jld2")["result"]
+result = load("src/GenerationExpansion/data/testData_stage($T)_real($num)/binary_Interval_result_stage($T)_real($num)_$cutSelection.jld2")["result"]
 result[:solHistory]
