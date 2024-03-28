@@ -3,7 +3,8 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                                 indexSets::IndexSets = indexSets, 
                                     paramDemand::ParamDemand = paramDemand, 
                                         paramOPF::ParamOPF = paramOPF, 
-                                            Output_Gap::Bool = true, max_iter::Int64 = 100, ϵ::Float64 = 1e-3, cutSelection::String = "LC", δ::Float64 = 50., numScenarios::Int64 = 2
+                                            initialStageDecision::Dict{Symbol, Dict{Int64, Float64}} = initialStageDecision,
+                                                Output_Gap::Bool = true, max_iter::Int64 = 100, ϵ::Float64 = 1e-3, cutSelection::String = "LC", δ::Float64 = 50., numScenarios::Int64 = 2
                         )
     ## d: x dim
     initial = now(); i = 1; LB = - Inf; UB = Inf; OPT = Inf;
@@ -14,8 +15,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
     named_tuple = (; zip(col_names, type[] for type in col_types )...);
     sddipResult = DataFrame(named_tuple); # 0×7 DataFrame
     gapList = [];
-    # @time extResult = extensive_form(indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF, scenarioTree = scenarioTree, Ξ = Ξ, initialStageDecision = initialStageDecision); OPT = extResult.OPT;
-    OPT = 0.0;
+    @time extResult = extensive_form(indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF, scenarioTree = scenarioTree, Ξ = Ξ, initialStageDecision = initialStageDecision); OPT = extResult.OPT;
     forwardInfoList = Dict{Int, Model}();
     backwardInfoList = Dict{Int, Model}();
     for t in 1:indexSets.T 
@@ -46,7 +46,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         ####################################################### Forward Steps ###########################################################
         for ω in keys(Ξ̃)
             stageDecision = initialStageDecision
-            stageDecision[:s] = Dict{Int64, Float64}(g => 0.0 for g in indexSets.G); stageDecision[:y] = Dict{Int64, Float64}(g => 0.0 for g in indexSets.G);  
+            # stageDecision[:s] = Dict{Int64, Float64}(g => 0.0 for g in indexSets.G); stageDecision[:y] = Dict{Int64, Float64}(g => 0.0 for g in indexSets.G);  
             for t in 1:indexSets.T
                 forwardModification!(model = forwardInfoList[t], randomVariables = Ξ̃[ω][t], paramOPF = paramOPF, indexSets = indexSets, stageDecision = stageDecision);
                 optimize!(forwardInfoList[t]);
