@@ -50,7 +50,7 @@ Output_Gap = false; max_iter = 200; ϵ = 1e-4; cutSelection = "LC"; δ = 50.;
             paramOPF = load("src/UnitCommitment/experiment/stage($T)real($num)/paramOPF.jld2")["paramOPF"]
             paramDemand = load("src/UnitCommitment/experiment/stage($T)real($num)/paramDemand.jld2")["paramDemand"]
             scenarioTree = load("src/UnitCommitment/experiment/stage($T)real($num)/scenarioTree.jld2")["scenarioTree"]
-            initialStageDecision = load("src/UnitCommitment/experiment/stage($T)real($num)/initialStageDecision.jld2")["initialStageDecision"]
+            initialStageDecision = load("src/UnitCommitment/experiment/stage(3)real(3)/initialStageDecision.jld2")["initialStageDecision"]
             sddipResult = SDDiP_algorithm(scenarioTree = scenarioTree, 
                                 indexSets = indexSets, 
                                     paramDemand = paramDemand, 

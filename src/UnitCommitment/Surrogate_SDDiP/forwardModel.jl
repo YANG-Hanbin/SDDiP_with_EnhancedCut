@@ -103,7 +103,7 @@ forwardModification!(; model::Model = model)
 
 function forwardModification!(; model::Model = model, 
                             randomVariables::RandomVariables = randomVariables,
-                                    paramOPF::ParamOPF = paramOPF, 
+                                    paramOPF::ParamOPF = paramOPF, paramDemand::ParamDemand = paramDemand,
                                         stageDecision::Dict{Symbol, Dict{Int64, Any}} = stageDecision, 
                                             indexSets::IndexSets = indexSets
                                         )

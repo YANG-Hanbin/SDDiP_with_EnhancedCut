@@ -15,7 +15,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
     named_tuple = (; zip(col_names, type[] for type in col_types )...);
     sddipResult = DataFrame(named_tuple); # 0×7 DataFrame
     gapList = [];
-    @time extResult = extensive_form(indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF, scenarioTree = scenarioTree, Ξ = Ξ, initialStageDecision = initialStageDecision); OPT = extResult.OPT;
+    # @time extResult = extensive_form(indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF, scenarioTree = scenarioTree, Ξ = Ξ, initialStageDecision = initialStageDecision); OPT = extResult.OPT;
     forwardInfoList = Dict{Int, Model}();
     backwardInfoList = Dict{Int, Model}();
     for t in 1:indexSets.T 
@@ -48,7 +48,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
             stageDecision = initialStageDecision
             # stageDecision[:s] = Dict{Int64, Float64}(g => 0.0 for g in indexSets.G); stageDecision[:y] = Dict{Int64, Float64}(g => 0.0 for g in indexSets.G);  
             for t in 1:indexSets.T
-                forwardModification!(model = forwardInfoList[t], randomVariables = Ξ̃[ω][t], paramOPF = paramOPF, indexSets = indexSets, stageDecision = stageDecision);
+                forwardModification!(model = forwardInfoList[t], randomVariables = Ξ̃[ω][t], paramOPF = paramOPF, indexSets = indexSets, stageDecision = stageDecision, paramDemand = paramDemand);
                 optimize!(forwardInfoList[t]);
                 stageDecision[:s] = Dict{Int64, Float64}(g => JuMP.value(forwardInfoList[t][:s][g]) for g in indexSets.G);
                 stageDecision[:y] = Dict{Int64, Float64}(g => JuMP.value(forwardInfoList[t][:y][g]) for g in indexSets.G);
@@ -71,7 +71,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
             println("Iter |   LB                              UB                             gap")
         end
         @printf("%3d  |   %5.3g                         %5.3g                              %1.3f%s\n", i, LB, UB, gap, "%")
-        if UB-LB ≤ 1e-2 * UB || total_Time > 18000 
+        if UB-LB ≤ 1e-2 * UB || i > max_iter || total_Time > 18000 
             return Dict(:solHistory => sddipResult, 
                             :solution => solCollection[i, 1, 1].stageSolution, 
                                 :gapHistory => gapList) 
@@ -83,10 +83,10 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                 # λ₀ = 0.0; λ₁ = Dict{Symbol, Dict{Int64, Float64}}(); λ₁[:s] = Dict{Int64, Float64}(g => 0.0 for g in indexSets.G); λ₁[:y] = Dict{Int64, Float64}(g => 0.0 for g in indexSets.G);
                 for n in keys(scenarioTree.tree[t].nodes)
                     # @info "$t, $k, $j"
-                    forwardModification!(model = forwardInfoList[t], randomVariables = scenarioTree.tree[t].nodes[n], stageDecision = solCollection[i, t-1, ω].stageSolution, paramOPF = paramOPF, indexSets = indexSets);
+                    forwardModification!(model = forwardInfoList[t], randomVariables = scenarioTree.tree[t].nodes[n], stageDecision = solCollection[i, t-1, ω].stageSolution, paramOPF = paramOPF, indexSets = indexSets, paramDemand = paramDemand);
                     optimize!(forwardInfoList[t]); f_star_value = JuMP.objective_value(forwardInfoList[t]);
 
-                    backwardModification!(model = backwardInfoList[t], randomVariables = scenarioTree.tree[t].nodes[n], paramOPF = paramOPF, indexSets = indexSets);
+                    backwardModification!(model = backwardInfoList[t], randomVariables = scenarioTree.tree[t].nodes[n], paramOPF = paramOPF, indexSets = indexSets, paramDemand = paramDemand);
 
                     (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(stageDecision = solCollection[i, t-1, ω].stageSolution, 
                                                                         f_star_value = f_star_value, 

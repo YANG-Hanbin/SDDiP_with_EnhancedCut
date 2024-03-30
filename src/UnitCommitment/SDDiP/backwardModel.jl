@@ -97,6 +97,7 @@ backwardModification!(; model::Model = model)
 function backwardModification!(; model::Model = model, 
                             randomVariables::RandomVariables = randomVariables,
                                     paramOPF::ParamOPF = paramOPF, 
+                                        paramDemand::ParamDemand = paramDemand,
                                         # stageDecision::StageDecision = stageDecision, 
                                             indexSets::IndexSets = indexSets
                                         )

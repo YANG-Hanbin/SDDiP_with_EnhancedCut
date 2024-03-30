@@ -97,7 +97,7 @@ backwardModification!(; model::Model = model)
 
 # Arguments
 
-    1. `model::Model` : a forward pass model of stage t
+    1. `model::Model` : a backward pass model of stage t
   
 # Modification
     1. Remove the other scenario's demand balance constraints
@@ -105,8 +105,9 @@ backwardModification!(; model::Model = model)
 """
 function backwardModification!(; model::Model = model, 
                             randomVariables::RandomVariables = randomVariables,
+                                paramDemand::ParamDemand = paramDemand, 
                                     paramOPF::ParamOPF = paramOPF, 
-                                        # stageDecision::StageDecision = stageDecision, 
+                                        # stageDecision::Dict{Symbol, Dict{Int64, Any}} = stageDecision, 
                                             indexSets::IndexSets = indexSets
                                         )
 
@@ -119,4 +120,42 @@ function backwardModification!(; model::Model = model,
                                                             sum(model[:P][(i, j)] for j in indexSets.out_L[i]) + 
                                                                 sum(model[:P][(j, i)] for j in indexSets.in_L[i]) 
                                                                     .== sum(paramDemand.demand[d] * randomVariables.deviation[d] * model[:x][d] for d in indexSets.Dᵢ[i]) )
+end
+"""
+getValueFunctionLB(; model::Model = model, 
+                            paramDemand::ParamDemand = paramDemand, 
+                                paramOPF::ParamOPF = paramOPF, 
+                                    stageDecision::StageDecision = stageDecision, 
+                                        indexSets::IndexSets = indexSets)
+
+# Arguments
+
+    1. `model::Model` : a backward pass model of stage t
+  
+# Modification
+    1. Add Nonanticipativity constraints and objective function
+    2. Obtain the LB
+    3. Remove the Nonanticipativity constraints
+# Return 
+    LB
+"""
+function getValueFunctionLB(; model::Model = model, 
+                                        paramDemand::ParamDemand = paramDemand, 
+                                            paramOPF::ParamOPF = paramOPF, 
+                                                stageDecision::Dict{Symbol, Dict{Int64, Any}} = stageDecision, 
+                                                    indexSets::IndexSets = indexSets
+                                                )
+    @constraint(model, Nonanticipativity[g in indexSets.G, k in keys(stageDecision[:sur][g])], model[:sur][g, k] == stageDecision[:sur][g][k]);
+    @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] + paramOPF.intercept[g] * model[:y][g] +
+                                                                        paramOPF.C_start[g] * model[:v][g] + 
+                                                                            paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
+                                                                                sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]));
+    optimize!(model); f_star_value = JuMP.objective_value(model);
+    for g in indexSets.G
+        for k in keys(stageDecision[:sur][g])
+            delete(model, model[:Nonanticipativity][g,k]);
+        end
+    end
+    unregister(model, :Nonanticipativity);
+    return f_star_value 
 end

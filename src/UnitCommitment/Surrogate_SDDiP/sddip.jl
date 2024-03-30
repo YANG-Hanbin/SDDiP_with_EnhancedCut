@@ -15,7 +15,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
     named_tuple = (; zip(col_names, type[] for type in col_types )...);
     sddipResult = DataFrame(named_tuple); # 0×7 DataFrame
     gapList = [];
-    @time extResult = extensive_form(indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF, scenarioTree = scenarioTree, Ξ = Ξ, initialStageDecision = initialStageDecision); OPT = extResult.OPT;
+    # @time extResult = extensive_form(indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF, scenarioTree = scenarioTree, Ξ = Ξ, initialStageDecision = initialStageDecision); OPT = extResult.OPT;
     forwardInfoList = Dict{Int, Model}();
     backwardInfoList = Dict{Int, Model}();
 
@@ -25,7 +25,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                                                 paramDemand = paramDemand, 
                                                     paramOPF = paramOPF, 
                                                         stageRealization = scenarioTree.tree[t], 
-                                                                outputFlag = 0, timelimit = 20,
+                                                                outputFlag = 0, timelimit = 20, max_sur = max_iter,
                                                                         mipGap = 1e-4, θ_bound = 0.0);
         var = Dict{Symbol, Dict{Int, VariableRef}}(:s => Dict(g => forwardInfoList[t][:s][g] for g in indexSets.G), :y => Dict(g => forwardInfoList[t][:y][g] for g in indexSets.G)); 
         sur = Dict{Int, Dict{Int, Dict{Symbol, Any}}}(g => Dict(1 => Dict(:lb => 0., :ub => paramOPF.smax[g], :var =>forwardInfoList[t][:sur][g, 1])) for g in indexSets.G); 
@@ -36,7 +36,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                                                 paramDemand = paramDemand, 
                                                     paramOPF = paramOPF, 
                                                         stageRealization = scenarioTree.tree[t], 
-                                                                outputFlag = 0, timelimit = 20,
+                                                                outputFlag = 0, timelimit = 20, max_sur = max_iter,
                                                                         mipGap = 1e-4, tightness = true, θ_bound = 0.0);
         # var = Dict{Symbol, Dict{Int, VariableRef}}(:s => Dict(g => backwardInfoList[t][:s][g] for g in indexSets.G), :y => Dict(g => backwardInfoList[t][:y][g] for g in indexSets.G)); 
         # sur = Dict{Int, Dict{Int, Dict{Symbol, Any}}}(g => Dict(1 => Dict(:lb => 0., :ub => paramOPF.smax[g], :var =>backwardInfoList[t][:sur][g, 1])) for g in indexSets.G); 
@@ -55,13 +55,15 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         ####################################################### Forward Steps ###########################################################
         for ω in keys(Ξ̃)
             stageDecision[:s] = Dict{Int64, Float64}(g => initialStageDecision[:s][g] for g in indexSets.G); stageDecision[:y] = Dict{Int64, Float64}(g => initialStageDecision[:y][g] for g in indexSets.G);  
+            # stageDecision[:s] = Dict{Int64, Float64}(g => 0.0 for g in indexSets.G); stageDecision[:y] = Dict{Int64, Float64}(g => 0.0 for g in indexSets.G);  
             for g in indexSets.G stageDecision[:sur][g] = Dict(1 => 1.) end; # augmented state variables
             for t in 1:indexSets.T
-                forwardModification!(model = forwardInfoList[t], randomVariables = Ξ̃[ω][t], paramOPF = paramOPF, indexSets = indexSets, stageDecision = stageDecision);
+                forwardModification!(model = forwardInfoList[t], randomVariables = Ξ̃[ω][t], paramOPF = paramOPF, indexSets = indexSets, stageDecision = stageDecision, paramDemand = paramDemand);
                 optimize!(forwardInfoList[t]);
                 stageDecision[:s] = Dict{Int64, Float64}(g => JuMP.value(forwardInfoList[t][:s][g]) for g in indexSets.G);
                 stageDecision[:y] = Dict{Int64, Float64}(g => JuMP.value(forwardInfoList[t][:y][g]) for g in indexSets.G);
                 for g in indexSets.G 
+                    stageDecision[:sur][g] = Dict{Int64, Float64}()
                     for k in forwardStateVarList[t].leaf[g]
                         stageDecision[:sur][g][k] = JuMP.value(forwardInfoList[t][:sur][g, k])
                     end
@@ -85,7 +87,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
             println("Iter |   LB                              UB                             gap")
         end
         @printf("%3d  |   %5.3g                         %5.3g                              %1.3f%s\n", i, LB, UB, gap, "%")
-        if UB-LB ≤ 1e-2 * OPT || i > max_iter
+        if UB-LB ≤ 1e-2 * UB || i > max_iter || total_Time > 18000 
             return Dict(:solHistory => sddipResult, 
                             :solution => solCollection[i, 1, 1].stageSolution, 
                                 :gapHistory => gapList) 
@@ -96,11 +98,11 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
             for ω in keys(Ξ̃)
                 # λ₀ = 0.0; λ₁ = Dict{Symbol, Dict{Int64, Float64}}(); λ₁[:s] = Dict{Int64, Float64}(g => 0.0 for g in indexSets.G); λ₁[:y] = Dict{Int64, Float64}(g => 0.0 for g in indexSets.G);
                 for n in keys(scenarioTree.tree[t].nodes)
-                    # @info "$t, $k, $j"
-                    forwardModification!(model = forwardInfoList[t], randomVariables = scenarioTree.tree[t].nodes[n], stageDecision = solCollection[i, t-1, ω].stageSolution, paramOPF = paramOPF, indexSets = indexSets);
+                    forwardModification!(model = forwardInfoList[t], randomVariables = scenarioTree.tree[t].nodes[n], stageDecision = solCollection[i, t-1, ω].stageSolution, paramOPF = paramOPF, indexSets = indexSets, paramDemand = paramDemand);
                     optimize!(forwardInfoList[t]); f_star_value = JuMP.objective_value(forwardInfoList[t]);
 
-                    backwardModification!(model = backwardInfoList[t], randomVariables = scenarioTree.tree[t].nodes[n], paramOPF = paramOPF, indexSets = indexSets);
+                    backwardModification!(model = backwardInfoList[t], randomVariables = scenarioTree.tree[t].nodes[n], paramOPF = paramOPF, indexSets = indexSets, paramDemand = paramDemand);
+                    # f_star_value = getValueFunctionLB(model = backwardInfoList[t], paramDemand = paramDemand, paramOPF = paramOPF, stageDecision = solCollection[i, t-1, ω].stageSolution, indexSets = indexSets);
 
                     (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(stageDecision = solCollection[i, t-1, ω].stageSolution, 
                                                                         f_star_value = f_star_value, 
@@ -110,7 +112,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                     (λ₀, λ₁) = LevelSetMethod_optimization!(levelSetMethodParam = levelSetMethodParam, model = backwardInfoList[t],
                                                             cutSelection = cutSelection,
                                                                 stageDecision = solCollection[i, t-1, ω].stageSolution,
-                                                                        x_interior = x_interior, x₀ = x₀, tightness = false, indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF, ϵ = ϵ, δ = δ);
+                                                                        x_interior = x_interior, x₀ = x₀, tightness = tightness, indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF, ϵ = ϵ, δ = δ);
                     # add cut to both backward models and forward models
                     @constraint(forwardInfoList[t-1], forwardInfoList[t-1][:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + 
                                                     sum(λ₁[:s][g] * forwardInfoList[t-1][:s][g] + λ₁[:y][g] * forwardInfoList[t-1][:y][g] for g in indexSets.G) + 
@@ -124,53 +126,53 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         
         ####################################################### Backward Steps ###########################################################
         for t in 1:indexSets.T-1 
-            for ω in  keys(Ξ̃)
+            for ω in  [1]#keys(Ξ̃)
                 # g = argmax([abs(solCollection[i, t, ω].stageSolution[:s][g] - paramOPF.smax[g]), abs(solCollection[i, t, ω].stageSolution[:s][g] - paramOPF.smin[g])] for g in indexSets.G);
                 dev = Dict()
                 for g in indexSets.G 
                     if solCollection[i, t, ω].stageSolution[:y][g] > .5
-                        dev[g] = minimum([(paramOPF.smax[g] - solCollection[i, t, ω].stageSolution[:s][g])/(paramOPF.smax[g] - paramOPF.smin[g] + 1e-6), (solCollection[i, t, ω].stageSolution[:s][g] - paramOPF.smin[g])/(paramOPF.smax[g] - paramOPF.smin[g] + 1e-6)])
+                        k = maximum([k for (k, v) in solCollection[i, t, ω].stageSolution[:sur][g] if v == maximum(values(solCollection[i, t, ω].stageSolution[:sur][g]))])
+                        info = forwardStateVarList[t].sur[g][k]
+                        dev[g] = round(minimum([(info[:ub] - solCollection[i, t, ω].stageSolution[:s][g])/(info[:ub] - info[:lb] + 1e-6), (solCollection[i, t, ω].stageSolution[:s][g] - info[:lb])/(info[:ub] - info[:lb] + 1e-6)]), digits = 2)
                     end
                 end
-                # max_value_key_index = argmax(collect(values(dev)))
-                # g = collect(keys(dev))[max_value_key_index]
                 g = [k for (k, v) in dev if v == maximum(values(dev))][1]
-                # find the active leaf node 
-                keys_with_value_1 = [k for (k, v) in solCollection[i, t, ω].stageSolution[:sur][g] if v == 1][1]
-                # find the lb and ub of this leaf node 
-                (lb, ub) = forwardStateVarList[t].sur[g][keys_with_value_1][:lb], forwardStateVarList[t].sur[g][keys_with_value_1][:ub]; med = (lb + ub)/2; 
-                # create two new leaf nodes, and update their info (lb, ub)
-                left = length(forwardStateVarList[t].sur[g]) + 1; right = length(forwardStateVarList[t].sur[g]) + 2;
-                forwardStateVarList[t].sur[g][left] = Dict(:lb => lb, :ub => med, :var => forwardInfoList[t][:sur][g, left])
-                forwardStateVarList[t].sur[g][right] =  Dict(:lb => med, :ub => ub, :var => forwardInfoList[t][:sur][g, right])
-                # pop and push new leaf nodes
-                deleteat!(forwardStateVarList[t].leaf[g], findall(x -> x == keys_with_value_1, forwardStateVarList[t].leaf[g])); push!(forwardStateVarList[t].leaf[g], left); push!(forwardStateVarList[t].leaf[g], right);
+                if dev[g] >= 0.1
+                    # find the active leaf node 
+                    keys_with_value_1 = maximum([k for (k, v) in solCollection[i, t, ω].stageSolution[:sur][g] if v == 1])
+                    # find the lb and ub of this leaf node 
+                    (lb, ub) = forwardStateVarList[t].sur[g][keys_with_value_1][:lb], forwardStateVarList[t].sur[g][keys_with_value_1][:ub]; med = solCollection[i, t, ω].stageSolution[:s][g];# (lb + ub)/2; #round(solCollection[i, t, ω].stageSolution[:s][g], digits = 3); 
+                    # create two new leaf nodes, and update their info (lb, ub)
+                    left = length(forwardStateVarList[t].sur[g]) + 1; right = length(forwardStateVarList[t].sur[g]) + 2;
+                    forwardStateVarList[t].sur[g][left] = Dict(:lb => lb, :ub => med, :var => forwardInfoList[t][:sur][g, left])
+                    forwardStateVarList[t].sur[g][right] =  Dict(:lb => med, :ub => ub, :var => forwardInfoList[t][:sur][g, right])
+                    # pop and push new leaf nodes
+                    deleteat!(forwardStateVarList[t].leaf[g], findall(x -> x == keys_with_value_1, forwardStateVarList[t].leaf[g])); push!(forwardStateVarList[t].leaf[g], left); push!(forwardStateVarList[t].leaf[g], right);
 
-                # add logic constraints
-                ## for forward models
-                ### Parent-Child relationship
-                @constraint(forwardInfoList[t], forwardInfoList[t][:sur][g, left] + forwardInfoList[t][:sur][g, right] == forwardInfoList[t][:sur][g, keys_with_value_1]);
-                ### bounding constraints
-                @constraint(forwardInfoList[t], forwardInfoList[t][:s][g] ≥ lb -  paramOPF.smax[g] * (1 - forwardInfoList[t][:sur][g, left]) )
-                @constraint(forwardInfoList[t], forwardInfoList[t][:s][g] ≤ med + paramOPF.smax[g] * (1 - forwardInfoList[t][:sur][g, left]) )
-                @constraint(forwardInfoList[t], forwardInfoList[t][:s][g] ≥ med -  paramOPF.smax[g] * (1 - forwardInfoList[t][:sur][g, right]) )
-                @constraint(forwardInfoList[t], forwardInfoList[t][:s][g] ≤ ub + paramOPF.smax[g] * (1 - forwardInfoList[t][:sur][g, right]) )
-                ## for backward models
-                ### Parent-Child relationship
-                @constraint(backwardInfoList[t], backwardInfoList[t][:sur][g, left] + backwardInfoList[t][:sur][g, right] == backwardInfoList[t][:sur][g, keys_with_value_1]);
-                ### bounding constraints
-                @constraint(backwardInfoList[t], backwardInfoList[t][:s][g] ≥ lb -  paramOPF.smax[g] * (1 - backwardInfoList[t][:sur][g, left]) )
-                @constraint(backwardInfoList[t], backwardInfoList[t][:s][g] ≤ med + paramOPF.smax[g] * (1 - backwardInfoList[t][:sur][g, left]) )
-                @constraint(backwardInfoList[t], backwardInfoList[t][:s][g] ≥ med -  paramOPF.smax[g] * (1 - backwardInfoList[t][:sur][g, right]) )
-                @constraint(backwardInfoList[t], backwardInfoList[t][:s][g] ≤ ub + paramOPF.smax[g] * (1 - backwardInfoList[t][:sur][g, right]) )
+                    # add logic constraints
+                    ## for forward models
+                    ### Parent-Child relationship
+                    @constraint(forwardInfoList[t], forwardInfoList[t][:sur][g, left] + forwardInfoList[t][:sur][g, right] == forwardInfoList[t][:sur][g, keys_with_value_1]);
+                    ### bounding constraints
+                    @constraint(forwardInfoList[t], forwardInfoList[t][:s][g] ≥ lb -  paramOPF.smax[g] * (1 - forwardInfoList[t][:sur][g, left]) );
+                    @constraint(forwardInfoList[t], forwardInfoList[t][:s][g] ≤ med + paramOPF.smax[g] * (1 - forwardInfoList[t][:sur][g, left]) );
+                    @constraint(forwardInfoList[t], forwardInfoList[t][:s][g] ≥ med -  paramOPF.smax[g] * (1 - forwardInfoList[t][:sur][g, right]));
+                    @constraint(forwardInfoList[t], forwardInfoList[t][:s][g] ≤ ub + paramOPF.smax[g] * (1 - forwardInfoList[t][:sur][g, right]) );
+                    ## for backward models
+                    ### Parent-Child relationship
+                    @constraint(backwardInfoList[t], backwardInfoList[t][:sur][g, left] + backwardInfoList[t][:sur][g, right] == backwardInfoList[t][:sur][g, keys_with_value_1]);
+                    ### bounding constraints
+                    @constraint(backwardInfoList[t], backwardInfoList[t][:s][g] ≥ lb -  paramOPF.smax[g] * (1 - backwardInfoList[t][:sur][g, left]) );
+                    @constraint(backwardInfoList[t], backwardInfoList[t][:s][g] ≤ med + paramOPF.smax[g] * (1 - backwardInfoList[t][:sur][g, left]) );
+                    @constraint(backwardInfoList[t], backwardInfoList[t][:s][g] ≥ med -  paramOPF.smax[g] * (1 - backwardInfoList[t][:sur][g, right]));
+                    @constraint(backwardInfoList[t], backwardInfoList[t][:s][g] ≤ ub + paramOPF.smax[g] * (1 - backwardInfoList[t][:sur][g, right]) );
+                end
             end
         end
-        t1 = now(); iter_time = (t1 - t0).value/1000; total_Time = (t1 - initial).value/1000; i += 1;
+        t1 = now(); iter_time = (t1 - t0).value/1000; total_Time = (t1 - initial).value/1000; i += 1; 
 
     end
 end
-
-
 
 
 

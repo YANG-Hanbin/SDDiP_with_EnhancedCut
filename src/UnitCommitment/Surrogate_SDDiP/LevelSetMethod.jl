@@ -41,7 +41,6 @@ end
 """
     This function is to add constraints for the model f_star and nxt pt.
 """
-
 function add_constraint(currentInfo::CurrentInfo, modelInfo::ModelInfo)
     m = length(currentInfo.G)
 
@@ -75,7 +74,8 @@ function setupLevelSetMethod(; stageDecision::Dict{Symbol, Dict{Int64, Any}} = s
         λ_value = λ; Output = 0; threshold = 5e-3 * f_star_value; 
         levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, max_iter, Output, Output_Gap, f_star_value);
         x_interior = Dict{Symbol, Dict{Int64, Any}}(:s => Dict( g => stageDecision[:s][g] * ℓ  .+ (1 - ℓ)/2 for g in keys(stageDecision[:y])), 
-                                                        :y => Dict( g => stageDecision[:y][g] * ℓ  .+ (1 - ℓ)/2 for g in keys(stageDecision[:s])));
+                                                        :y => Dict( g => stageDecision[:y][g] * ℓ  .+ (1 - ℓ)/2 for g in keys(stageDecision[:s])),
+                                                        :sur => Dict(g => Dict(k => 0. for k in keys(stageDecision[:sur][g])) for g in keys(stageDecision[:y])));
     elseif cutSelection == "LC"
         λ_value = λ; Output = 0; threshold = 1e-5 * f_star_value; 
         levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, max_iter, Output, Output_Gap, f_star_value);
@@ -135,14 +135,16 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Any}} = x₀,
         optimize!(model);
         F  = JuMP.objective_value(model);
         negative_∇F = Dict( :s => Dict(g => round.(JuMP.value(model[:s_copy][g]), digits = 5) - stageDecision[:s][g] for g in indexSets.G),
-                            :y => Dict(g => round.(JuMP.value(model[:y_copy][g]), digits = 5) - stageDecision[:y][g] for g in indexSets.G)
+                            :y => Dict(g => round.(JuMP.value(model[:y_copy][g]), digits = 5) - stageDecision[:y][g] for g in indexSets.G),
+                            :sur => Dict(g => Dict(k => round.(JuMP.value(model[:sur_copy][g, k]), digits = 5) for k in keys(stageDecision[:sur][g])) for g in indexSets.G)
                             );
 
-        currentInfo = CurrentInfo1(  x₀,                                                                                                                                                                ## current point
-                                    - F - sum(x₀[:s][g] * (x_interior[:s][g] .- stageDecision[:s][g]) + x₀[:y][g] * (x_interior[:y][g] - stageDecision[:y][g]) for g in indexSets.G),                   ## obj function value
+        currentInfo = CurrentInfo(  x₀,                                                                                                                                                                ## current point
+                                    - F - sum(x₀[:s][g] * (x_interior[:s][g] .- stageDecision[:s][g]) + x₀[:y][g] * (x_interior[:y][g] - stageDecision[:y][g]) + sum(x₀[:sur][g][k] * (x_interior[:sur][g][k] - stageDecision[:sur][g][k]) for k in keys(stageDecision[:sur][g])) for g in indexSets.G),                   ## obj function value
                                     Dict(1 => f_star_value - F - δ),                                                                                                                              ## constraint value
-                                    Dict{Symbol, Dict{Int64, Float64}}( :s => Dict(g => negative_∇F[:s][g] + stageDecision[:s][g] - x_interior[:s][g] for g in indexSets.G),
-                                                                        :y => Dict(g => negative_∇F[:y][g] + stageDecision[:y][g] - x_interior[:y][g] for g in indexSets.G)),                           ## obj gradient
+                                    Dict{Symbol, Dict{Int64, Any}}( :s => Dict(g => negative_∇F[:s][g] + stageDecision[:s][g] - x_interior[:s][g] for g in indexSets.G),
+                                                                        :y => Dict(g => negative_∇F[:y][g] + stageDecision[:y][g] - x_interior[:y][g] for g in indexSets.G), 
+                                                                        :sur => Dict(g => Dict(k => negative_∇F[:sur][g][k] + stageDecision[:sur][g][k] - x_interior[:sur][g][k] for k in keys(stageDecision[:sur][g])) for g in indexSets.G)),                           ## obj gradient
                                     Dict(1 => negative_∇F )                                                                                                                                             ## constraint gradient
                                     );
     elseif cutSelection == "LC"
@@ -189,11 +191,12 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Any}} = x₀,
         optimize!(model)
         F  = JuMP.objective_value(model);
         negative_∇F = Dict( :s => Dict(g => round.(JuMP.value(model[:s_copy][g]), digits = 5) - stageDecision[:s][g] for g in indexSets.G),
-                            :y => Dict(g => round.(JuMP.value(model[:y_copy][g]), digits = 5) - stageDecision[:y][g] for g in indexSets.G)
+                            :y => Dict(g => round.(JuMP.value(model[:y_copy][g]), digits = 5) - stageDecision[:y][g] for g in indexSets.G),
+                            :sur => Dict(g => Dict(k => round.(JuMP.value(model[:sur_copy][g, k]), digits = 5) for k in keys(stageDecision[:sur][g])) for g in indexSets.G)
                             );
 
-        currentInfo = CurrentInfo1( x₀,                                                                                                ## current point
-                                    1/2 * sum(x₀[:s][g] * x₀[:s][g] for g in indexSets.G) + 1/2 * sum(x₀[:y][g] * x₀[:y][g] for g in indexSets.G),                                        ## obj function value
+        currentInfo = CurrentInfo( x₀,                                                                                                ## current point 
+                                    1/2 * sum(x₀[:s][g] * x₀[:s][g] for g in indexSets.G) + 1/2 * sum(x₀[:y][g] * x₀[:y][g] for g in indexSets.G) + 1/2 * sum(sum(x₀[:sur][g][k] * x₀[:sur][g][k] for k in keys(stageDecision[:sur][g])) for g in G),                                        ## obj function value
                                     Dict(1 => f_star_value - F - δ),                                                            ## constraint value
                                     x₀,                                                                                               ## obj gradient
                                     Dict(1 => negative_∇F )                                                                           ## constraint gradient
@@ -201,8 +204,6 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Any}} = x₀,
     end
     return (currentInfo = currentInfo, currentInfo_f = F)
 end    
-
-
 
 """
 LevelSetMethod_optimization!(; stageDecision::Dict{Symbol, Dict{Int64, Float64}} = stageDecision,
@@ -288,18 +289,17 @@ function LevelSetMethod_optimization!(; model::Model = model,
     Δ = Inf; τₖ = 1; τₘ = .5; μₖ = 1;
 
     if cutSelection == "ELC"
-        cutInfo =  [ - currentInfo.f - sum(currentInfo.x[:s][g] * x_interior[:s][g] + currentInfo.x[:y][g] * x_interior[:y][g] + sum(currentInfo.x[:sur][g][k] * x_interior[:sur][g][k] for k in keys(stageDecision[:sur][g])) for g in G), currentInfo.x] 
+        cutInfo =  [ - currentInfo.f - sum(currentInfo.x[:s][g] * x_interior[:s][g] + currentInfo.x[:y][g] * x_interior[:y][g] for g in G) - sum(sum(currentInfo.x[:sur][g][k] * x_interior[:sur][g][k] for k in keys(stageDecision[:sur][g])) for g in G), currentInfo.x] 
     elseif cutSelection == "LC"
         cutInfo =  [ - currentInfo.f - sum(currentInfo.x[:s][g] * stageDecision[:s][g] + currentInfo.x[:y][g] * stageDecision[:y][g] + sum(currentInfo.x[:sur][g][k] * stageDecision[:sur][g][k] for k in keys(stageDecision[:sur][g])) for g in G), currentInfo.x] 
-    elseif cutSelection == "ShrinkageLC"
+    elseif cutSelection == "SMC"
         cutInfo =  [ currentInfo_f - sum(currentInfo.x[:s][g] * stageDecision[:s][g] + currentInfo.x[:y][g] * stageDecision[:y][g] + sum(currentInfo.x[:sur][g][k] * stageDecision[:sur][g][k] for k in keys(stageDecision[:sur][g])) for g in G), currentInfo.x] 
     end 
 
     while true
         add_constraint(currentInfo, oracleInfo);
         optimize!(oracleModel);
-        st = termination_status(oracleModel);
-        if st == MOI.OPTIMAL
+        if termination_status(oracleModel) == MOI.OPTIMAL
             f_star = JuMP.objective_value(oracleModel);
         else 
             return cutInfo
@@ -324,10 +324,11 @@ function LevelSetMethod_optimization!(; model::Model = model,
             # x₀ = currentInfo.x;
             τₖ = μₖ * τₖ;
             if cutSelection == "ELC"
-                cutInfo =  [ - currentInfo.f - sum(currentInfo.x[:s][g] * x_interior[:s][g] + currentInfo.x[:y][g] * x_interior[:y][g] + sum(currentInfo.x[:sur][g][k] * x_interior[:sur][g][k] for k in keys(stageDecision[:sur][g])) for g in G), currentInfo.x] 
+                # cutInfo =  [ - currentInfo.f - sum(currentInfo.x[:s][g] * x_interior[:s][g] + currentInfo.x[:y][g] * x_interior[:y][g] + sum(currentInfo.x[:sur][g][k] * x_interior[:sur][g][k] for k in keys(stageDecision[:sur][g])) for g in G), currentInfo.x] 
+                cutInfo =  [ - currentInfo.f - sum(currentInfo.x[:s][g] * x_interior[:s][g] + currentInfo.x[:y][g] * x_interior[:y][g] for g in G) - sum(sum(currentInfo.x[:sur][g][k] * x_interior[:sur][g][k] for k in keys(stageDecision[:sur][g])) for g in G), currentInfo.x] 
             elseif cutSelection == "LC"
                 cutInfo =  [ - currentInfo.f - sum(currentInfo.x[:s][g] * stageDecision[:s][g] + currentInfo.x[:y][g] * stageDecision[:y][g] + sum(currentInfo.x[:sur][g][k] * stageDecision[:sur][g][k] for k in keys(stageDecision[:sur][g])) for g in G), currentInfo.x] 
-            elseif cutSelection == "ShrinkageLC"
+            elseif cutSelection == "SMC"
                 cutInfo =  [ currentInfo_f - sum(currentInfo.x[:s][g] * stageDecision[:s][g] + currentInfo.x[:y][g] * stageDecision[:y][g] + sum(currentInfo.x[:sur][g][k] * stageDecision[:sur][g][k] for k in keys(stageDecision[:sur][g])) for g in G), currentInfo.x] 
             end 
             τₖ = (τₖ + τₘ) / 2;
@@ -408,10 +409,16 @@ function LevelSetMethod_optimization!(; model::Model = model,
             # @info "Re-compute Next Iteration Point -- change to a safe level!"
             set_normalized_rhs( levelConstraint, w + .99 * (W - w))
             optimize!(nxtModel)
-            x_nxt = Dict{Symbol, Dict{Int64, Any}}(:s => Dict(g => round.(JuMP.value(xs[g]), digits = 5) for g in G), 
-                                                        :y => Dict(g => round.(JuMP.value(xy[g]), digits = 5) for g in G),
-                                                        :sur => Dict(g => Dict(k => round.(JuMP.value(sur[g, k]), digits = 5) for k in keys(stageDecision[:sur][g])) for g in G)
-                                                    );
+            st = termination_status(nxtModel);
+            if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
+                λₖ = abs(dual(levelConstraint)); μₖ = λₖ + 1; 
+                x_nxt = Dict{Symbol, Dict{Int64, Any}}(:s => Dict(g => round.(JuMP.value(xs[g]), digits = 5) for g in G), 
+                                                            :y => Dict(g => round.(JuMP.value(xy[g]), digits = 5) for g in G),
+                                                            :sur => Dict(g => Dict(k => round.(JuMP.value(sur[g, k]), digits = 5) for k in keys(stageDecision[:sur][g])) for g in G)
+                                                        );
+            else
+                return cutInfo
+            end
         end
 
         ## stop rule: gap ≤ .07 * function-value && constraint ≤ 0.05 * LagrangianFunction
