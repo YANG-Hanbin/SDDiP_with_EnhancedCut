@@ -71,20 +71,20 @@ function setupLevelSetMethod(; stageDecision::Dict{Symbol, Dict{Int64, Any}} = s
         levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, max_iter, Output, Output_Gap, f_star_value);
         x_interior = nothing;
     elseif cutSelection == "ELC"
-        λ_value = λ; Output = 0; threshold = 5e-3 * f_star_value; 
+        λ_value = λ; Output = 0; threshold = 1e-3 * f_star_value; 
         levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, max_iter, Output, Output_Gap, f_star_value);
         x_interior = Dict{Symbol, Dict{Int64, Any}}(:s => Dict( g => stageDecision[:s][g] * ℓ  .+ (1 - ℓ)/2 for g in keys(stageDecision[:y])), 
                                                         :y => Dict( g => stageDecision[:y][g] * ℓ  .+ (1 - ℓ)/2 for g in keys(stageDecision[:s])),
                                                         :sur => Dict(g => Dict(k => 0. for k in keys(stageDecision[:sur][g])) for g in keys(stageDecision[:y])));
     elseif cutSelection == "LC"
-        λ_value = λ; Output = 0; threshold = 1e-5 * f_star_value; 
+        λ_value = λ; Output = 0; threshold = 1e-4 * f_star_value; 
         levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, max_iter, Output, Output_Gap, f_star_value);
         x_interior = nothing;
     end
 
-    x₀ = Dict{Symbol, Dict{Int64, Any}}( :s => Dict(g => 0. for g in keys(stageDecision[:y])), 
-                                            :y => Dict(g => 0. for g in keys(stageDecision[:y])),
-                                                :sur => Dict(g => Dict(k => 0. for k in keys(stageDecision[:sur][g])) for g in keys(stageDecision[:y]))
+    x₀ = Dict{Symbol, Dict{Int64, Any}}( :s => Dict(g => 0.5 for g in keys(stageDecision[:y])), 
+                                            :y => Dict(g => 0.5 for g in keys(stageDecision[:y])),
+                                                :sur => Dict(g => Dict(k => 0.5 for k in keys(stageDecision[:sur][g])) for g in keys(stageDecision[:y]))
                                             
                                             );
 
@@ -119,7 +119,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Any}} = x₀,
                         model::Model = model, 
                         f_star_value::Float64 = f_star_value, 
                         stageDecision::Dict{Symbol, Dict{Int64, Any}} = stageDecision, 
-                        cutSelection::String = cutSelection, 
+                        cutSelection::String = cutSelection, x_interior::Union{Dict{Symbol, Dict{Int64, Any}}, Nothing} = x_interior,
                         paramDemand::ParamDemand = paramDemand, paramOPF::ParamOPF = paramOPF, indexSets::IndexSets = indexSets, 
                         ϵ::Float64 = 1e-4, δ::Float64 = 50.)
     if cutSelection == "ELC"
@@ -196,7 +196,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Any}} = x₀,
                             );
 
         currentInfo = CurrentInfo( x₀,                                                                                                ## current point 
-                                    1/2 * sum(x₀[:s][g] * x₀[:s][g] for g in indexSets.G) + 1/2 * sum(x₀[:y][g] * x₀[:y][g] for g in indexSets.G) + 1/2 * sum(sum(x₀[:sur][g][k] * x₀[:sur][g][k] for k in keys(stageDecision[:sur][g])) for g in G),                                        ## obj function value
+                                    1/2 * sum(x₀[:s][g] * x₀[:s][g] for g in indexSets.G) + 1/2 * sum(x₀[:y][g] * x₀[:y][g] for g in indexSets.G) + 1/2 * sum(sum(x₀[:sur][g][k] * x₀[:sur][g][k] for k in keys(stageDecision[:sur][g])) for g in indexSets.G),                                        ## obj function value
                                     Dict(1 => f_star_value - F - δ),                                                            ## constraint value
                                     x₀,                                                                                               ## obj gradient
                                     Dict(1 => negative_∇F )                                                                           ## constraint gradient
@@ -244,7 +244,7 @@ function LevelSetMethod_optimization!(; model::Model = model,
     α = 1/2;
 
     # trajectory
-    currentInfo, currentInfo_f = function_info(x₀ = x₀, model = model, f_star_value = f_star_value, stageDecision = stageDecision, cutSelection = cutSelection, 
+    currentInfo, currentInfo_f = function_info(x₀ = x₀, model = model, f_star_value = f_star_value, stageDecision = stageDecision, cutSelection = cutSelection, x_interior = x_interior,
                                                     paramDemand = paramDemand, paramOPF = paramOPF, indexSets = indexSets, ϵ = ϵ, δ = δ);
 
     functionHistory = FunctionHistory(  Dict(1 => currentInfo.f), 
@@ -422,13 +422,13 @@ function LevelSetMethod_optimization!(; model::Model = model,
         end
 
         ## stop rule: gap ≤ .07 * function-value && constraint ≤ 0.05 * LagrangianFunction
-        if ( Δ ≤ threshold * 10 && currentInfo.G[1] ≤ threshold ) || (iter > max_iter)
+        if ( Δ ≤ threshold + 1. && currentInfo.G[1] ≤ threshold ) || (iter > max_iter)
             return cutInfo
         end
         
         ## ==================================================== end ============================================== ##
         ## save the trajectory
-        currentInfo, currentInfo_f = function_info(x₀ = x_nxt, model = model, f_star_value = f_star_value, stageDecision = stageDecision, cutSelection = cutSelection, paramDemand = paramDemand, paramOPF = paramOPF, indexSets = indexSets, ϵ = ϵ, δ = δ)
+        currentInfo, currentInfo_f = function_info(x₀ = x_nxt, model = model, f_star_value = f_star_value, stageDecision = stageDecision, cutSelection = cutSelection, paramDemand = paramDemand, paramOPF = paramOPF, indexSets = indexSets, ϵ = ϵ, δ = δ, x_interior = x_interior)
         iter = iter + 1;
         functionHistory.f_his[iter] = currentInfo.f;
         functionHistory.G_max_his[iter] = maximum(currentInfo.G[k] for k in keys(currentInfo.G));

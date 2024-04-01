@@ -4,7 +4,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                                     paramDemand::ParamDemand = paramDemand, 
                                         paramOPF::ParamOPF = paramOPF, 
                                             initialStageDecision::Dict{Symbol, Dict{Int64, Float64}} = initialStageDecision,
-                                                Output_Gap::Bool = true, max_iter::Int64 = 100, ϵ::Float64 = 1e-3, cutSelection::String = "LC", δ::Float64 = 50., numScenarios::Int64 = 2
+                                                Output_Gap::Bool = true, max_iter::Int64 = 100, TimeLimit::Float64 = 1e3, cutSelection::String = "LC", δ::Float64 = 50., numScenarios::Int64 = 2
                         )
     ## d: x dim
     initial = now(); i = 1; LB = - Inf; UB = Inf; OPT = Inf;
@@ -71,7 +71,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
             println("Iter |   LB                              UB                             gap")
         end
         @printf("%3d  |   %5.3g                         %5.3g                              %1.3f%s\n", i, LB, UB, gap, "%")
-        if UB-LB ≤ 1e-2 * UB || i > max_iter || total_Time > 18000 
+        if UB-LB ≤ 1e-2 * UB || i > max_iter || total_Time > TimeLimit 
             return Dict(:solHistory => sddipResult, 
                             :solution => solCollection[i, 1, 1].stageSolution, 
                                 :gapHistory => gapList) 
@@ -79,7 +79,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
 
         ####################################################### Backward Steps ###########################################################
         for t = reverse(2:indexSets.T)
-            for ω in keys(Ξ̃)
+            for ω in [1]#keys(Ξ̃)
                 # λ₀ = 0.0; λ₁ = Dict{Symbol, Dict{Int64, Float64}}(); λ₁[:s] = Dict{Int64, Float64}(g => 0.0 for g in indexSets.G); λ₁[:y] = Dict{Int64, Float64}(g => 0.0 for g in indexSets.G);
                 for n in keys(scenarioTree.tree[t].nodes)
                     # @info "$t, $k, $j"

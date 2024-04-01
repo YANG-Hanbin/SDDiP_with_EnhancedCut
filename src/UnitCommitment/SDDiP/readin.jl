@@ -4,8 +4,8 @@ prepareIndexSets(T::Int64 = 10, network_data::Dict{String, Any} = network_data, 
 Readin the data and prepare the index sets for the power network
 """
 function prepareIndexSets(  ; T::Int64 = 10, 
-                                network_data::Dict{String, Any} = network_data,
-                                    branchInfo::DataFrame = branchInfo
+                                network_data::Dict{String, Any} = network_data, scale::Int64 = 1
+                                # ,branchInfo::DataFrame = branchInfo
                                                     )
     D = Vector{Int64}()
     G = Vector{Int64}()
@@ -50,7 +50,7 @@ function prepareIndexSets(  ; T::Int64 = 10,
     for i in keys(network_data["load"])
         d = network_data["load"][i]["index"]
         b = network_data["load"][i]["load_bus"]
-        w[d] = wsample([50, 100, 150, 200, 250, 300, 500, 600, 700, 1000], [8, 8, 10, 8, 2, 3, 1, 1, 1, .5], 1)[1];                                ## priority level of load d
+        w[d] = wsample([50, 100, 150, 200, 250, 300, 500, 600, 700, 1000], [8, 8, 10, 8, 2, 3, 1, 1, 1, .5], 1)[1] * scale;                                ## priority level of load d
 
         push!(Dᵢ[b], d)
         push!(D, d)
@@ -86,11 +86,11 @@ function prepareIndexSets(  ; T::Int64 = 10,
 
             _b[l] = - 1/network_data["branch"][i]["br_x"]                          ## total line charging susceptance
             W[l] = network_data["branch"][i]["rate_a"]         
-            cl[l] = 0.285 *  branchInfo[parse(Int64,i), :Length] 
+            # cl[l] = 0.285 *  branchInfo[parse(Int64,i), :Length] 
         else
             _b[l] = _b[l] - 1/network_data["branch"][i]["br_x"] 
             W[l] = W[l] + network_data["branch"][i]["rate_a"] 
-            cl[l] = cl[l] + 0.285 *  branchInfo[parse(Int64,i), :Length] 
+            # cl[l] = cl[l] + 0.285 *  branchInfo[parse(Int64,i), :Length] 
         end
 
     end
