@@ -75,7 +75,7 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
                                                             x₀' * ( L̂ .- backwardInfo.Lc) );
         optimize!(backwardInfo.model);
         F_solution = ( F = JuMP.objective_value(backwardInfo.model), 
-                            ∇F = L̂ .- round.(JuMP.value.(backwardInfo.Lc), digits = 6) );
+                            ∇F = L̂ .- JuMP.value.(backwardInfo.Lc) );
 
         currentInfo  = CurrentInfo(x₀, 
                                     - F_solution.F - x₀' * ( L̃ .-  L̂),
@@ -89,7 +89,7 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
                                                             x₀' * backwardInfo.Lc );
         optimize!(backwardInfo.model);
         F_solution = (F = JuMP.objective_value(backwardInfo.model), 
-                                ∇F = - round.(JuMP.value.(backwardInfo.Lc), digits = 6) );
+                                ∇F = - JuMP.value.(backwardInfo.Lc) );
 
         currentInfo  = CurrentInfo(x₀, 
                                     - F_solution.F - x₀' *  L̂, 
@@ -103,7 +103,7 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
                                                             x₀' * ( L̂ .- backwardInfo.Lc) );
         optimize!(backwardInfo.model);
         F_solution = ( F = JuMP.objective_value(backwardInfo.model), 
-                        ∇F = L̂ .- round.(JuMP.value.(backwardInfo.Lc), digits = 6) );
+                        ∇F = L̂ .- JuMP.value.(backwardInfo.Lc) );
 
         currentInfo  = CurrentInfo(x₀, 
                                     - F_solution.F - x₀' * ( L̃ .-  L̂),
@@ -117,7 +117,7 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
                                                             x₀' * ( L̂ .- backwardInfo.Lc) );
         optimize!(backwardInfo.model);
         F_solution = ( F = JuMP.objective_value(backwardInfo.model), 
-                        ∇F = L̂ .- round.(JuMP.value.(backwardInfo.Lc), digits = 6) );
+                        ∇F = L̂ .- JuMP.value.(backwardInfo.Lc) );
 
         currentInfo  = CurrentInfo(x₀, 
                                     1/2 * sum(x₀ .* x₀),

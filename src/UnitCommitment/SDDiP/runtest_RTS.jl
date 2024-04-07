@@ -20,19 +20,19 @@ include("src/UnitCommitment/SDDiP/sddip.jl");
 include("src/UnitCommitment/SDDiP/extForm.jl");
 include("src/UnitCommitment/SDDiP/readin.jl");
 
-# T = 3; num = 3;
-# indexSets = load("src/UnitCommitment/experiment$case/stage($T)real($num)/indexSets.jld2")["indexSets"]
-# paramOPF = load("src/UnitCommitment/experiment$case/stage($T)real($num)/paramOPF.jld2")["paramOPF"]
-# paramDemand = load("src/UnitCommitment/experiment$case/stage($T)real($num)/paramDemand.jld2")["paramDemand"]
-# scenarioTree = load("src/UnitCommitment/experiment$case/stage($T)real($num)/scenarioTree.jld2")["scenarioTree"]
-# Ξ = load("src/UnitCommitment/experiment$case/stage($T)real($num)/Ξ.jld2")["Ξ"]
-# initialStageDecision = load("src/UnitCommitment/experiment$case/stage(3)real(3)/initialStageDecision.jld2")["initialStageDecision"]
 
+
+# indexSets = load("src/UnitCommitment/experiment_$case/stage($T)real($num)/indexSets.jld2")["indexSets"]
+# paramOPF = load("src/UnitCommitment/experiment_$case/stage($T)real($num)/paramOPF.jld2")["paramOPF"]
+# paramDemand = load("src/UnitCommitment/experiment_$case/stage($T)real($num)/paramDemand.jld2")["paramDemand"]
+# scenarioTree = load("src/UnitCommitment/experiment_$case/stage($T)real($num)/scenarioTree.jld2")["scenarioTree"]
+# initialStageDecision = load("src/UnitCommitment/experiment_$case/initialStageDecision.jld2")["initialStageDecision"]
+# Ξ = load("src/UnitCommitment/experiment_$case/stage($T)real($num)/Ξ.jld2")["Ξ"]
 #############################################################################################
 ####################################### Run Experiment ######################################
 #############################################################################################
 Output_Gap = false; max_iter = 200; cutSelection = "LC"; δ = 10.; numScenarios = 30; tightness = true; ϵ = 1e-4;
-case = "case30"; # "RTS_GMLC"
+case = "RTS_GMLC"; # "RTS_GMLC"
 # for cutSelection in ["LC", "ELC", "SMC"]
     for T in [3, 6, 8]
         for num in [3, 5, 10]

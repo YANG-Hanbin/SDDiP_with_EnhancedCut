@@ -17,12 +17,12 @@ backwardModel!(; indexSets::IndexSets = indexSets,
     1. `model` : a forward pass model of stage t
   
 """
-function backwardModel!(; tightness::Bool = tightness, indexSets::IndexSets = indexSets, 
+function backwardModel!(; tightness::Bool = true, indexSets::IndexSets = indexSets, 
                             paramDemand::ParamDemand = paramDemand, 
                                 paramOPF::ParamOPF = paramOPF, 
                                     stageRealization::StageRealization = stageRealization,
                                         max_sur::Int64 = 100,
-                                            θ_bound::Real = 0.0, outputFlag::Int64 = 0, timelimit::Real = 3, mipGap::Float64 = 1e-3 
+                                            θ_bound::Real = 0.0, outputFlag::Int64 = 0, timelimit::Real = 5, mipGap::Float64 = 1e-4 
                             )
     (D, G, L, B) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T) 
     (Dᵢ, Gᵢ, in_L, out_L) = (indexSets.Dᵢ, indexSets.Gᵢ, indexSets.in_L, indexSets.out_L) 
@@ -32,7 +32,7 @@ function backwardModel!(; tightness::Bool = tightness, indexSets::IndexSets = in
                                             "OutputFlag" => outputFlag, 
                                             "Threads" => 0, 
                                             "MIPGap" => mipGap, 
-                                            "TimeLimit" => timelimit)
+                                            "TimeLimit" => timelimit);
                                 ) 
     @variable(model, θ_angle[B])                                    ## phase angle of the bus i
     @variable(model, P[L])                                          ## real power flow on line l; elements in L is Tuple (i, j)
@@ -50,18 +50,17 @@ function backwardModel!(; tightness::Bool = tightness, indexSets::IndexSets = in
     ## Choosing one leaf node
     @constraint(model, [g in G], sur[g, 1] == 1)
 
-    # copy variables: :s, :y
+    # copy variables: :s, :y, :sur
     if tightness
-        # @variable(model, paramOPF.smin[g] ≤ s_copy[g in G] ≤ paramOPF.smax[g])
         @variable(model, 0 ≤ s_copy[g in G] ≤ paramOPF.smax[g])
         @variable(model, y_copy[G], Bin)        
         @variable(model, sur_copy[G, 1:max_sur], Bin)                        ## sur[g, k] is the kth surrogate variable of s[g]
-
     else
-        @variable(model, s_copy[G])
+        @variable(model, 0 ≤ s_copy[G] ≤ paramOPF.smax[g])
         @variable(model, 0 ≤ y_copy[G] ≤ 1)  
         @variable(model, 0 ≤ sur_copy[G, 1:max_sur] ≤ 1)                     ## sur[g, k] is the kth surrogate variable of s[g]
     end
+    @constraint(model, [g in G], sur_copy[g, 1] == 1)
 
     # power flow constraints
     for l in L

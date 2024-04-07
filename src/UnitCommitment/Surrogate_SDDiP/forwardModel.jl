@@ -32,7 +32,7 @@ function forwardModel!(; indexSets::IndexSets = indexSets,
                                             "OutputFlag" => outputFlag, 
                                             "Threads" => 0, 
                                             "MIPGap" => mipGap, 
-                                            "TimeLimit" => timelimit)
+                                            "TimeLimit" => timelimit);
                                 ) 
     @variable(model, θ_angle[B])                                                ## phase angle of the bus i
     @variable(model, P[L])                                                      ## real power flow on line l; elements in L is Tuple (i, j)

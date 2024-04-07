@@ -59,14 +59,14 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
                             scenario_sequence::Dict{Int64, Dict{Int64, Any}} = scenario_sequence, ϵ::Float64 = 0.001, M::Int64 = 1, max_iter::Int64 = 100, 
                             Output_Gap::Bool = false, tightness::Bool = false,
                             cutSelection::String = "LC", binaryInfo::BinaryInfo = binaryInfo)
-    ## d: dimension of x
-    ## M: num of scenarios when doing one iteration
+    # ## d: dimension of x
+    # ## M: num of scenarios when doing one iteration
+    OPT = Inf;
     @time gurobiResult = gurobiOptimize!(Ω, 
                                     probList, 
                                     stageDataList,
                                     binaryInfo = binaryInfo);
-    OPT = gurobiResult.OPT # 1.58e8, 3.8e8, 2.05e9    time 120s 720s 791s
-    # OPT = 4.22e7;
+    OPT = gurobiResult.OPT 
     initial = now(); iter_time = 0; total_Time = 0; t0 = 0.0; 
     T = length(keys(Ω));
     i = 1; LB = - Inf; UB = Inf; solCollection = Dict(); u = 0;Scenarios = 0;
@@ -138,7 +138,7 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
         end
 
         for t = reverse(2:T)
-            for k in 1:M 
+            for k in [1] 
                 c = [0, zeros(Float64,binaryInfo.n)]
                 for j in keys(Ω[t])
                     # @info "$t, $k, $j"

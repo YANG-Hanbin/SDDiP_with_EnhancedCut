@@ -6,32 +6,34 @@ function Δ_model_formulation(functionHistory::FunctionHistory, f_star::Float64,
     alphaModel = Model(
         optimizer_with_attributes(
             ()->Gurobi.Optimizer(GRB_ENV),
-            "OutputFlag" => Output, 
-            "Threads" => 0)
-            )
-
-    @variable(alphaModel, z)
-    @variable(alphaModel, 0 ≤ α ≤ 1)
-    @constraint(alphaModel, con[j = 1:iter], z ≤  α * ( functionHistory.f_his[j] - f_star) + (1 - α) * functionHistory.G_max_his[j] )
+            "Threads" => 0, 
+            # "MIPGap" => 1e-3, 
+            # "TimeLimit" => 3, 
+            "OutputFlag" => Output));
+    # set_optimizer_attribute(alphaModel, "MIPGap", 1e-3);
+    # set_optimizer_attribute(alphaModel, "TimeLimit", 3);
+    @variable(alphaModel, z);
+    @variable(alphaModel, 0 ≤ α ≤ 1);
+    @constraint(alphaModel, con[j = 1:iter], z ≤  α * ( functionHistory.f_his[j] - f_star) + (1 - α) * functionHistory.G_max_his[j] );
     
     # we first compute gap Δ
-    @objective(alphaModel, Max, z)
-    optimize!(alphaModel)
-    st = termination_status(alphaModel)
-    Δ = JuMP.objective_value(alphaModel)
+    @objective(alphaModel, Max, z);
+    optimize!(alphaModel);
+    st = termination_status(alphaModel);
+    Δ = JuMP.objective_value(alphaModel);
 
     
     ## then we modify above model to compute alpha
     # alpha_min
-    @constraint(alphaModel, z .≥ 0)
-    @objective(alphaModel, Min, α)
-    optimize!(alphaModel)
-    a_min = JuMP.value(α)
+    @constraint(alphaModel, z .≥ 0);
+    @objective(alphaModel, Min, α);
+    optimize!(alphaModel);
+    a_min = JuMP.value(α);
 
     # alpha_max
-    @objective(alphaModel, Max, α)
-    optimize!(alphaModel)
-    a_max = JuMP.value(α)
+    @objective(alphaModel, Max, α);
+    optimize!(alphaModel);
+    a_max = JuMP.value(α);
 
     return Dict(1 => Δ, 2 => a_min, 3 => a_max)
 
@@ -48,12 +50,12 @@ function add_constraint(currentInfo::CurrentInfo, modelInfo::ModelInfo)
     # add constraints     
     @constraint(modelInfo.model, modelInfo.z .≥ currentInfo.f + sum(currentInfo.df[:s][g] * (modelInfo.xs[g] - xⱼ[:s][g]) for g in keys(currentInfo.df[:s]))
                                                                     + sum(currentInfo.df[:y][g] * (modelInfo.xy[g] - xⱼ[:y][g]) for g in keys(currentInfo.df[:y]))
-                                                                        + sum(currentInfo.df[:sur][g][k] * (modelInfo.sur[g, k] - xⱼ[:sur][g][k]) for g in keys(currentInfo.df[:s]), k in keys(xⱼ[:sur][g]))
+                                                                        + sum(sum(currentInfo.df[:sur][g][k] * (modelInfo.sur[g, k] - xⱼ[:sur][g][k]) for k in keys(xⱼ[:sur][g])) for g in keys(currentInfo.df[:s]))
                                                                     )
 
     @constraint(modelInfo.model, [k = 1:m], modelInfo.y .≥ currentInfo.G[k] + sum(currentInfo.dG[k][:s][g] * (modelInfo.xs[g] .- xⱼ[:s][g]) for g in keys(currentInfo.df[:s]))
                                                                                  + sum(currentInfo.dG[k][:y][g] * (modelInfo.xy[g] .- xⱼ[:y][g]) for g in keys(currentInfo.df[:y])) 
-                                                                                    + sum(currentInfo.dG[k][:sur][g][j] * (modelInfo.sur[g, j] .- xⱼ[:sur][g][j]) for g in keys(currentInfo.df[:s]), j in keys(xⱼ[:sur][g]))
+                                                                                    + sum(sum(currentInfo.dG[k][:sur][g][j] * (modelInfo.sur[g, j] .- xⱼ[:sur][g][j]) for j in keys(xⱼ[:sur][g])) for g in keys(currentInfo.df[:s]))
                                                                                  )
                                                                                  
 end
@@ -62,29 +64,29 @@ end
     This function is to setup the levelset method.
 """
 function setupLevelSetMethod(; stageDecision::Dict{Symbol, Dict{Int64, Any}} = stageDecision, 
-                                f_star_value::Float64 = f_star_value,
+                                f_star_value::Float64 = f_star_value, paramOPF::ParamOPF = paramOPF,
                                     cutSelection::String = cutSelection, max_iter::Int64 = 100,
                                         Output_Gap::Bool = false, ℓ::Real = .0, λ::Union{Real, Nothing} = .1  
                             )
     if cutSelection == "SMC" 
         λ_value = λ; Output = 0; threshold = 1e-3 * f_star_value; 
-        levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, max_iter, Output, Output_Gap, f_star_value);
+        levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e10, max_iter, Output, Output_Gap, f_star_value);
         x_interior = nothing;
     elseif cutSelection == "ELC"
         λ_value = λ; Output = 0; threshold = 1e-3 * f_star_value; 
-        levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, max_iter, Output, Output_Gap, f_star_value);
+        levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e10, max_iter, Output, Output_Gap, f_star_value);
         x_interior = Dict{Symbol, Dict{Int64, Any}}(:s => Dict( g => stageDecision[:s][g] * ℓ  .+ (1 - ℓ)/2 for g in keys(stageDecision[:y])), 
                                                         :y => Dict( g => stageDecision[:y][g] * ℓ  .+ (1 - ℓ)/2 for g in keys(stageDecision[:s])),
                                                         :sur => Dict(g => Dict(k => 0. for k in keys(stageDecision[:sur][g])) for g in keys(stageDecision[:y])));
     elseif cutSelection == "LC"
         λ_value = λ; Output = 0; threshold = 1e-4 * f_star_value; 
-        levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, max_iter, Output, Output_Gap, f_star_value);
+        levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e10, max_iter, Output, Output_Gap, f_star_value);
         x_interior = nothing;
     end
 
     x₀ = Dict{Symbol, Dict{Int64, Any}}( :s => Dict(g => 0.5 for g in keys(stageDecision[:y])), 
                                             :y => Dict(g => 0.5 for g in keys(stageDecision[:y])),
-                                                :sur => Dict(g => Dict(k => 0.5 for k in keys(stageDecision[:sur][g])) for g in keys(stageDecision[:y]))
+                                                :sur => Dict(g => Dict(k => (paramOPF.smin[g] + paramOPF.smax[g])/2 for k in keys(stageDecision[:sur][g])) for g in keys(stageDecision[:y]))
                                             
                                             );
 
@@ -134,9 +136,9 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Any}} = x₀,
         ## ==================================================== solve the model and display the result ==================================================== ##
         optimize!(model);
         F  = JuMP.objective_value(model);
-        negative_∇F = Dict( :s => Dict(g => round.(JuMP.value(model[:s_copy][g]), digits = 5) - stageDecision[:s][g] for g in indexSets.G),
-                            :y => Dict(g => round.(JuMP.value(model[:y_copy][g]), digits = 5) - stageDecision[:y][g] for g in indexSets.G),
-                            :sur => Dict(g => Dict(k => round.(JuMP.value(model[:sur_copy][g, k]), digits = 5) for k in keys(stageDecision[:sur][g])) for g in indexSets.G)
+        negative_∇F = Dict( :s => Dict(g => JuMP.value(model[:s_copy][g]) - stageDecision[:s][g] for g in indexSets.G),
+                            :y => Dict(g => round.(JuMP.value(model[:y_copy][g]), digits = 6) - stageDecision[:y][g] for g in indexSets.G),
+                            :sur => Dict(g => Dict(k => JuMP.value(model[:sur_copy][g, k]) for k in keys(stageDecision[:sur][g])) for g in indexSets.G)
                             );
 
         currentInfo = CurrentInfo(  x₀,                                                                                                                                                                ## current point
@@ -159,12 +161,12 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Any}} = x₀,
         ## ==================================================== solve the model and display the result ==================================================== ##
         optimize!(model);
         F  = JuMP.objective_value(model);
-        negative_∇F = Dict( :s => Dict(g => round.(JuMP.value(model[:s_copy][g]), digits = 5) for g in indexSets.G),
-                            :y => Dict(g => round.(JuMP.value(model[:y_copy][g]), digits = 5) for g in indexSets.G),
-                            :sur => Dict(g => Dict(k => round.(JuMP.value(model[:sur_copy][g, k]), digits = 5) for k in keys(stageDecision[:sur][g])) for g in indexSets.G)
+        negative_∇F = Dict( :s => Dict(g => JuMP.value(model[:s_copy][g]) for g in indexSets.G),
+                            :y => Dict(g => round.(JuMP.value(model[:y_copy][g]), digits = 6) for g in indexSets.G),
+                            :sur => Dict(g => Dict(k => JuMP.value(model[:sur_copy][g, k]) for k in keys(stageDecision[:sur][g])) for g in indexSets.G)
                             );
 
-                         
+
         currentInfo = CurrentInfo( x₀,                                                                                                                                                  ## current point
                                     - F - sum(x₀[:s][g] * stageDecision[:s][g] + x₀[:y][g] * stageDecision[:y][g] + sum(x₀[:sur][g][k] * stageDecision[:sur][g][k] for k in keys(stageDecision[:sur][g])) for g in indexSets.G),                                                          ## obj function value
                                     Dict(1 => 0.0 ),                                                                                                                                    ## constraint value
@@ -190,9 +192,9 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Any}} = x₀,
         ## ==================================================== solve the model and display the result ==================================================== ##
         optimize!(model)
         F  = JuMP.objective_value(model);
-        negative_∇F = Dict( :s => Dict(g => round.(JuMP.value(model[:s_copy][g]), digits = 5) - stageDecision[:s][g] for g in indexSets.G),
-                            :y => Dict(g => round.(JuMP.value(model[:y_copy][g]), digits = 5) - stageDecision[:y][g] for g in indexSets.G),
-                            :sur => Dict(g => Dict(k => round.(JuMP.value(model[:sur_copy][g, k]), digits = 5) for k in keys(stageDecision[:sur][g])) for g in indexSets.G)
+        negative_∇F = Dict( :s => Dict(g => JuMP.value(model[:s_copy][g]) - stageDecision[:s][g] for g in indexSets.G),
+                            :y => Dict(g => round.(JuMP.value(model[:y_copy][g]), digits = 6) - stageDecision[:y][g] for g in indexSets.G),
+                            :sur => Dict(g => Dict(k => JuMP.value(model[:sur_copy][g, k]) for k in keys(stageDecision[:sur][g])) for g in indexSets.G)
                             );
 
         currentInfo = CurrentInfo( x₀,                                                                                                ## current point 
@@ -255,9 +257,10 @@ function LevelSetMethod_optimization!(; model::Model = model,
     oracleModel = Model(
         optimizer_with_attributes(
             ()->Gurobi.Optimizer(GRB_ENV), 
-            "OutputFlag" => Output, 
-            "Threads" => 0)
-            );
+            "Threads" => 0, 
+            "MIPGap" => 1e-3, 
+            "TimeLimit" => 5, 
+            "OutputFlag" => Output));
 
     ## ==================================================== Levelset Method ============================================== ##
     para_oracle_bound = abs(currentInfo.f);
@@ -274,10 +277,12 @@ function LevelSetMethod_optimization!(; model::Model = model,
 
     nxtModel = Model(
         optimizer_with_attributes(
-        ()->Gurobi.Optimizer(GRB_ENV), 
-        "OutputFlag" => Output, 
-        "Threads" => 0)
-        )
+        ()->Gurobi.Optimizer(GRB_ENV),  
+        "Threads" => 0, 
+        "MIPGap" => 1e-3, 
+        "TimeLimit" => 3, 
+        "OutputFlag" => Output)
+        );
 
     @variable(nxtModel, xs[G]);
     @variable(nxtModel, xy[G]);
@@ -345,17 +350,14 @@ function LevelSetMethod_optimization!(; model::Model = model,
         w = α * f_star;
         W = minimum( α * functionHistory.f_his[j] + (1-α) * functionHistory.G_max_his[j] for j in 1:iter);
 
-        λ = iter ≤ 10 ? 0.05 : 0.15;
-        λ = iter ≥ 20 ? 0.25 : λ;
-        λ = iter ≥ 30 ? 0.35 : λ;
-        λ = iter ≥ 40 ? 0.45 : λ;
-        λ = iter ≥ 50 ? 0.55 : λ;
-        λ = iter ≥ 60 ? 0.65 : λ;
-        λ = iter ≥ 70 ? 0.75 : λ;
-        λ = iter ≥ 85 ? 0.85 : λ;
-        λ = iter ≥ 90 ? 0.95 : λ;
+        λ = iter ≤ 20 ? 0.05 : 0.15;
+        λ = iter ≥ 40 ? 0.35 : λ;
+        λ = iter ≥ 80 ? 0.55 : λ;
+        λ = iter ≥ 100 ? 0.75 : λ;
+        λ = iter ≥ 120 ? 0.95 : λ;
+
         
-        level = round.(w + λ * (W - w), digits = 5);
+        level = round.(w + λ * (W - w), digits = 6);
         
         ## ==================================================== next iteration point ============================================== ##
         # obtain the next iteration point
@@ -367,25 +369,29 @@ function LevelSetMethod_optimization!(; model::Model = model,
             @constraint(nxtModel, levelConstraint, α * z1 + (1 - α) * y1 ≤ level);
         end
         add_constraint(currentInfo, nxtInfo);
-        @objective(nxtModel, Min, sum((xs[g] - x₀[:s][g]) * (xs[g] - x₀[:s][g]) for g in G) +
-                                            sum((xy[g] - x₀[:y][g]) * (xy[g] - x₀[:y][g]) for g in G)  
-                                                + sum((sur[g, k] - x₀[:sur][g][k]) * (sur[g, k] - x₀[:sur][g][k]) for g in G, k in keys(stageDecision[:sur][g]))
-                                            #+ 2 * (α * z1 + (1 - α) * y1) * τₖ 
+        @objective(nxtModel, Min, sum(
+                                        (xs[g] - x₀[:s][g]) * (xs[g] - x₀[:s][g]) +
+                                            (xy[g] - x₀[:y][g]) * (xy[g] - x₀[:y][g]) +
+                                                sum((sur[g, k] - x₀[:sur][g][k]) * (sur[g, k] - x₀[:sur][g][k]) for k in keys(stageDecision[:sur][g])) 
+                                                    for g in G) #+ 2 * (α * z1 + (1 - α) * y1) * τₖ 
                                     );
         optimize!(nxtModel);
         st = termination_status(nxtModel);
         if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
-            x_nxt = Dict{Symbol, Dict{Int64, Any}}(:s => Dict(g => round.(JuMP.value(xs[g]), digits = 5) for g in G), 
-                                                        :y => Dict(g => round.(JuMP.value(xy[g]), digits = 5) for g in G), 
-                                                        :sur => Dict(g => Dict(k => round.(JuMP.value(sur[g, k]), digits = 5) for k in keys(stageDecision[:sur][g])) for g in G)
+            x_nxt = Dict{Symbol, Dict{Int64, Any}}(:s => Dict(g => JuMP.value(xs[g]) for g in G), 
+                                                        :y => Dict(g => JuMP.value(xy[g]) for g in G), 
+                                                        :sur => Dict(g => Dict(k => JuMP.value(sur[g, k]) for k in keys(stageDecision[:sur][g])) for g in G)
                                                     );
             λₖ = abs(dual(levelConstraint)); μₖ = λₖ + 1; 
         elseif st == MOI.NUMERICAL_ERROR ## need to figure out why this case happened and fix it
             # @info "Numerical Error occures! -- Build a new nxtModel"
             nxtModel = Model(
-                optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-                "OutputFlag" => Output, 
-                "Threads" => 0));
+                optimizer_with_attributes(
+                ()->Gurobi.Optimizer(GRB_ENV),  
+                "Threads" => 0, 
+                "MIPGap" => 1e-3, 
+                "TimeLimit" => 3, 
+                "OutputFlag" => Output));
             @variable(nxtModel, xs[G]);
             @variable(nxtModel, xy[G]);
             @variable(nxtModel, sur[g in G, k in keys(stageDecision[:sur][g])]);
@@ -394,15 +400,16 @@ function LevelSetMethod_optimization!(; model::Model = model,
             nxtInfo = ModelInfo(nxtModel, xs, xy, sur, y1, z1);
             @constraint(nxtModel, levelConstraint, α * z1 + (1 - α) * y1 ≤ level);
             add_constraint(currentInfo, nxtInfo);
-            @objective(nxtModel, Min, sum((xs[g] - x₀[:s][g]) * (xs[g] - x₀[:s][g]) for g in G) +
-                                            sum((xy[g] - x₀[:y][g]) * (xy[g] - x₀[:y][g]) for g in G)  
-                                                + sum((sur[g, k] - x₀[:sur][g][k]) * (sur[g, k] - x₀[:sur][g][k]) for g in G, k in keys(stageDecision[:sur][g]))
-                                            #+ 2 * (α * z1 + (1 - α) * y1) * τₖ 
+            @objective(nxtModel, Min, sum(
+                                        (xs[g] - x₀[:s][g]) * (xs[g] - x₀[:s][g]) +
+                                            (xy[g] - x₀[:y][g]) * (xy[g] - x₀[:y][g]) +
+                                                sum((sur[g, k] - x₀[:sur][g][k]) * (sur[g, k] - x₀[:sur][g][k]) for k in keys(stageDecision[:sur][g])) 
+                                                    for g in G) #+ 2 * (α * z1 + (1 - α) * y1) * τₖ 
                                     );
             optimize!(nxtModel);
-            x_nxt = Dict{Symbol, Dict{Int64, Any}}(:s => Dict(g => round.(JuMP.value(xs[g]), digits = 5) for g in G), 
-                                                        :y => Dict(g => round.(JuMP.value(xy[g]), digits = 5) for g in G),
-                                                        :sur => Dict(g => Dict(k => round.(JuMP.value(sur[g, k]), digits = 5) for k in keys(stageDecision[:sur][g])) for g in G)
+            x_nxt = Dict{Symbol, Dict{Int64, Any}}(:s => Dict(g => JuMP.value(xs[g]) for g in G), 
+                                                        :y => Dict(g => JuMP.value(xy[g]) for g in G),
+                                                        :sur => Dict(g => Dict(k => JuMP.value(sur[g, k]) for k in keys(stageDecision[:sur][g])) for g in G)
                                                     );
             λₖ = abs(dual(levelConstraint)); μₖ = λₖ + 1; 
         else
@@ -412,9 +419,9 @@ function LevelSetMethod_optimization!(; model::Model = model,
             st = termination_status(nxtModel);
             if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
                 λₖ = abs(dual(levelConstraint)); μₖ = λₖ + 1; 
-                x_nxt = Dict{Symbol, Dict{Int64, Any}}(:s => Dict(g => round.(JuMP.value(xs[g]), digits = 5) for g in G), 
-                                                            :y => Dict(g => round.(JuMP.value(xy[g]), digits = 5) for g in G),
-                                                            :sur => Dict(g => Dict(k => round.(JuMP.value(sur[g, k]), digits = 5) for k in keys(stageDecision[:sur][g])) for g in G)
+                x_nxt = Dict{Symbol, Dict{Int64, Any}}(:s => Dict(g => JuMP.value(xs[g]) for g in G), 
+                                                            :y => Dict(g => JuMP.value(xy[g]) for g in G),
+                                                            :sur => Dict(g => Dict(k => JuMP.value(sur[g, k]) for k in keys(stageDecision[:sur][g])) for g in G)
                                                         );
             else
                 return cutInfo
@@ -422,7 +429,7 @@ function LevelSetMethod_optimization!(; model::Model = model,
         end
 
         ## stop rule: gap ≤ .07 * function-value && constraint ≤ 0.05 * LagrangianFunction
-        if ( Δ ≤ threshold + 1. && currentInfo.G[1] ≤ threshold ) || (iter > max_iter)
+        if ( Δ ≤ threshold + 1. && currentInfo.G[1] ≤ threshold + 1e-3 ) || (iter > max_iter)
             return cutInfo
         end
         

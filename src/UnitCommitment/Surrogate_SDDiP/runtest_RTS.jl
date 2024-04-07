@@ -20,12 +20,18 @@ include("src/UnitCommitment/Surrogate_SDDiP/sddip.jl");
 include("src/UnitCommitment/SDDiP/extForm.jl");
 include("src/UnitCommitment/Surrogate_SDDiP/readin.jl");
 
-
+# T = 3; num = 3;
+# indexSets = load("src/UnitCommitment/experiment_$case/stage($T)real($num)/indexSets.jld2")["indexSets"]
+# paramOPF = load("src/UnitCommitment/experiment_$case/stage($T)real($num)/paramOPF.jld2")["paramOPF"]
+# paramDemand = load("src/UnitCommitment/experiment_$case/stage($T)real($num)/paramDemand.jld2")["paramDemand"]
+# scenarioTree = load("src/UnitCommitment/experiment_$case/stage($T)real($num)/scenarioTree.jld2")["scenarioTree"]
+# initialStageDecision = load("src/UnitCommitment/experiment_$case/initialStageDecision.jld2")["initialStageDecision"]
+# Ξ = load("src/UnitCommitment/experiment_$case/stage($T)real($num)/Ξ.jld2")["Ξ"]
 #############################################################################################
 ####################################### Run Experiment ######################################
 #############################################################################################
-Output_Gap = false; max_iter = 200; cutSelection = "SMC"; δ = 30.; numScenarios = 30; tightness = true; ϵ = 1e-4; T = 3; num = 3;
-case = "case30"; # "RTS_GMLC"
+Output_Gap = true; TimeLimit = 10800; max_iter = 50; cutSelection = "SMC"; δ = 1.; numScenarios = 30; tightness = true; ϵ = 1e-4; case = "RTS_GMLC"; # "RTS_GMLC", case30
+T = 3; num = 3;
 for cutSelection in ["LC", "ELC", "SMC"]
     for T in [3, 6, 8]
         for num in [3, 5, 10]
@@ -41,7 +47,7 @@ for cutSelection in ["LC", "ELC", "SMC"]
                                             initialStageDecision = initialStageDecision, numScenarios = numScenarios, TimeLimit = 60 * 60 * 3.;
                                             Output_Gap = Output_Gap, max_iter = max_iter, δ = δ, cutSelection = cutSelection)
             save("src/UnitCommitment/experiment_$case/stage($T)real($num)/SsddipResult_5hr_$cutSelection.jld2", "sddipResult", sddipResult)
-        
         end
     end
 end
+# save("src/UnitCommitment/experiment_$case/initialStageDecision.jld2", "initialStageDecision", initialStageDecision)

@@ -61,12 +61,12 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
                             cutSelection::String = "LC", binaryInfo::BinaryInfo = binaryInfo)
     ## d: dimension of x
     ## M: num of scenarios when doing one iteration
+    OPT = Inf;
     @time gurobiResult = gurobiOptimize!(Ω, 
                                     probList, 
                                     stageDataList;
                                     binaryInfo = binaryInfo, mipGap = 1e-2);
-    OPT = gurobiResult.OPT # 1.555e8, 3.76e8, 2.05e9    time 443s 720s 791s
-    # OPT = 4.22e7;
+    OPT = gurobiResult.OPT;
     initial = now(); iter_time = 0; total_Time = 0; t0 = 0.0;
     T = length(keys(Ω));
     i = 1; LB = - Inf; UB = Inf; solCollection = Dict(); u = 0;Scenarios = 0;
@@ -131,14 +131,14 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
             println("Iter |   LB                              UB                             gap")
         end
         @printf("%3d  |   %5.3g                         %5.3g                              %1.3f%s\n", i, LB, UB, gap, "%")
-        if OPT-LB ≤ 1e-2 * OPT || total_Time > 18000 || i >= max_iter
+        if UB-LB ≤ 1e-2 * UB || total_Time > 18000 || i >= max_iter
             return Dict(:solHistory => sddipResult, 
                             :solution => solCollection[1, 1].stageSolution, 
                             :gapHistory => gapList) 
         end
 
         for t = reverse(2:T)
-            for k in 1:M 
+            for k in [1] 
                 c = [0, zeros(Float64,binaryInfo.d)]
                 for j in keys(Ω[t])
                     # @info "$t, $k, $j"
