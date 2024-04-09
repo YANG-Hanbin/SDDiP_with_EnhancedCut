@@ -176,7 +176,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Float64}} = x₀,
         optimize!(model)
         F  = JuMP.objective_value(model);
         negative_∇F = Dict( :s => Dict(g => JuMP.value(model[:s_copy][g]) - stageDecision[:s][g] for g in indexSets.G),
-                            :y => Dict(g => round.(JuMP.value(model[:y_copy][g]), digits = 5) - stageDecision[:y][g] for g in indexSets.G)
+                            :y => Dict(g => JuMP.value(model[:y_copy][g]) - stageDecision[:y][g] for g in indexSets.G)
                             );
 
         currentInfo = CurrentInfo( x₀,                                                                                                ## current point
@@ -325,7 +325,7 @@ function LevelSetMethod_optimization!(; model::Model = model,
         if μ/2 ≤ (α-a_min)/(a_max-a_min) .≤ 1-μ/2
             α = α;
         else
-            α = round.((a_min+a_max)/2, digits = 6);
+            α = (a_min+a_max)/2;
         end
 
         # update level
@@ -342,7 +342,7 @@ function LevelSetMethod_optimization!(; model::Model = model,
         λ = iter ≥ 85 ? 0.85 : λ;
         λ = iter ≥ 90 ? 0.95 : λ;
         
-        level = round.(w + λ * (W - w), digits = 5)
+        level = w + λ * (W - w)
         
         ## ==================================================== next iteration point ============================================== ##
         # obtain the next iteration point
@@ -361,7 +361,7 @@ function LevelSetMethod_optimization!(; model::Model = model,
         st = termination_status(nxtModel)
         if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
             x_nxt = Dict{Symbol, Dict{Int64, Float64}}(:s => Dict(g => JuMP.value(xs[g]) for g in G), 
-                                                        :y => Dict(g => round.(JuMP.value(xy[g]), digits = 5) for g in G)
+                                                        :y => Dict(g => JuMP.value(xy[g]) for g in G)
                                                     );
             λₖ = abs(dual(levelConstraint)); μₖ = λₖ + 1; 
         elseif st == MOI.NUMERICAL_ERROR ## need to figure out why this case happened and fix it
@@ -386,7 +386,7 @@ function LevelSetMethod_optimization!(; model::Model = model,
                 return cutInfo
             end
             x_nxt = Dict{Symbol, Dict{Int64, Float64}}(:s => Dict(g => JuMP.value(xs[g]) for g in G), 
-                                                        :y => Dict(g => round.(JuMP.value(xy[g]), digits = 5) for g in G)
+                                                        :y => Dict(g => JuMP.value(xy[g]) for g in G)
                                                     );
             λₖ = abs(dual(levelConstraint)); μₖ = λₖ + 1; 
         else
@@ -398,7 +398,7 @@ function LevelSetMethod_optimization!(; model::Model = model,
                 return cutInfo
             end
             x_nxt = Dict{Symbol, Dict{Int64, Float64}}(:s => Dict(g => JuMP.value(xs[g]) for g in G), 
-                                                        :y => Dict(g => round.(JuMP.value(xy[g]), digits = 5) for g in G)
+                                                        :y => Dict(g => JuMP.value(xy[g]) for g in G)
                                                     );
         end
 

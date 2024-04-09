@@ -13,8 +13,8 @@ include("src/UnitCommitment/SDDiP/def.jl")
 
 
 
-cutSelection = "SMC" # for cutSelection in ["LC", "ELC", "SMC"]
-T = 8; num = 3;
+cutSelection = "ELC" # for cutSelection in ["LC", "ELC", "SMC"]
+T = 3; num = 3;
 case = "RTS_GMLC";
 # sddipResult = load("src/UnitCommitment/experiment/stage($T)real($num)/sddipResult_5hr_LC.jld2")["sddipResult"]
 sddipResult = load("src/UnitCommitment/experiment_$case/stage($T)real($num)/SsddipResult_5hr_$cutSelection.jld2")["sddipResult"]
