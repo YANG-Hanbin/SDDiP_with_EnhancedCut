@@ -31,7 +31,7 @@ include("src/UnitCommitment/Surrogate_SDDiP/readin.jl");
 ####################################### Run Experiment ######################################
 #############################################################################################
 Output_Gap = false; TimeLimit = 18000; max_iter = 100; cutSelection = "ELC"; δ = 1.; numScenarios = 30; tightness = true; ϵ = 1e-4; case = "RTS_GMLC"; # "RTS_GMLC", case30
-T = 3; num = 3;
+T = 3; num = 3; TimeLimit = 60 * 60 * 5.;
 for cutSelection in ["LC", "ELC", "SMC"]
     for T in [3, 6, 8]
         for num in [3, 5, 10]
@@ -44,7 +44,7 @@ for cutSelection in ["LC", "ELC", "SMC"]
                                 indexSets = indexSets, 
                                     paramDemand = paramDemand, 
                                         paramOPF = paramOPF, 
-                                            initialStageDecision = initialStageDecision, numScenarios = numScenarios, TimeLimit = 60 * 60 * 5.;
+                                            initialStageDecision = initialStageDecision, numScenarios = numScenarios, TimeLimit = TimeLimit;
                                             Output_Gap = Output_Gap, max_iter = max_iter, δ = δ, cutSelection = cutSelection)
             save("src/UnitCommitment/experiment_$case/stage($T)real($num)/SsddipResult_5hr_$cutSelection.jld2", "sddipResult", sddipResult)
         end

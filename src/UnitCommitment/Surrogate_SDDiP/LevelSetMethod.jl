@@ -69,11 +69,11 @@ function setupLevelSetMethod(; stageDecision::Dict{Symbol, Dict{Int64, Any}} = s
                                         Output_Gap::Bool = false, ℓ::Real = .0, λ::Union{Real, Nothing} = .1  
                             )
     if cutSelection == "SMC" 
-        λ_value = λ; Output = 0; threshold = 1e-3 * f_star_value; 
+        λ_value = λ; Output = 0; threshold = 1e-4 * f_star_value; 
         levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e10, max_iter, Output, Output_Gap, f_star_value);
         x_interior = nothing;
     elseif cutSelection == "ELC"
-        λ_value = λ; Output = 0; threshold = 1e-3 * f_star_value; 
+        λ_value = λ; Output = 0; threshold = 1e-4 * f_star_value; 
         levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e10, max_iter, Output, Output_Gap, f_star_value);
         x_interior = Dict{Symbol, Dict{Int64, Any}}(:s => Dict( g => stageDecision[:s][g] * ℓ  .+ (1 - ℓ)/2 for g in keys(stageDecision[:y])), 
                                                         :y => Dict( g => stageDecision[:y][g] * ℓ  .+ (1 - ℓ)/2 for g in keys(stageDecision[:s])),
