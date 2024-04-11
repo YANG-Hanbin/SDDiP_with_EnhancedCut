@@ -4,10 +4,10 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                                     paramDemand::ParamDemand = paramDemand, 
                                         paramOPF::ParamOPF = paramOPF, 
                                             initialStageDecision::Dict{Symbol, Dict{Int64, Float64}} = initialStageDecision,
-                                                Output_Gap::Bool = true, max_iter::Int64 = 100, TimeLimit::Float64 = 1e3, cutSelection::String = "LC", δ::Float64 = 50., numScenarios::Int64 = 2
+                                                Output_Gap::Bool = true, max_iter::Int64 = 100, TimeLimit::Float64 = 1e3, cutSelection::String = "LC", δ::Float64 = 50., numScenarios::Int64 = 2, OPT::Float64 = Inf
                         )
     ## d: x dim
-    initial = now(); i = 1; LB = - Inf; UB = Inf; OPT = Inf;
+    initial = now(); i = 1; LB = - Inf; UB = Inf; 
     iter_time = 0; total_Time = 0; t0 = 0.0;
 
     col_names = [:iter, :LB, :OPT, :UB, :gap, :time, :Time]; # needs to be a vector Symbols
@@ -15,7 +15,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
     named_tuple = (; zip(col_names, type[] for type in col_types )...);
     sddipResult = DataFrame(named_tuple); # 0×7 DataFrame
     gapList = [];
-    # @time extResult = extensive_form(indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF, scenarioTree = scenarioTree, Ξ = Ξ, initialStageDecision = initialStageDecision); OPT = extResult.OPT;
+   
     forwardInfoList = Dict{Int, Model}();
     backwardInfoList = Dict{Int, Model}();
     for t in 1:indexSets.T 
@@ -107,10 +107,3 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         t1 = now(); iter_time = (t1 - t0).value/1000; total_Time = (t1 - initial).value/1000; i += 1;
     end
 end
-
-# λ₀ + sum(λ₁[:s][g] * solCollection[i, t-1, ω].stageSolution[:s][g] + λ₁[:y][g] * solCollection[i, t-1, ω].stageSolution[:y][g] for g in indexSets.G)
-
-# t = 2; i = 1; ω = 3; j = 2;
-# solCollection[i, t, ω].stageSolution[:s]
-# solCollection[i, t, ω].stageSolution[:s] == solCollection[j, t, ω].stageSolution[:s]
-# solCollection[i, t, ω].stageSolution[:y] == solCollection[j, t, ω].stageSolution[:y]

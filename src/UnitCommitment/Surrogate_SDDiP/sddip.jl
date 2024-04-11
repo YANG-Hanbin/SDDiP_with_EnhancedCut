@@ -4,10 +4,10 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                                     paramDemand::ParamDemand = paramDemand, 
                                         paramOPF::ParamOPF = paramOPF, 
                                             initialStageDecision::Dict{Symbol, Dict{Int64, Float64}} = initialStageDecision, numScenarios::Real = 2,
-                                            Output_Gap::Bool = true, max_iter::Int64 = 100, TimeLimit::Float64 = 1e3, cutSelection::String = "LC", δ::Float64 = 1.
+                                            Output_Gap::Bool = true, max_iter::Int64 = 100, TimeLimit::Float64 = 1e3, cutSelection::String = "LC", δ::Float64 = 1., tightness::Bool = true, OPT::Float64 = Inf
                         )
     ## d: x dim
-    initial = now(); i = 1; LB = - Inf; UB = Inf; OPT = Inf;
+    initial = now(); i = 1; LB = - Inf; UB = Inf; 
     iter_time = 0; total_Time = 0; t0 = 0.0; 
 
     col_names = [:iter, :LB, :OPT, :UB, :gap, :time, :Time]; # needs to be a vector Symbols
@@ -15,7 +15,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
     named_tuple = (; zip(col_names, type[] for type in col_types )...);
     sddipResult = DataFrame(named_tuple); # 0×7 DataFrame
     gapList = [];
-    # @time extResult = extensive_form(indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF, scenarioTree = scenarioTree, Ξ = Ξ, initialStageDecision = initialStageDecision); OPT = extResult.OPT;
+    
     forwardInfoList = Dict{Int, Model}();
     backwardInfoList = Dict{Int, Model}();
 
@@ -80,7 +80,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         LB = solCollection[i, 1, 1].OPT;
         μ̄ = mean(values(u));
         σ̂² = Statistics.var(values(u));
-        UB = μ̄ # μ̄ + 1.96 * sqrt(σ̂²/numScenarios); # minimum([μ̄ + 1.96 * sqrt(σ̂²/numScenarios), UB]);
+        UB = μ̄ + 1.96 * sqrt(σ̂²/numScenarios); # minimum([μ̄ + 1.96 * sqrt(σ̂²/numScenarios), UB]);
         gap = round((UB-LB)/UB * 100 ,digits = 2); gapString = string(gap,"%"); push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, gap);
         if i == 1
             println("---------------------------------- Iteration Info ------------------------------------")
@@ -140,7 +140,6 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         ####################################################### Backward Steps ###########################################################
         for t in 1:indexSets.T-1 
             for ω in  [1]#keys(Ξ̃)
-                # g = argmax([abs(solCollection[i, t, ω].stageSolution[:s][g] - paramOPF.smax[g]), abs(solCollection[i, t, ω].stageSolution[:s][g] - paramOPF.smin[g])] for g in indexSets.G);
                 dev = Dict()
                 for g in indexSets.G 
                     if solCollection[i, t, ω].stageSolution[:y][g] > .5
@@ -200,14 +199,3 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
 
     end
 end
-
-
-
-
-# λ₀ + sum(λ₁[:s][g] * solCollection[i, t-1, ω].stageSolution[:s][g] + λ₁[:y][g] * solCollection[i, t-1, ω].stageSolution[:y][g] for g in indexSets.G) + 
-#                                                         sum(sum(λ₁[:sur][g][k] * solCollection[i, t-1, ω].stageSolution[:sur][g][k] for k in keys(solCollection[i, t-1, ω].stageSolution[:sur][g])) for g in indexSets.G)
-
-
-# t = 2; i = 1; ω = 3; j = 5;
-# solCollection[i, t, ω].stageSolution[:s]
-# solCollection[i, t, ω].stageSolution[:s] == solCollection[j, t, ω].stageSolution[:s]
