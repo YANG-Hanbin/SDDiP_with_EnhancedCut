@@ -4,6 +4,8 @@ using JuMP, Test, Statistics, StatsBase, Gurobi, Distributed, Random, Flux
 
 const GRB_ENV = Gurobi.Env()
 include("src/LevelSetMethod/levelmethod.jl")
+include("src/LevelSetMethod/augmented_levelmethod.jl")
+
 
 ## Without Lifting
 n = 1
@@ -34,7 +36,7 @@ x̄ = [[1, 2, 3]]
 a = [[-2, 0, 2]]
 b = [[2, 2, -4]]
 functionCoefficientInfo = FunctionCoefficientInfo(n ,a, b, x̲, x̄)
-x̂ = [1.4]
+x̂ = [1.5]
 x₀ = [-1.]
 surhat = 0.
 sur_x = 0.

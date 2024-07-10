@@ -12,13 +12,13 @@ using JLD2, FileIO
 const GRB_ENV = Gurobi.Env()
 
 
-include("src/UnitCommitment/Surrogate_SDDiP/def.jl")
-include("src/UnitCommitment/Surrogate_SDDiP/backwardModel.jl");
-include("src/UnitCommitment/Surrogate_SDDiP/forwardModel.jl");
-include("src/UnitCommitment/Surrogate_SDDiP/LevelSetMethod.jl");
-include("src/UnitCommitment/Surrogate_SDDiP/sddip.jl");
+include("src/UnitCommitment/SDDlP/def.jl")
+include("src/UnitCommitment/SDDlP/backwardModel.jl");
+include("src/UnitCommitment/SDDlP/forwardModel.jl");
+include("src/UnitCommitment/SDDlP/LevelSetMethod.jl");
+include("src/UnitCommitment/SDDlP/sddip.jl");
 include("src/UnitCommitment/SDDiP/extForm.jl");
-include("src/UnitCommitment/Surrogate_SDDiP/readin.jl");
+include("src/UnitCommitment/SDDlP/readin.jl");
 
 # T = 3; num = 3;case = "case30";
 # indexSets = load("src/UnitCommitment/experiment_$case/stage($T)real($num)/indexSets.jld2")["indexSets"]
@@ -30,7 +30,7 @@ include("src/UnitCommitment/Surrogate_SDDiP/readin.jl");
 #############################################################################################
 ####################################### Run Experiment ######################################
 #############################################################################################
-Output_Gap = false; TimeLimit = 18000; max_iter = 100; cutSelection = "ELC"; δ = 1.; numScenarios = 30; tightness = true; ϵ = 1e-4; case = "RTS_GMLC"; # "RTS_GMLC", case30
+Output_Gap = false; TimeLimit = 18000; max_iter = 100; cutSelection = "SMC"; δ = 1.; numScenarios = 30; tightness = false; ϵ = 1e-4; case = "RTS_GMLC"; # "RTS_GMLC", case30
 T = 3; num = 3; TimeLimit = 60 * 60 * 5.; OPT = Inf;
 for cutSelection in ["LC", "ELC", "SMC"]
     for T in [3, 6, 8]
@@ -46,10 +46,16 @@ for cutSelection in ["LC", "ELC", "SMC"]
                                 indexSets = indexSets, 
                                     paramDemand = paramDemand, 
                                         paramOPF = paramOPF, 
-                                            initialStageDecision = initialStageDecision, numScenarios = numScenarios, TimeLimit = TimeLimit, OPT = OPT,
+                                            initialStageDecision = initialStageDecision, numScenarios = numScenarios, TimeLimit = TimeLimit, OPT = OPT, tightness = tightness,
                                             Output_Gap = Output_Gap, max_iter = max_iter, δ = δ, cutSelection = cutSelection)
-            save("src/UnitCommitment/experiment_$case/stage($T)real($num)/SsddipResult_5hr_$cutSelection.jld2", "sddipResult", sddipResult)
+            save("src/UnitCommitment/experiment_$case/stage($T)real($num)/SsddipResult_5hr_$cutSelection(_$tightness).jld2", "sddipResult", sddipResult)
         end
     end
 end
 # save("src/UnitCommitment/experiment_$case/initialStageDecision.jld2", "initialStageDecision", initialStageDecision)
+
+# sddipResult = load("src/UnitCommitment/experiment_$case/stage($T)real($num)/SsddipResult_5hr_$cutSelection(_$tightness).jld2")["sddipResult"]
+# sddipResult[:solHistory]
+
+# sddipResult = load("src/UnitCommitment/experiment_$case/stage($T)real($num)/SsddipResult_5hr_$cutSelection.jld2")["sddipResult"]
+# sddipResult[:solHistory]

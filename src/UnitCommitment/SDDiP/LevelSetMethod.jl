@@ -56,6 +56,7 @@ function add_constraint(currentInfo::CurrentInfo, modelInfo::ModelInfo)
                                                                                  
 end
 
+
 """
     This function is to setup the levelset method.
 """
@@ -111,7 +112,7 @@ function_info(; x₀::Dict{Symbol, Dict{Int64, Float64}} = x₀,
 """
 function function_info(; x₀::Dict{Symbol, Dict{Int64, Float64}} = x₀, 
                         model::Model = model, 
-                        f_star_value::Float64 = f_star_value, 
+                        f_star_value::Float64 = f_star_value, x_interior::Union{Dict{Symbol, Dict{Int64, Float64}}, Nothing} = nothing, 
                         stageDecision::Dict{Symbol, Dict{Int64, Float64}} = stageDecision, 
                         cutSelection::String = cutSelection, 
                         paramDemand::ParamDemand = paramDemand, paramOPF::ParamOPF = paramOPF, indexSets::IndexSets = indexSets, 
@@ -129,7 +130,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Float64}} = x₀,
         optimize!(model);
         F  = JuMP.objective_value(model);
         negative_∇F = Dict( :s => Dict(g => JuMP.value(model[:s_copy][g]) - stageDecision[:s][g] for g in indexSets.G),
-                            :y => Dict(g => round.(JuMP.value(model[:y_copy][g]), digits = 5) - stageDecision[:y][g] for g in indexSets.G)
+                            :y => Dict(g => JuMP.value(model[:y_copy][g]) - stageDecision[:y][g] for g in indexSets.G)
                             );
 
         currentInfo = CurrentInfo(  x₀,                                                                                                                                                                ## current point
@@ -152,7 +153,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Float64}} = x₀,
         optimize!(model);
         F  = JuMP.objective_value(model);
         negative_∇F = Dict( :s => Dict(g => JuMP.value(model[:s_copy][g]) for g in indexSets.G),
-                            :y => Dict(g => round.(JuMP.value(model[:y_copy][g]), digits = 5) for g in indexSets.G)
+                            :y => Dict(g => JuMP.value(model[:y_copy][g]) for g in indexSets.G)
                             );
 
                          
@@ -188,7 +189,6 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Float64}} = x₀,
     end
     return (currentInfo = currentInfo, currentInfo_f = F)
 end    
-
 
 
 """
@@ -230,7 +230,7 @@ function LevelSetMethod_optimization!(; model::Model = model,
     α = 1/2;
 
     # trajectory
-    currentInfo, currentInfo_f = function_info(x₀ = x₀, model = model, f_star_value = f_star_value, stageDecision = stageDecision, cutSelection = cutSelection, 
+    currentInfo, currentInfo_f = function_info(x₀ = x₀, model = model, f_star_value = f_star_value, stageDecision = stageDecision, cutSelection = cutSelection, x_interior = x_interior,
                                                     paramDemand = paramDemand, paramOPF = paramOPF, indexSets = indexSets, ϵ = ϵ, δ = δ);
 
     functionHistory = FunctionHistory(  Dict(1 => currentInfo.f), 
@@ -409,7 +409,7 @@ function LevelSetMethod_optimization!(; model::Model = model,
         
         ## ==================================================== end ============================================== ##
         ## save the trajectory
-        currentInfo, currentInfo_f = function_info(x₀ = x_nxt, model = model, f_star_value = f_star_value, stageDecision = stageDecision, cutSelection = cutSelection, paramDemand = paramDemand, paramOPF = paramOPF, indexSets = indexSets, ϵ = ϵ, δ = δ)
+        currentInfo, currentInfo_f = function_info(x₀ = x_nxt, model = model, f_star_value = f_star_value, x_interior = x_interior, stageDecision = stageDecision, cutSelection = cutSelection, paramDemand = paramDemand, paramOPF = paramOPF, indexSets = indexSets, ϵ = ϵ, δ = δ)
         iter = iter + 1;
         functionHistory.f_his[iter] = currentInfo.f;
         functionHistory.G_max_his[iter] = maximum(currentInfo.G[k] for k in keys(currentInfo.G));

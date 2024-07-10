@@ -112,7 +112,7 @@ function evaluate_function(x₀::Vector{Float64}, functionCoefficientInfo::Funct
     Com_G = Dict{Int64, Float64}()
     Com_G[1] = d1
 
-    d1 = [0.0 for i in 1:length(x)]
+    d1 = [0.0 for i in 1:length(x_c)]
     # d2 = [3.0, 9.0]
     Com_grad_G = Dict{Int64, Vector{Float64}}()
     Com_grad_G[1] = d1

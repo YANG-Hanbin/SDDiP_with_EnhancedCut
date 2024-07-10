@@ -33,7 +33,7 @@ include("src/UnitCommitment/SDDiP/readin.jl");
 #############################################################################################
 Output_Gap = false; max_iter = 150; cutSelection = "LC"; δ = 10.; numScenarios = 30; tightness = true; ϵ = 1e-4; T = 3; num = 3; OPT = Inf;
 case = "RTS_GMLC"; # "RTS_GMLC"
-# for cutSelection in ["LC", "ELC", "SMC"]
+for cutSelection in ["LC", "ELC", "SMC"]
     for T in [3, 6, 8]
         for num in [3, 5, 10]
             indexSets = load("src/UnitCommitment/experiment_$case/stage($T)real($num)/indexSets.jld2")["indexSets"]
@@ -53,8 +53,9 @@ case = "RTS_GMLC"; # "RTS_GMLC"
         
         end
     end
-# end
-T = 3; num = 3;
-sddipResult = load("src/UnitCommitment/experiment/stage($T)real($num)/sddipResult_5hr_LC.jld2")["sddipResult"]
+end
+T = 8; num = 10; cutSelection = "SMC";
+sddipResult = load("src/UnitCommitment/experiment_RTS_GMLC/stage($T)real($num)/sddipResult_5hr_$cutSelection.jld2")["sddipResult"]
+# sddipResult = load("src/UnitCommitment/experiment_RTS_GMLC/stage($T)real($num)/SsddipResult_5hr_$cutSelection(_false).jld2")["sddipResult"]
 sddipResult[:solHistory]
 describe(sddipResult[:solHistory])

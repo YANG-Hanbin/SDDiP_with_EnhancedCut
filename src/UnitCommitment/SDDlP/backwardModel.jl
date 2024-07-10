@@ -56,7 +56,7 @@ function backwardModel!(; tightness::Bool = true, indexSets::IndexSets = indexSe
         @variable(model, y_copy[G], Bin)        
         @variable(model, sur_copy[G, 1:max_sur], Bin)                        ## sur[g, k] is the kth surrogate variable of s[g]
     else
-        @variable(model, 0 ≤ s_copy[G] ≤ paramOPF.smax[g])
+        @variable(model, 0 ≤ s_copy[g in G] ≤ paramOPF.smax[g])
         @variable(model, 0 ≤ y_copy[G] ≤ 1)  
         @variable(model, 0 ≤ sur_copy[G, 1:max_sur] ≤ 1)                     ## sur[g, k] is the kth surrogate variable of s[g]
     end
