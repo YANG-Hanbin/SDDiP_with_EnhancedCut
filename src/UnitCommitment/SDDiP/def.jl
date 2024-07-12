@@ -79,17 +79,17 @@ end
 
 
 mutable struct CurrentInfo
-    x            :: Dict{Symbol, Dict{Int64, Float64}}              ## record x point
-    f            :: Float64                                         ## record f(x_j)
-    G            :: Dict{Int64, Float64} 
-    df           :: Dict{Symbol, Dict{Int64, Float64}}
-    dG           :: Dict{Int64, Dict{Symbol, Dict{Int64, Float64}}}  ## actually is a matrix.  But we use dict to store it
+    x            :: Dict                          ## record x point
+    f            :: Float64                       ## record f(x_j)
+    G            :: Dict
+    df           :: Dict
+    dG           :: Dict                          ## actually is a matrix.  But we use dict to store it
 end
 
 
 struct ModelInfo
     model :: Model
-    xs    :: JuMP.Containers.DenseAxisArray{VariableRef}
+    xλ    :: JuMP.Containers.SparseAxisArray{VariableRef, 2, Tuple{Int64, Int64}}
     xy    :: JuMP.Containers.DenseAxisArray{VariableRef}
     y     :: VariableRef
     z     :: VariableRef

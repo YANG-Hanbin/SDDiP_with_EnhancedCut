@@ -21,7 +21,8 @@ function backwardModel!(; tightness::Bool = tightness, indexSets::IndexSets = in
                             paramDemand::ParamDemand = paramDemand, 
                                 paramOPF::ParamOPF = paramOPF, 
                                     stageRealization::StageRealization = stageRealization,
-                                        θ_bound::Real = 0.0, outputFlag::Int64 = 0, timelimit::Real = 3, mipGap::Float64 = 1e-3 
+                                        κ:: Dict{Int64, Int64} = κ, ε::Real = 0.125,
+                                            θ_bound::Real = 0.0, outputFlag::Int64 = 0, timelimit::Real = 3, mipGap::Float64 = 1e-3 
                             )
     (D, G, L, B) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T) 
     (Dᵢ, Gᵢ, in_L, out_L) = (indexSets.Dᵢ, indexSets.Gᵢ, indexSets.in_L, indexSets.out_L) 
@@ -33,26 +34,30 @@ function backwardModel!(; tightness::Bool = tightness, indexSets::IndexSets = in
                                             "MIPGap" => mipGap, 
                                             "TimeLimit" => timelimit)
                                 ) 
-    @variable(model, θ_angle[B])      ## phase angle of the bus i
-    @variable(model, P[L])            ## real power flow on line l; elements in L is Tuple (i, j)
-    @variable(model, s[G] ≥ 0)            ## real power generation at generator g
-    @variable(model, 0 ≤ x[D] ≤ 1)    ## load shedding
+    @variable(model, θ_angle[B])                                ## phase angle of the bus i
+    @variable(model, P[L])                                      ## real power flow on line l; elements in L is Tuple (i, j)
+    @variable(model, 0 ≤ s[g in G] ≤ paramOPF.smax[g])          ## real power generation at generator g
+    @variable(model, 0 ≤ x[D] ≤ 1)                              ## load shedding
 
     @variable(model, y[G], Bin)                 ## binary variable for generator commitment status
     @variable(model, v[G], Bin)                 ## binary variable for generator startup decision
     @variable(model, w[G], Bin)                 ## binary variable for generator shutdowm decision
 
     @variable(model, θ[N] ≥ θ_bound)            ## auxiliary variable for approximation of the value function
+    ## approximate the continuous state s[g], s[g] = ∑_{i=0}^{κ-1} 2ⁱ * λ[g, i] * ε, κ = log2(paramOPF.smax[g] / ε) + 1
+    @variable(model, λ[g in G, i in 1:κ[g]], Bin)  
+    @constraint(model, [g in G], ε * sum(2^(i-1) * λ[g, i] for i in 1:κ[g]) == s[g])
 
     # copy variables: :s, :y
+    @variable(model, 0 ≤ s_copy[g in G] ≤ paramOPF.smax[g])
     if tightness
-        # @variable(model, s_copy[G])
-        @variable(model, 0 ≤ s_copy[g in G] ≤ paramOPF.smax[g])
+        @variable(model, λ_copy[g in G, i in 1:κ[g]], Bin)
         @variable(model, y_copy[G], Bin)        
     else
-        @variable(model, s_copy[G])
+        @variable(model, 0 ≤ λ_copy[g in G, i in 1:κ[g]] ≤ 1)       
         @variable(model, 0 ≤ y_copy[G] ≤ 1)       
     end
+    @constraint(model, [g in G], ε * sum(2^(i-1) * λ_copy[g, i] for i in 1:κ[g]) == s_copy[g])
 
     # power flow constraints
     for l in L

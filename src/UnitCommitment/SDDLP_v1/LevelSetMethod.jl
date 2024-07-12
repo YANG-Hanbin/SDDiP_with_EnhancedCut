@@ -75,18 +75,18 @@ function setupLevelSetMethod(; stageDecision::Dict{Symbol, Dict{Int64, Any}} = s
     elseif cutSelection == "ELC"
         λ_value = λ; Output = 0; threshold = 1e-4 * f_star_value; 
         levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e10, max_iter, Output, Output_Gap, f_star_value);
-        x_interior = Dict{Symbol, Dict{Int64, Any}}(:s => Dict( g => stageDecision[:s][g] * ℓ  .+ (1 - ℓ)/2 for g in keys(stageDecision[:y])), 
-                                                        :y => Dict( g => stageDecision[:y][g] * ℓ  .+ (1 - ℓ)/2 for g in keys(stageDecision[:s])),
-                                                        :sur => Dict(g => Dict(k => 0. for k in keys(stageDecision[:sur][g])) for g in keys(stageDecision[:y])));
+        x_interior = Dict{Symbol, Dict{Int64, Any}}(:s => Dict( g => (paramOPF.smin[g] + paramOPF.smax[g])/2 for g in keys(stageDecision[:y])), 
+                                                        :y => Dict( g => .5 for g in keys(stageDecision[:s])),
+                                                        :sur => Dict(g => Dict(k => .5 for k in keys(stageDecision[:sur][g])) for g in keys(stageDecision[:y])));
     elseif cutSelection == "LC"
         λ_value = λ; Output = 0; threshold = 1e-4 * f_star_value; 
         levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e10, max_iter, Output, Output_Gap, f_star_value);
         x_interior = nothing;
     end
 
-    x₀ = Dict{Symbol, Dict{Int64, Any}}( :s => Dict(g => 0.5 for g in keys(stageDecision[:y])), 
-                                            :y => Dict(g => 0.5 for g in keys(stageDecision[:y])),
-                                                :sur => Dict(g => Dict(k => (paramOPF.smin[g] + paramOPF.smax[g])/2 for k in keys(stageDecision[:sur][g])) for g in keys(stageDecision[:y]))
+    x₀ = Dict{Symbol, Dict{Int64, Any}}( :s => Dict(g => 0.0 for g in keys(stageDecision[:y])), 
+                                            :y => Dict(g => 0.0 for g in keys(stageDecision[:y])),
+                                                :sur => Dict(g => Dict(k => 0.0 for k in keys(stageDecision[:sur][g])) for g in keys(stageDecision[:y]))
                                             
                                             );
 
@@ -127,12 +127,12 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Any}} = x₀,
     if cutSelection == "ELC"
         # objective function
         @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
-                                    paramOPF.intercept[g] * model[:y][g] +
-                                        paramOPF.C_start[g] * model[:v][g] + 
-                                            paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
-                                                sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
-                                                    sum(x₀[:s][g] * (stageDecision[:s][g] - model[:s_copy][g]) + x₀[:y][g] * (stageDecision[:y][g] - model[:y_copy][g]) for g in indexSets.G) 
-                    );
+                                paramOPF.intercept[g] * model[:y][g] +
+                                    paramOPF.C_start[g] * model[:v][g] + 
+                                        paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
+                                            sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
+                                                sum(x₀[:s][g] * (stageDecision[:s][g] - model[:s_copy][g]) + x₀[:y][g] * (stageDecision[:y][g] - model[:y_copy][g]) + sum(x₀[:sur][g][k] * (stageDecision[:sur][g][k] - model[:sur_copy][g, k]) for k in keys(stageDecision[:sur][g])) for g in indexSets.G) 
+                );
         ## ==================================================== solve the model and display the result ==================================================== ##
         optimize!(model);
         F  = JuMP.objective_value(model);
@@ -183,12 +183,12 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Any}} = x₀,
     elseif cutSelection == "SMC"
         # objective function
         @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
-                                    paramOPF.intercept[g] * model[:y][g] +
-                                        paramOPF.C_start[g] * model[:v][g] + 
-                                            paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
-                                                sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
-                                                    sum(x₀[:s][g] * (stageDecision[:s][g] - model[:s_copy][g]) + x₀[:y][g] * (stageDecision[:y][g] - model[:y_copy][g]) for g in indexSets.G) 
-                    );
+                                paramOPF.intercept[g] * model[:y][g] +
+                                    paramOPF.C_start[g] * model[:v][g] + 
+                                        paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
+                                            sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
+                                                sum(x₀[:s][g] * (stageDecision[:s][g] - model[:s_copy][g]) + x₀[:y][g] * (stageDecision[:y][g] - model[:y_copy][g]) + sum(x₀[:sur][g][k] * (stageDecision[:sur][g][k] - model[:sur_copy][g, k]) for k in keys(stageDecision[:sur][g])) for g in indexSets.G) 
+                );
         ## ==================================================== solve the model and display the result ==================================================== ##
         optimize!(model)
         F  = JuMP.objective_value(model);
@@ -428,9 +428,15 @@ function LevelSetMethod_optimization!(; model::Model = model,
             end
         end
 
-        ## stop rule: gap ≤ .07 * function-value && constraint ≤ 0.05 * LagrangianFunction
-        if ( Δ ≤ threshold + 1. && currentInfo.G[1] ≤ threshold + 1e-3 ) || (iter > max_iter)
-            return cutInfo
+        ## stop rules
+        if cutSelection == "LC"
+            if Δ ≤ threshold || (iter > max_iter)
+                return cutInfo
+            end
+        else
+            if Δ ≤ f_star_value * 1e-2 || currentInfo.G[1] ≤ f_star_value * 1e-4 || iter > max_iter
+                return cutInfo
+            end
         end
         
         ## ==================================================== end ============================================== ##

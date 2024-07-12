@@ -12,10 +12,10 @@ using JLD2, FileIO
 const GRB_ENV = Gurobi.Env()
 
 
-include("src/UnitCommitment/def.jl")
-include("src/UnitCommitment/backwardModel.jl");
-include("src/UnitCommitment/forwardModel.jl");
-include("src/UnitCommitment/LevelSetMethod.jl");
-include("src/UnitCommitment/sddip.jl");
-include("src/UnitCommitment/extForm.jl");
-include("src/UnitCommitment/readin.jl");
+include("src/UnitCommitment/SDDiP/def.jl")
+include("src/UnitCommitment/SDDiP/backwardModel.jl");
+include("src/UnitCommitment/SDDiP/forwardModel.jl");
+include("src/UnitCommitment/SDDiP/LevelSetMethod.jl");
+include("src/UnitCommitment/SDDiP/sddip.jl");
+include("src/UnitCommitment/SDDiP/extForm.jl");
+include("src/UnitCommitment/SDDiP/readin.jl");

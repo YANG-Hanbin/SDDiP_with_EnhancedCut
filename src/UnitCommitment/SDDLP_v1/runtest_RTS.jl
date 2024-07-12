@@ -12,13 +12,13 @@ using JLD2, FileIO
 const GRB_ENV = Gurobi.Env()
 
 
-include("src/UnitCommitment/SDDlP/def.jl")
-include("src/UnitCommitment/SDDlP/backwardModel.jl");
-include("src/UnitCommitment/SDDlP/forwardModel.jl");
-include("src/UnitCommitment/SDDlP/LevelSetMethod.jl");
-include("src/UnitCommitment/SDDlP/sddip.jl");
+include("src/UnitCommitment/SDDLP_v1/def.jl")
+include("src/UnitCommitment/SDDLP_v1/backwardModel.jl");
+include("src/UnitCommitment/SDDLP_v1/forwardModel.jl");
+include("src/UnitCommitment/SDDLP_v1/LevelSetMethod.jl");
+include("src/UnitCommitment/SDDLP_v1/sddip.jl");
 include("src/UnitCommitment/SDDiP/extForm.jl");
-include("src/UnitCommitment/SDDlP/readin.jl");
+include("src/UnitCommitment/SDDLP_v1/readin.jl");
 
 # T = 3; num = 3;case = "case30";
 # indexSets = load("src/UnitCommitment/experiment_$case/stage($T)real($num)/indexSets.jld2")["indexSets"]

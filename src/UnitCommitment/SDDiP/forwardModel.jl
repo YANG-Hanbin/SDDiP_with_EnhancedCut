@@ -21,6 +21,7 @@ function forwardModel!(; indexSets::IndexSets = indexSets,
                             paramDemand::ParamDemand = paramDemand, 
                                 paramOPF::ParamOPF = paramOPF, 
                                     stageRealization::StageRealization = stageRealization,
+                                    κ:: Dict{Int64, Int64} = κ, ε::Real = 0.125,
                                     θ_bound::Real = 0.0, outputFlag::Int64 = 0, timelimit::Real = 3, mipGap::Float64 = 1e-3
                             )
     (D, G, L, B) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T) 
@@ -44,6 +45,9 @@ function forwardModel!(; indexSets::IndexSets = indexSets,
 
     @variable(model, θ[N] ≥ θ_bound)            ## auxiliary variable for approximation of the value function
 
+    ## approximate the continuous state s[g], s[g] = ∑_{i=0}^{κ-1} 2ⁱ * λ[g, i] * ε, κ = log2(paramOPF.smax[g] / ε) + 1
+    @variable(model, λ[g in G, i in 1:κ[g]], Bin)  
+    @constraint(model, [g in G], ε * sum(2^(i-1) * λ[g, i] for i in 1:κ[g]) == s[g])
     # power flow constraints
     for l in L
         i = l[1]
@@ -96,7 +100,7 @@ forwardModification!(; model::Model = model)
 function forwardModification!(; model::Model = model, 
                             randomVariables::RandomVariables = randomVariables,
                                     paramOPF::ParamOPF = paramOPF, paramDemand::ParamDemand = paramDemand,
-                                        stageDecision::Dict{Symbol, Dict{Int64, Float64}} = stageDecision, 
+                                        stageDecision::Dict = stageDecision, 
                                             indexSets::IndexSets = indexSets
                                         )
 

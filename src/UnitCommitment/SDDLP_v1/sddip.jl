@@ -117,7 +117,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                                                     sum(λ₁[:s][g] * backwardInfoList[t-1][:s][g] + λ₁[:y][g] * backwardInfoList[t-1][:y][g] for g in indexSets.G) + 
                                                         sum(sum(λ₁[:sur][g][k] * backwardInfoList[t-1][:sur][g, k] for k in keys(solCollection[i, t-1, ω].stageSolution[:sur][g])) for g in indexSets.G));
                     ## using enhancement cuts under conditions
-                    if cutSelection != "LC"  && gap ≥ 5e-2
+                    if cutSelection != "LC"  && gap ≥ 5.
                         (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(stageDecision = solCollection[i, t-1, ω].stageSolution, f_star_value = f_star_value, cutSelection = cutSelection, max_iter = 150, paramOPF = paramOPF,
                                                                                     Output_Gap = Output_Gap, ℓ = .0, λ = .1 );
                         # model = backwardInfoList[t]; stageDecision = solCollection[i, t-1, ω].stageSolution;
