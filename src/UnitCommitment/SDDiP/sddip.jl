@@ -5,7 +5,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                                         paramOPF::ParamOPF = paramOPF, 
                                             initialStageDecision::Dict{Symbol, Dict{Int64, Float64}} = initialStageDecision,
                                                 Output_Gap::Bool = true, max_iter::Int64 = 100, TimeLimit::Float64 = 1e3, cutSelection::String = "LC", δ::Float64 = 50., numScenarios::Int64 = 2, OPT::Float64 = Inf,
-                                                    ε::Real = 0.125
+                                                    ε::Real = 0.125, MaxIter::Int64 = 20, ℓ::Float64 = 0.0
                         )
     ## d: x dim
     initial = now(); i = 1; LB = - Inf; UB = Inf; 
@@ -33,14 +33,14 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                                                     paramOPF = paramOPF, 
                                                         stageRealization = scenarioTree.tree[t], 
                                                                 outputFlag = 0, κ = κ, ε = ε, 
-                                                                        mipGap = 1e-4, θ_bound = 0.0, timelimit = 10
+                                                                        mipGap = 1e-3, θ_bound = 0.0, timelimit = 3
                                                 );
         backwardInfoList[t] = backwardModel!(indexSets = indexSets, 
                                                 paramDemand = paramDemand, 
                                                     paramOPF = paramOPF, 
                                                         stageRealization = scenarioTree.tree[t], 
                                                                 outputFlag = 0, κ = κ, ε = ε, 
-                                                                        mipGap = 1e-4, tightness = tightness, θ_bound = 0.0, timelimit = 10
+                                                                        mipGap = 1e-3, tightness = tightness, θ_bound = 0.0, timelimit = 3
                                                 );
     end 
     stageDecision = Dict();
@@ -82,7 +82,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
             println("Iter |   LB                              UB                             gap")
         end
         @printf("%3d  |   %5.3g                         %5.3g                              %1.3f%s\n", i, LB, UB, gap, "%")
-        if UB-LB ≤ 1e-2 * UB || total_Time > TimeLimit 
+        if UB-LB ≤ 1e-2 * UB || total_Time > TimeLimit || i > MaxIter
             return Dict(:solHistory => sddipResult, 
                             :solution => solCollection[i, 1, 1].stageSolution, 
                                 :gapHistory => gapList) 
@@ -100,9 +100,9 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                     backwardModification!(model = backwardInfoList[t], randomVariables = scenarioTree.tree[t].nodes[n], paramOPF = paramOPF, indexSets = indexSets, paramDemand = paramDemand);
 
                     (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(stageDecision = solCollection[i, t-1, ω].stageSolution, 
-                                                                        f_star_value = f_star_value, 
+                                                                        f_star_value = f_star_value, κ = κ,
                                                                             cutSelection = cutSelection, max_iter = max_iter,
-                                                                                Output_Gap = Output_Gap, ℓ = .5, λ = .1);
+                                                                                Output_Gap = Output_Gap, ℓ = ℓ, λ = .1);
                     # model = backwardInfoList[t]; stageDecision = solCollection[i, t-1, ω].stageSolution;
                     (λ₀, λ₁) = LevelSetMethod_optimization!(levelSetMethodParam = levelSetMethodParam, model = backwardInfoList[t],
                                                                     cutSelection = cutSelection, stageDecision = solCollection[i, t-1, ω].stageSolution, κ = κ,

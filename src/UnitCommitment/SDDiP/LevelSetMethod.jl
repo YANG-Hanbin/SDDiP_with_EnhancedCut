@@ -42,7 +42,7 @@ end
     This function is to add constraints for the model f_star and nxt pt.
 """
 
-function add_constraint(currentInfo::CurrentInfo, modelInfo::ModelInfo)
+function add_constraint(currentInfo::CurrentInfo, modelInfo::ModelInfo; κ::Dict = κ)
     m = length(currentInfo.G)
 
     xⱼ = currentInfo.x
@@ -61,7 +61,7 @@ end
 """
 function setupLevelSetMethod(; stageDecision::Dict = stageDecision, 
                                 f_star_value::Float64 = f_star_value,
-                                    cutSelection::String = cutSelection, 
+                                    cutSelection::String = cutSelection, κ::Dict = κ,
                                         Output_Gap::Bool = false, max_iter::Int64 =100, ℓ::Real = .0, λ::Union{Real, Nothing} = .1
                             )
     if cutSelection == "SMC" 
@@ -69,23 +69,22 @@ function setupLevelSetMethod(; stageDecision::Dict = stageDecision,
         levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, max_iter, Output, Output_Gap, f_star_value);
         x_interior = nothing;
     elseif cutSelection == "ELC"
-        λ_value = λ; Output = 0; threshold = 5e-3 * f_star_value; 
+        λ_value = λ; Output = 0; threshold = 1e-2 * f_star_value; 
         levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, max_iter, Output, Output_Gap, f_star_value);
-        x_interior = Dict(:λ => Dict(g => Dict(i => stageDecision[:λ][g][i] * ℓ .+ (1 - ℓ)/2 for i in 1:κ[g]) for g in indexSets.G), 
-                            :y => Dict( g => stageDecision[:y][g] * ℓ .+ (1 - ℓ)/2 for g in indexSets.G));
+        x_interior = Dict(:λ => Dict(g => Dict(i => stageDecision[:λ][g][i] * ℓ .+ (1 - ℓ)/2 for i in 1:κ[g]) for g in keys(stageDecision[:y])), 
+                            :y => Dict( g => stageDecision[:y][g] * ℓ .+ (1 - ℓ)/2 for g in keys(stageDecision[:y])));
     elseif cutSelection == "LC"
         λ_value = λ; Output = 0; threshold = 1e-5 * f_star_value; 
         levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, max_iter, Output, Output_Gap, f_star_value);
         x_interior = nothing;
     end
-    x₀ = Dict(:λ => Dict(g => Dict(i => 0.0 for i in 1:κ[g]) for g in indexSets.G), 
-                            :y => Dict( g => 0.0 for g in indexSets.G));
+    x₀ = Dict(:λ => Dict(g => Dict(i => 0.0 for i in 1:κ[g]) for g in keys(stageDecision[:y])), 
+                            :y => Dict( g => 0.0 for g in keys(stageDecision[:y])));
     return (x_interior = x_interior, 
             levelSetMethodParam = levelSetMethodParam,
             x₀ = x₀
             )
 end
-
 
 """
 function_info(; x₀::Dict{Symbol, Dict{Int64, Float64}} = x₀,
@@ -207,8 +206,8 @@ function LevelSetMethod_optimization!(; model::Model = model,
                                         cutSelection::String = cutSelection,## "ELC", "LC", "ShrinkageLC" 
                                         stageDecision::Dict = stageDecision,
                                         x_interior::Union{Dict, Nothing} = nothing, 
-                                        x₀::Dict = x₀, κ::Dict = κ,
-                                        indexSets::IndexSets = indexSets, paramDemand::ParamDemand = paramDemand, paramOPF::ParamOPF = paramOPF, ϵ::Float64 = 1e-4, δ::Float64 = 50.
+                                        x₀::Dict = x₀, κ::Dict = κ, mipGap::Float64 = 1e-3, timelimit::Int64 = 3,
+                                        indexSets::IndexSets = indexSets, paramDemand::ParamDemand = paramDemand, paramOPF::ParamOPF = paramOPF, ϵ::Float64 = 1e-4, δ::Float64 = 5.
                                         )
 
     ## ==================================================== auxiliary function for function information ==================================================== ##
@@ -233,7 +232,9 @@ function LevelSetMethod_optimization!(; model::Model = model,
         optimizer_with_attributes(
             ()->Gurobi.Optimizer(GRB_ENV), 
             "OutputFlag" => Output, 
-            "Threads" => 0)
+            "Threads" => 0, 
+            "MIPGap" => mipGap, 
+            "TimeLimit" => timelimit)
             );
 
     ## ==================================================== Levelset Method ============================================== ##
@@ -250,10 +251,12 @@ function LevelSetMethod_optimization!(; model::Model = model,
 
     nxtModel = Model(
         optimizer_with_attributes(
-        ()->Gurobi.Optimizer(GRB_ENV), 
-        "OutputFlag" => Output, 
-        "Threads" => 0)
-        )
+            ()->Gurobi.Optimizer(GRB_ENV), 
+            "OutputFlag" => Output, 
+            "Threads" => 0, 
+            "MIPGap" => mipGap, 
+            "TimeLimit" => timelimit)
+            );
 
     @variable(nxtModel, xλ[g in G, i in 1:κ[g]]);
     @variable(nxtModel, xy[G]);
@@ -273,7 +276,7 @@ function LevelSetMethod_optimization!(; model::Model = model,
     end 
 
     while true
-        add_constraint(currentInfo, oracleInfo);
+        add_constraint(currentInfo, oracleInfo; κ = κ);
         optimize!(oracleModel);
         st = termination_status(oracleModel);
         if st == MOI.OPTIMAL
@@ -339,7 +342,7 @@ function LevelSetMethod_optimization!(; model::Model = model,
             unregister(nxtModel, :levelConstraint);
             @constraint(nxtModel, levelConstraint, α * z1 + (1 - α) * y1 ≤ level);
         end
-        add_constraint(currentInfo, nxtInfo);
+        add_constraint(currentInfo, nxtInfo; κ = κ);
         @objective(nxtModel, Min, sum(sum((xλ[g, i] - x₀[:λ][g][i]) * (xλ[g, i] - x₀[:λ][g][i]) for i in 1:κ[g]) for g in G) +
                                             sum((xy[g] - x₀[:y][g]) * (xy[g] - x₀[:y][g]) for g in G)  #+ 2 * (α * z1 + (1 - α) * y1) * τₖ 
                                     );
@@ -364,7 +367,7 @@ function LevelSetMethod_optimization!(; model::Model = model,
             @variable(nxtModel, y1);
             nxtInfo = ModelInfo(nxtModel, xλ, xy, y1, z1);
             @constraint(nxtModel, levelConstraint, α * z1 + (1 - α) * y1 ≤ level);
-            add_constraint(currentInfo, nxtInfo);
+            add_constraint(currentInfo, nxtInfo; κ = κ);
             @objective(nxtModel, Min, sum(sum((xλ[g, i] - x₀[:λ][g][i]) * (xλ[g, i] - x₀[:λ][g][i]) for i in 1:κ[g]) for g in G) +
                                             sum((xy[g] - x₀[:y][g]) * (xy[g] - x₀[:y][g]) for g in G)  #+ 2 * (α * z1 + (1 - α) * y1) * τₖ 
                                     );
@@ -389,7 +392,7 @@ function LevelSetMethod_optimization!(; model::Model = model,
         end
 
         ## stop rule: gap ≤ .07 * function-value && constraint ≤ 0.05 * LagrangianFunction
-        if ( Δ ≤ threshold * 10 && currentInfo.G[1] ≤ threshold ) || (iter > max_iter)
+        if (Δ ≤ 5 * threshold && currentInfo.G[1] ≤ threshold) || (iter > max_iter) || (Δ ≤ 10 * threshold && currentInfo.G[1] ≤ 0.0)
             return cutInfo
         end
         
