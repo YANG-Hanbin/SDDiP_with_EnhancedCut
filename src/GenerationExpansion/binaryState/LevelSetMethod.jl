@@ -71,7 +71,7 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
                                                             ϵ::Float64 = ϵ )
 
     if cutSelection == "ELC"
-        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
+        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y/1e5 + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
                                                             x₀' * ( L̂ .- backwardInfo.Lc) );
         optimize!(backwardInfo.model);
         F_solution = ( F = JuMP.objective_value(backwardInfo.model), 
@@ -85,7 +85,7 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
                                     F_solution.F
                                     )                                        
     elseif cutSelection == "LC"
-        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack - 
+        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y/1e5 + backwardInfo.θ + stageData.penalty * backwardInfo.slack - 
                                                             x₀' * backwardInfo.Lc );
         optimize!(backwardInfo.model);
         F_solution = (F = JuMP.objective_value(backwardInfo.model), 
@@ -99,7 +99,7 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
                                     F_solution.F
                                     );
     elseif cutSelection == "ELCwithoutConstraint"
-        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
+        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y/1e5 + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
                                                             x₀' * ( L̂ .- backwardInfo.Lc) );
         optimize!(backwardInfo.model);
         F_solution = ( F = JuMP.objective_value(backwardInfo.model), 
@@ -113,7 +113,7 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
                                     F_solution.F
                                     ) 
     elseif cutSelection == "ShrinkageLC"
-        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
+        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y/1e5 + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
                                                             x₀' * ( L̂ .- backwardInfo.Lc) );
         optimize!(backwardInfo.model);
         F_solution = ( F = JuMP.objective_value(backwardInfo.model), 
@@ -209,9 +209,7 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
         add_constraint(currentInfo, oracleInfo);
         optimize!(oracleModel);
 
-        st = termination_status(oracleModel)
-        # @info "oracle, $st, grad = $(currentInfo.dG), G = $(currentInfo.G)"
-        
+        st = termination_status(oracleModel); # @info "oracle, $st, grad = $(currentInfo.dG), G = $(currentInfo.G)"
         if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
             f_star = JuMP.objective_value(oracleModel)
         else
@@ -290,7 +288,7 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
         λ = iter ≥ 80 ? 0.7 : λ;
         λ = iter ≥ 90 ? 0.8 : λ;
         
-        level = w + λ * (W - w);
+        level = round(w + λ * (W - w), digits = 6);
         
 
         ## ==================================================== next iteration point ============================================== ##
@@ -311,7 +309,14 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
         if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
             x_nxt = JuMP.value.(x1);
             λₖ = abs(dual(level_constraint)); μₖ = λₖ + 1; 
-        elseif st == MOI.NUMERICAL_ERROR || st == MOI.INFEASIBLE_OR_UNBOUNDED
+        elseif st == MOI.INFEASIBLE_OR_UNBOUNDED
+            @objective(nxtModel, Min, 0);
+            optimize!(nxtModel)
+            st = termination_status(nxtModel)
+            if st == MOI.OPTIMAL 
+                x_nxt = JuMP.value.(x1)
+            end
+        elseif st == MOI.NUMERICAL_ERROR 
             # @info "Numerical Error occures! -- Build a new nxtModel"
             nxtModel = Model(
                 optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
@@ -328,16 +333,26 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
             add_constraint(currentInfo, nxtInfo);
             @objective(nxtModel, Min, (x1 - x₀)' * (x1 - x₀));
             optimize!(nxtModel);
-            x_nxt = JuMP.value.(x1);
-            λₖ = abs(dual(level_constraint)); μₖ = λₖ + 1; 
+            if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
+                x_nxt = JuMP.value.(x1);
+                λₖ = abs(dual(level_constraint)); μₖ = λₖ + 1; 
+            else
+                x_nxt = x₀;
+            end
         else
-            set_normalized_rhs( level_constraint, w + .1 * (W - w));
+            set_normalized_rhs( level_constraint, round(w + .1 * (W - w), digits = 6));
             optimize!(nxtModel);
             x_nxt = JuMP.value.(x1);
+            if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
+                x_nxt = JuMP.value.(x1);
+                λₖ = abs(dual(level_constraint)); μₖ = λₖ + 1; 
+            else
+                x_nxt = x₀;
+            end
         end
 
         ## stop rule: gap ≤ .07 * function-value && constraint ≤ 0.05 * LagrangianFunction
-        if Δ ≤ (abs(f_star_value) * 1e-5 + 5) || iter > max_iter
+        if Δ ≤ threshold * 100 || iter > max_iter
             # @info "yes"
             return cutInfo
         end

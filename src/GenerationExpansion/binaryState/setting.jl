@@ -96,8 +96,8 @@ end
 
 
 ## setup coefficients
-function dataGeneration(; T::Int64 = 2, 
-                            r::Float64 = 0.08, ## the annualized interest rate
+function dataGeneration(;   T::Int64 = 2, num_Ω::Int64 = num_Ω, seed::Int64 = 1234,
+                            r::Float64 = r, ## the annualized interest rate
                             N::Matrix{Float64} = N, ## Generator rating
                             ū::Vector{Float64} = ū, ## maximum number of each type of generators
                             c::Vector{Float64} = c, # c_g from table 4, cost/MW to build a generator of type g
@@ -107,23 +107,20 @@ function dataGeneration(; T::Int64 = 2,
                             eff::Vector{Float64} = eff,
                             om_cost::Vector{Float64} = om_cost, 
                             s₀::Vector{Int64} = s₀,
-                            penalty::Float64 = 1e5, 
-                            initial_demand::Float64 = 1e7, 
-                            seed::Int64 = 1234, num_Ω::Int64 = 10
-                            )
+                            penalty::Float64 = penalty, 
+                            initial_demand::Float64 = initial_demand)
 
     binaryInfo = intergerBinarization(ū)
-    (A, n, d) = (binaryInfo.A, binaryInfo.n, binaryInfo.d)
 
-    #  compute c1
-    c1 = [[c[i]*mg[i]/(1+r)^j for i in 1:6 ]  for j in 1:T ] 
-    #  compute c2
-    c2 = [[fuel_price[i]*heat_rate[i]*1e-3*eff[i] for i in 1:6]*(1.02)^j + om_cost*(1.03)^j for j in 1:T]
+    # Compute c1 (investment cost per MW)
+    c1 = [[c[i] * mg[i] / (1 + r)^j for i in 1:6] for j in 1:T]./1e5 # 1e5 is used to scale the cost to a reasonable range, similar for penalty, for c2 term, the scaling is done in MIP formulation
 
+    # Compute c2 (generation cost per MWh)
+    c2 = [[(fuel_price[i] * heat_rate[i] * 1e-3 / eff[i]) * (1.02)^j + om_cost[i] * (1.03)^j for i in 1:6] for j in 1:T]
 
     stageDataList = Dict{Int64,StageData}()
     for t in 1:T 
-        stageDataList[t] = StageData(c1[t], c2[t], ū, 8760., N, s₀, penalty)
+        stageDataList[t] = StageData(c1[t], c2[t], ū, 8760., N, s₀, penalty/1e5)
     end
 
     ##########################################################################################
@@ -161,4 +158,3 @@ function dataGeneration(; T::Int64 = 2,
             Ω = Ω, 
             binaryInfo = binaryInfo)
 end
-

@@ -51,8 +51,11 @@ for cutSelection in ["ELC", "ShrinkageLC"]
     end
 end
 
-T = 5; num = 10; cutSelection = "ELC";
-result = load("src/GenerationExpansion/data/testData_stage($T)_real($num)/generInt_result_stage($T)_real($num)_$cutSelection.jld2")["result"];
+T = 3; num = 5; cutSelection = "ELC";
+
+result = load("src/GenerationExpansion/data/testData_stage($T)_real($num)/binary_result_stage($T)_real($num)_$cutSelection.jld2")["result"];
 result[:solHistory]
+
+save("src/GenerationExpansion/data/testData_stage($T)_real($num)/binary_interval_result_stage($T)_real($num)_$cutSelection.jld2", "result", result)  
 
 

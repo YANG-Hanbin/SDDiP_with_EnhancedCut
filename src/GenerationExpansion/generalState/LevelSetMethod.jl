@@ -71,7 +71,7 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
                                                             ϵ::Float64 = ϵ )
 
     if cutSelection == "ELC"
-        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
+        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y/1e5 + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
                                                             x₀' * ( Ŝ .- backwardInfo.Sc) );
         optimize!(backwardInfo.model);
         F_solution = ( F = JuMP.objective_value(backwardInfo.model), 
@@ -85,7 +85,7 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
                                     F_solution.F
                                     )                                        
     elseif cutSelection == "LC"
-        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack - 
+        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y/1e5 + backwardInfo.θ + stageData.penalty * backwardInfo.slack - 
                                                             x₀' * backwardInfo.Sc );
         optimize!(backwardInfo.model);
         F_solution = (F = JuMP.objective_value(backwardInfo.model), 
@@ -99,7 +99,7 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
                                     F_solution.F
                                     );
     elseif cutSelection == "ELCwithoutConstraint"
-        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
+        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y/1e5 + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
                                                             x₀' * ( Ŝ .- backwardInfo.Sc) );
         optimize!(backwardInfo.model);
         F_solution = ( F = JuMP.objective_value(backwardInfo.model), 
@@ -113,7 +113,7 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
                                     F_solution.F
                                     ) 
     elseif cutSelection == "ShrinkageLC"
-        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
+        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y/1e5 + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
                                                             x₀' * ( Ŝ .- backwardInfo.Sc) );
         optimize!(backwardInfo.model);
         F_solution = ( F = JuMP.objective_value(backwardInfo.model), 
@@ -309,7 +309,14 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
         if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
             x_nxt = JuMP.value.(x1);
             λₖ = abs(dual(level_constraint)); μₖ = λₖ + 1; 
-        elseif st == MOI.NUMERICAL_ERROR || st == MOI.INFEASIBLE_OR_UNBOUNDED
+        elseif st == MOI.INFEASIBLE_OR_UNBOUNDED
+            @objective(nxtModel, Min, 0);
+            optimize!(nxtModel)
+            st = termination_status(nxtModel)
+            if st == MOI.OPTIMAL 
+                x_nxt = JuMP.value.(x1)
+            end
+        elseif st == MOI.NUMERICAL_ERROR 
             # @info "Numerical Error occures! -- Build a new nxtModel"
             nxtModel = Model(
                 optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
@@ -330,7 +337,12 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
         else
             set_normalized_rhs( level_constraint, w + .1 * (W - w));
             optimize!(nxtModel);
-            x_nxt = JuMP.value.(x1);
+            if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
+                x_nxt = JuMP.value.(x1);
+                λₖ = abs(dual(level_constraint)); μₖ = λₖ + 1; 
+            else
+                x_nxt = x₀;
+            end
         end
 
         ## stop rule: gap ≤ .07 * function-value && constraint ≤ 0.05 * LagrangianFunction

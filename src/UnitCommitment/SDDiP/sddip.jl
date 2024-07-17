@@ -33,14 +33,14 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                                                     paramOPF = paramOPF, 
                                                         stageRealization = scenarioTree.tree[t], 
                                                                 outputFlag = 0, κ = κ, ε = ε, 
-                                                                        mipGap = 1e-3, θ_bound = 0.0, timelimit = 3
+                                                                        mipGap = 1e-3, θ_bound = 0.0, timelimit = 20
                                                 );
         backwardInfoList[t] = backwardModel!(indexSets = indexSets, 
                                                 paramDemand = paramDemand, 
                                                     paramOPF = paramOPF, 
                                                         stageRealization = scenarioTree.tree[t], 
                                                                 outputFlag = 0, κ = κ, ε = ε, 
-                                                                        mipGap = 1e-3, tightness = tightness, θ_bound = 0.0, timelimit = 3
+                                                                        mipGap = 1e-3, tightness = tightness, θ_bound = 0.0, timelimit = 5
                                                 );
     end 
     stageDecision = Dict();

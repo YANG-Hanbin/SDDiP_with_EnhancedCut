@@ -28,7 +28,7 @@ function forwardModel!(stageData::StageData;
     @variable(Q, slack ≥ 0 )
     @variable(Q, θ ≥ θ_bound)
 
-    @objective(Q, Min, stageData.c1'* x + stageData.c2' * y + stageData.penalty * slack + θ )
+    @objective(Q, Min, stageData.c1'* x + stageData.c2' * y/1e5 + stageData.penalty * slack + θ )
 
     ## no more than max num of generators
     @constraint(Q, limitationConstraint,    0.0 .+ x .≤ stageData.ū ) 

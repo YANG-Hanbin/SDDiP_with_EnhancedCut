@@ -108,7 +108,7 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
                                                 );
                 optimize!(forwardInfo.model);
 
-                solCollection[t, k] = ( stageSolution = round.(JuMP.value.(forwardInfo.Lt), digits = 2), 
+                solCollection[t, k] = ( stageSolution = round.(JuMP.value.(forwardInfo.Lt), digits = 3), 
                                         stageValue = JuMP.objective_value(forwardInfo.model) - JuMP.value(forwardInfo.θ),
                                         OPT = JuMP.objective_value(forwardInfo.model)
                                         );
