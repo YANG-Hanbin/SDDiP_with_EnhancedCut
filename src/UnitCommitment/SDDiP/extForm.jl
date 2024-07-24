@@ -99,32 +99,3 @@ function extensive_form(; indexSets::IndexSets = indexSets,
 
     return extResult
 end
-
-# # total cost
-# sum(Ξ[ω][:prob] * sum(sum(paramOPF.slope[g] * value(s[g, t, ω]) + 
-#                             paramOPF.intercept[g] * value(y[g, t, ω]) + 
-#                                 paramOPF.C_start[g] * value(v[g, t, ω]) + 
-#                                     paramOPF.C_down[g] * value(w[g, t, ω]) for g in G) +                  
-#                                         sum(paramDemand.w[d] * (1 - value(x[d, t, ω])) for d in D) for t in 1:T) for ω in 1:W)
-
-
-# # unsatisfied demand cost
-# t1 = 1; t2 = 3;
-# sum(Ξ[ω][:prob] * sum(                  
-#                 sum(paramDemand.w[d] * (1 - value(x[d, t, ω])) for d in D) for t in t1:t2) for ω in 1:W)
-
-# # operation cost
-# sum(Ξ[ω][:prob] * sum(sum(paramOPF.slope[g] * value(s[g, t, ω]) + 
-#     paramOPF.intercept[g] * value(y[g, t, ω]) + 
-#         paramOPF.C_start[g] * value(v[g, t, ω]) + 
-#             paramOPF.C_down[g] * value(w[g, t, ω]) for g in G) for t in 1:T) for ω in 1:W)
-
-# # generation cost
-# sum(Ξ[ω][:prob] * sum(sum(paramOPF.slope[g] * value(s[g, t, ω]) for g in G) for t in 1:T) for ω in 1:W) + sum(Ξ[ω][:prob] * sum(sum(paramOPF.intercept[g] * value(y[g, t, ω])  for g in G) for t in 1:T) for ω in 1:W)
-
-# # startup cost
-# sum(Ξ[ω][:prob] * sum(sum(
-#         paramOPF.C_start[g] * value(v[g, t, ω]) + 
-#             paramOPF.C_down[g] * value(w[g, t, ω]) for g in G) for t in 1:T) for ω in 1:W)
-
-

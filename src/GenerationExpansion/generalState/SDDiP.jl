@@ -1,8 +1,8 @@
 function setupLevelsetPara(forwardInfo::ForwardModelInfo, stageData::StageData, demand::Vector{Float64}, L̂::Vector{Float64};
                                     cutSelection::String = "ELC", 
                                     binaryInfo::BinaryInfo = binaryInfo, 
-                                    Output_Gap::Bool = false,
-                                    λ::Union{Float64, Nothing} = .3, ℓ1::Real = 1.0, ℓ2::Real = 0.8)
+                                    Output_Gap::Bool = false, max_iter::Int64 = 100,
+                                    λ::Union{Float64, Nothing} = .3, ℓ1::Real = 0.0, ℓ2::Real = 1.)
     if cutSelection == "ELC"
         forward_modify_constraints!(forwardInfo, 
                                         stageData, 
@@ -15,7 +15,7 @@ function setupLevelsetPara(forwardInfo::ForwardModelInfo, stageData::StageData, 
 
         Output = 0; threshold = 1.0; 
         levelSetMethodParam = LevelSetMethodParam(0.95, λ, threshold, 
-                                                            1e14, 2e2, Output, Output_Gap,
+                                                            1e14, max_iter, Output, Output_Gap,
                                                                         L̂, cutSelection, L̃, f_star_value)
 
 
@@ -29,21 +29,21 @@ function setupLevelsetPara(forwardInfo::ForwardModelInfo, stageData::StageData, 
         optimize!(forwardInfo.model); f_star_value = JuMP.objective_value(forwardInfo.model);
         Output = 0; threshold = 1.0; 
         levelSetMethodParam = LevelSetMethodParam(0.95, λ, threshold, 
-                                                            1e14, 1e2, Output, Output_Gap,
+                                                            1e14, max_iter, Output, Output_Gap,
                                                                         L̂,  cutSelection, nothing, f_star_value)
 
     elseif cutSelection == "ELCwithoutConstraint" 
         L̃ = L̂ .* ℓ2 .+ (1 - ℓ2)/2;
         Output = 0; threshold = 1.0; f_star_value = 0.0;
         levelSetMethodParam = LevelSetMethodParam(0.95, λ, threshold, 
-                                                            1e14, 1e2, Output, Output_Gap,
+                                                            1e14, max_iter, Output, Output_Gap,
                                                                         L̂,  cutSelection, L̃, f_star_value)
 
     elseif cutSelection == "LC" 
         L̃ = nothing; f_star_value = 0.0;
         Output = 0; threshold = 1.0; 
         levelSetMethodParam = LevelSetMethodParam(0.95, λ, threshold, 
-                                                            1e14, 1e2, Output, Output_Gap,
+                                                            1e14, max_iter, Output, Output_Gap,
                                                                         L̂,  cutSelection, L̃, f_star_value)
     end
 
@@ -57,7 +57,7 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
                             probList::Dict{Int64,Vector{Float64}}, 
                             stageDataList::Dict{Int64, StageData}; 
                             scenario_sequence::Dict{Int64, Dict{Int64, Any}} = scenario_sequence, ϵ::Float64 = 0.001, M::Int64 = 1, max_iter::Int64 = 100, 
-                            Output_Gap::Bool = false, tightness::Bool = false,
+                            Output_Gap::Bool = false, tightness::Bool = false, TimeLimit::Real = 1e3, MaxIter::Real = 20, 
                             cutSelection::String = "LC", binaryInfo::BinaryInfo = binaryInfo)
     ## d: dimension of x
     ## M: num of scenarios when doing one iteration
@@ -67,7 +67,6 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
                                     stageDataList;
                                     binaryInfo = binaryInfo, mipGap = 1e-2);
     OPT = gurobiResult.OPT;
-    initial = now(); iter_time = 0; total_Time = 0; t0 = 0.0;
     T = length(keys(Ω));
     i = 1; LB = - Inf; UB = Inf; solCollection = Dict(); u = 0;Scenarios = 0;
 
@@ -83,7 +82,7 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
         backwardInfoList[t] = backwardModel!(stageDataList[t], binaryInfo = binaryInfo, timelimit = 10, mipGap = 1e-4, 
                                                 tightness = tightness)
     end 
-    
+    initial = now(); iter_time = 0; total_Time = 0; t0 = 0.0;
     println("---------------- print out iteration information -------------------")
     while true
         t0 = now();
@@ -131,7 +130,7 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
             println("Iter |   LB                              UB                             gap")
         end
         @printf("%3d  |   %5.3g                         %5.3g                              %1.3f%s\n", i, LB, UB, gap, "%")
-        if UB-LB ≤ 1e-2 * UB || total_Time > 18000 || i >= max_iter
+        if UB-LB ≤ 1e-2 * UB || total_Time > TimeLimit || i >= MaxIter
             return Dict(:solHistory => sddipResult, 
                             :solution => solCollection[1, 1].stageSolution, 
                             :gapHistory => gapList) 
@@ -147,10 +146,8 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
                                                             Ω[t][j].d );
                     (levelSetMethodParam, x₀) = setupLevelsetPara(forwardInfoList[t], stageDataList[t], Ω[t][j].d, solCollection[t-1,k].stageSolution;
                                                                         cutSelection = cutSelection,  # "ShrinkageLC", "ELCwithoutConstraint", "LC", "ELC"
-                                                                        binaryInfo = binaryInfo, 
-                                                                        Output_Gap = Output_Gap,
-                                                                        λ = .3, ℓ1 = 0.0, 
-                                                                        ℓ2 = 0.5);
+                                                                        binaryInfo = binaryInfo, Output_Gap = Output_Gap, max_iter = max_iter,
+                                                                        λ = .3, ℓ1 = 0.0, ℓ2 = 1.);
                     c = c + probList[t][j] .* LevelSetMethod_optimization!(backwardInfo, x₀; 
                                                                                 levelSetMethodParam = levelSetMethodParam, 
                                                                                         stageData = stageDataList[t],   
