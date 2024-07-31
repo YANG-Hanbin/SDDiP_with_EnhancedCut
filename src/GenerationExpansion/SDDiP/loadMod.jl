@@ -13,13 +13,13 @@ using JLD2, FileIO
 const GRB_ENV = Gurobi.Env()
 
 
-include("src/GenerationExpansion/binaryState/def.jl")
-include("src/GenerationExpansion/binaryState/backwardPass.jl")
-include("src/GenerationExpansion/binaryState/forwardPass.jl")
-include("src/GenerationExpansion/binaryState/extFormGurobi.jl")
-include("src/GenerationExpansion/binaryState/LevelSetMethod.jl")
-include("src/GenerationExpansion/binaryState/setting.jl")
-include("src/GenerationExpansion/binaryState/SDDiP.jl")
+include("src/GenerationExpansion/SDDiP/def.jl")
+include("src/GenerationExpansion/SDDiP/backwardPass.jl")
+include("src/GenerationExpansion/SDDiP/forwardPass.jl")
+include("src/GenerationExpansion/SDDiP/extFormGurobi.jl")
+include("src/GenerationExpansion/SDDiP/LevelSetMethod.jl")
+include("src/GenerationExpansion/SDDiP/setting.jl")
+include("src/GenerationExpansion/SDDiP/SDDiP.jl")
 
 
 T = 3; num = 5;

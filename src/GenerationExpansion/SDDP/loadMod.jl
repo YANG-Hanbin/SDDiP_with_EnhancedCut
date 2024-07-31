@@ -8,13 +8,13 @@ using JLD2, FileIO
 const GRB_ENV = Gurobi.Env()
 
 
-include("src/GenerationExpansion/generalState/def.jl")
-include("src/GenerationExpansion/generalState/backwardPass.jl")
-include("src/GenerationExpansion/generalState/forwardPass.jl")
-include("src/GenerationExpansion/generalState/extFormGurobi.jl")
-include("src/GenerationExpansion/generalState/LevelSetMethod.jl")
-include("src/GenerationExpansion/generalState/setting.jl")
-include("src/GenerationExpansion/generalState/SDDiP.jl")
+include("src/GenerationExpansion/SDDP/def.jl")
+include("src/GenerationExpansion/SDDP/backwardPass.jl")
+include("src/GenerationExpansion/SDDP/forwardPass.jl")
+include("src/GenerationExpansion/SDDP/extFormGurobi.jl")
+include("src/GenerationExpansion/SDDP/LevelSetMethod.jl")
+include("src/GenerationExpansion/SDDP/setting.jl")
+include("src/GenerationExpansion/SDDP/SDDiP.jl")
 
 T = 3; num = 5;
 stageDataList = load("src/GenerationExpansion/data/testData_stage($T)_real($num)/stageDataList.jld2")["stageDataList"]
