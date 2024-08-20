@@ -69,17 +69,17 @@ function setupLevelSetMethod(; stageDecision::Dict{Symbol, Dict{Int64, Any}} = s
                                         Output_Gap::Bool = false, ℓ::Real = .0, λ::Union{Real, Nothing} = .1  
                             )
     if cutSelection == "SMC" 
-        λ_value = λ; Output = 0; threshold = 1e-4 * f_star_value; 
+        λ_value = λ; Output = 0; threshold = 1e-3; 
         levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e10, max_iter, Output, Output_Gap, f_star_value);
         x_interior = nothing;
     elseif cutSelection == "ELC"
-        λ_value = λ; Output = 0; threshold = 1e-4 * f_star_value; 
+        λ_value = λ; Output = 0; threshold = 1e-3; 
         levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e10, max_iter, Output, Output_Gap, f_star_value);
         x_interior = Dict{Symbol, Dict{Int64, Any}}(:s => Dict( g => stageDecision[:s][g] * ℓ for g in keys(stageDecision[:s])), 
                                                         :y => Dict( g => stageDecision[:y][g] * ℓ for g in keys(stageDecision[:y])),
                                                         :sur => Dict(g => Dict(k => stageDecision[:sur][g][k] * ℓ for k in keys(stageDecision[:sur][g])) for g in keys(stageDecision[:y])));
     elseif cutSelection == "LC"
-        λ_value = λ; Output = 0; threshold = 1e-4 * f_star_value; 
+        λ_value = λ; Output = 0; threshold = 1e-3; 
         levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e10, max_iter, Output, Output_Gap, f_star_value);
         x_interior = nothing;
     end
@@ -314,7 +314,7 @@ function LevelSetMethod_optimization!(; model::Model = model,
                                         cutSelection::String = cutSelection,## "ELC", "LC", "ShrinkageLC" 
                                         stageDecision::Dict{Symbol, Dict{Int64, Any}} = stageDecision,
                                         x_interior::Union{Dict{Symbol, Dict{Int64, Any}}, Nothing} = nothing, 
-                                        x₀::Dict{Symbol, Dict{Int64, Any}} = x₀, tightness::Bool = false,
+                                        x₀::Dict{Symbol, Dict{Int64, Any}} = x₀, tightness::Bool = false, 
                                         indexSets::IndexSets = indexSets, paramDemand::ParamDemand = paramDemand, paramOPF::ParamOPF = paramOPF, ϵ::Float64 = 1e-4, δ::Float64 = 50.
                                         )
 
@@ -340,8 +340,8 @@ function LevelSetMethod_optimization!(; model::Model = model,
         optimizer_with_attributes(
             ()->Gurobi.Optimizer(GRB_ENV), 
             "Threads" => 0, 
-            "MIPGap" => 1e-3, 
-            "TimeLimit" => 5, 
+            "MIPGap" => 1e-4, 
+            # "TimeLimit" => 5, 
             "OutputFlag" => Output));
 
     ## ==================================================== Levelset Method ============================================== ##
@@ -361,8 +361,8 @@ function LevelSetMethod_optimization!(; model::Model = model,
         optimizer_with_attributes(
         ()->Gurobi.Optimizer(GRB_ENV),  
         "Threads" => 0, 
-        "MIPGap" => 1e-3, 
-        "TimeLimit" => 3, 
+        "MIPGap" => 1e-4, 
+        "TimeLimit" => 5, 
         "OutputFlag" => Output)
         );
 
@@ -386,10 +386,12 @@ function LevelSetMethod_optimization!(; model::Model = model,
     while true
         add_constraint(currentInfo, oracleInfo);
         optimize!(oracleModel);
+        st = termination_status(oracleModel);
         if termination_status(oracleModel) == MOI.OPTIMAL
             f_star = JuMP.objective_value(oracleModel);
         else 
-            return cutInfo
+            # @info "Oracle Model is $(st)!"
+            return (cutInfo = cutInfo, iter = iter)
         end
 
         # formulate alpha model
@@ -432,13 +434,13 @@ function LevelSetMethod_optimization!(; model::Model = model,
         w = α * f_star;
         W = minimum( α * functionHistory.f_his[j] + (1-α) * functionHistory.G_max_his[j] for j in 1:iter);
 
-        λ = iter ≤ 20 ? 0.05 : 0.1;
-        λ = iter ≥ 30 ? 0.2 : λ;
-        λ = iter ≥ 40 ? 0.3 : λ;
-        λ = iter ≥ 50 ? 0.4 : λ;
-        λ = iter ≥ 60 ? 0.5 : λ;
-        λ = iter ≥ 100 ? 0.7 : λ;
-        λ = iter ≥ 120 ? 0.9 : λ;
+        # λ = iter ≤ 20 ? 0.05 : 0.1;
+        # λ = iter ≥ 30 ? 0.2 : λ;
+        # λ = iter ≥ 40 ? 0.3 : λ;
+        # λ = iter ≥ 50 ? 0.4 : λ;
+        # λ = iter ≥ 60 ? 0.5 : λ;
+        # λ = iter ≥ 100 ? 0.6 : λ;
+        # λ = iter ≥ 120 ? 0.7 : λ;
         
         level = w + λ * (W - w);# round.(w + λ * (W - w), digits = 6);
         
@@ -472,8 +474,8 @@ function LevelSetMethod_optimization!(; model::Model = model,
                 optimizer_with_attributes(
                 ()->Gurobi.Optimizer(GRB_ENV),  
                 "Threads" => 0, 
-                "MIPGap" => 1e-3, 
-                "TimeLimit" => 3, 
+                "MIPGap" => 1e-4, 
+                "TimeLimit" => 5, 
                 "OutputFlag" => Output));
             @variable(nxtModel, xs[G]);
             @variable(nxtModel, xy[G]);
@@ -507,18 +509,18 @@ function LevelSetMethod_optimization!(; model::Model = model,
                                                             :sur => Dict(g => Dict(k => JuMP.value(sur[g, k]) for k in keys(stageDecision[:sur][g])) for g in G)
                                                         );
             else
-                return cutInfo
+                return (cutInfo = cutInfo, iter = iter)
             end
         end
 
         ## stop rules
         if cutSelection == "LC"
-            if Δ ≤ threshold || (iter > max_iter)
-                return cutInfo
+            if Δ ≤ .5 || (iter > max_iter)
+                return (cutInfo = cutInfo, iter = iter)
             end
         else
-            if Δ ≤ f_star_value * 1e-3 || iter > max_iter
-                return cutInfo
+            if Δ ≤ threshold * f_star_value || iter > max_iter
+                return (cutInfo = cutInfo, iter = iter)
             end
         end
         ## ==================================================== end ============================================== ##

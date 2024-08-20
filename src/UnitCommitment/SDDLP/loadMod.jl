@@ -19,4 +19,3 @@ include("src/UnitCommitment/SDDLP/forwardModel.jl");
 include("src/UnitCommitment/SDDLP/LevelSetMethod.jl");
 include("src/UnitCommitment/SDDLP/sddip.jl");
 include("src/UnitCommitment/SDDiP/extForm.jl");
-include("src/UnitCommitment/SDDLP/readin.jl");

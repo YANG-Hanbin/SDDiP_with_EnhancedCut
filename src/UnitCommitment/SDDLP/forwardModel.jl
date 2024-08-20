@@ -21,7 +21,7 @@ function forwardModel!(; indexSets::IndexSets = indexSets,
                             paramDemand::ParamDemand = paramDemand, 
                                 paramOPF::ParamOPF = paramOPF, 
                                     stageRealization::StageRealization = stageRealization,
-                                            θ_bound::Real = 0.0, outputFlag::Int64 = 0, timelimit::Real = 3, mipGap::Float64 = 1e-3
+                                            θ_bound::Real = 0.0, outputFlag::Int64 = 0, timelimit::Real = 3, mipGap::Float64 = 1e-4
                             )
     (D, G, L, B) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T) 
     (Dᵢ, Gᵢ, in_L, out_L) = (indexSets.Dᵢ, indexSets.Gᵢ, indexSets.in_L, indexSets.out_L) 
@@ -135,4 +135,35 @@ function forwardModification!(; model::Model = model,
                                                             sum(model[:P][(i, j)] for j in indexSets.out_L[i]) + 
                                                                 sum(model[:P][(j, i)] for j in indexSets.in_L[i]) 
                                                                     .== sum(paramDemand.demand[d] * randomVariables.deviation[d] * model[:x][d] for d in indexSets.Dᵢ[i]) )
+end
+
+"""
+sample_scenarios(numRealization::Int64 = 3, scenarioTree::ScenarioTree = scenarioTree)
+
+Simulation
+
+# Arguments
+
+  1. `numScenarios`: The number of scenarios will be sampled
+
+# Returns
+  1. `Ξ`: A subset of scenarios.
+"""
+function sample_scenarios(; numScenarios::Int64 = 10, scenarioTree::ScenarioTree = scenarioTree)
+    # if seed !== nothing
+    #     Random.seed!(seed)
+    # end
+
+    Ξ = Dict{Int64, Dict{Int64, RandomVariables}}()
+    for ω in 1:numScenarios
+        ξ = Dict{Int64, RandomVariables}()
+        ξ[1] = scenarioTree.tree[1].nodes[1]
+        n = wsample(collect(keys(scenarioTree.tree[1].prob)), collect(values(scenarioTree.tree[1].prob)), 1)[1]
+        for t in 2:length(keys(scenarioTree.tree))
+            ξ[t] = scenarioTree.tree[t].nodes[n]
+            n = wsample(collect(keys(scenarioTree.tree[t].prob)), collect(values(scenarioTree.tree[t].prob)), 1)[1]
+        end
+        Ξ[ω] = ξ
+    end
+    return Ξ
 end

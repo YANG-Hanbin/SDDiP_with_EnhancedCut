@@ -165,8 +165,8 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
                     @constraint(backwardInfoList[t+1].model, backwardInfoList[t+1].model[:sur_copy][g, left] + backwardInfoList[t+1].model[:sur_copy][g, right] == backwardInfoList[t+1].model[:sur_copy][g, keys_with_value_1]);
                     @constraint(backwardInfoList[t].model, backwardInfoList[t].model[:sur][g, left] + backwardInfoList[t].model[:sur][g, right] == backwardInfoList[t].model[:sur][g, keys_with_value_1]);
                     ### bounding constraints
-                    @constraint(backwardInfoList[t+1].model, backwardInfoList[t+1].St[g] ≥ sum(StateVarList[t].sur[g][k][:lb] * backwardInfoList[t+1].model[:sur_copy][g, k] for k in StateVarList[t].leaf[g]));
-                    @constraint(backwardInfoList[t+1].model, backwardInfoList[t+1].St[g] ≤ sum(StateVarList[t].sur[g][k][:ub] * backwardInfoList[t+1].model[:sur_copy][g, k] for k in StateVarList[t].leaf[g]));
+                    @constraint(backwardInfoList[t+1].model, backwardInfoList[t+1].model[:Sc][g] ≥ sum(StateVarList[t].sur[g][k][:lb] * backwardInfoList[t+1].model[:sur_copy][g, k] for k in StateVarList[t].leaf[g]));
+                    @constraint(backwardInfoList[t+1].model, backwardInfoList[t+1].model[:Sc][g] ≤ sum(StateVarList[t].sur[g][k][:ub] * backwardInfoList[t+1].model[:sur_copy][g, k] for k in StateVarList[t].leaf[g]));
                     @constraint(backwardInfoList[t].model, backwardInfoList[t].St[g] ≥ sum(StateVarList[t].sur[g][k][:lb] * backwardInfoList[t].model[:sur][g, k] for k in StateVarList[t].leaf[g]));
                     @constraint(backwardInfoList[t].model, backwardInfoList[t].St[g] ≤ sum(StateVarList[t].sur[g][k][:ub] * backwardInfoList[t].model[:sur][g, k] for k in StateVarList[t].leaf[g]));
                 end

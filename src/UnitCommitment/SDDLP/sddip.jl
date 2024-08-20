@@ -1,3 +1,17 @@
+"""
+    SDDiP_algorithm
+
+# Arguments
+
+    Output_Gap   : whether output level method info
+    MaxIter      : maximum number of SDDiP iterations
+    max_iter     : maximum number of level method iterations
+    Timelimit    : maximum time for SDDiP
+    δ            : enhancement parameter for the Lagrangian cuts
+    tightness    : whether use tightness cuts (binary or continuous in copy variables)
+    OPT          : optimal value of the problem
+    numScenarios : number of scenarios sampled in the forward pass
+"""
 
 function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree, 
                                 indexSets::IndexSets = indexSets, 
@@ -5,14 +19,14 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                                         paramOPF::ParamOPF = paramOPF, 
                                             initialStageDecision::Dict{Symbol, Dict{Int64, Float64}} = initialStageDecision, numScenarios::Real = 2,
                                             Output_Gap::Bool = true, MaxIter::Int64 = 100, max_iter::Int64 = 100, TimeLimit::Float64 = 1e3, cutSelection::String = "LC", 
-                                            δ::Float64 = 1., tightness::Bool = true, OPT::Float64 = Inf, seed::Union{Int, Nothing} = nothing
+                                            δ::Float64 = 1., tightness::Bool = true, OPT::Float64 = Inf
                         )
     ## d: x dim
     initial = now(); i = 1; LB = - Inf; UB = Inf; 
-    iter_time = 0; total_Time = 0; t0 = 0.0; 
+    iter_time = 0; total_Time = 0; t0 = 0.0; LMiter = 0; LM_iter = 0; gap = 100.0; gapString = "100%";
 
-    col_names = [:iter, :LB, :OPT, :UB, :gap, :time, :Time]; # needs to be a vector Symbols
-    col_types = [Int64, Float64, Union{Float64,Nothing}, Float64, String, Float64, Float64];
+    col_names = [:Iter, :LB, :OPT, :UB, :gap, :time, :LM_iter, :Time]; # needs to be a vector Symbols
+    col_types = [Int64, Float64, Union{Float64,Nothing}, Float64, String, Float64, Int64, Float64];
     named_tuple = (; zip(col_names, type[] for type in col_types )...);
     sddipResult = DataFrame(named_tuple); # 0×7 DataFrame
     gapList = [];
@@ -51,7 +65,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
     ####################################################### Main Loop ###########################################################
     while true
         t0 = now(); 
-        Ξ̃ = sample_scenarios(; scenarioTree = scenarioTree, numScenarios = numScenarios, seed = seed*100 + i);
+        Ξ̃ = sample_scenarios(; scenarioTree = scenarioTree, numScenarios = numScenarios);
         u = Dict{Int64, Float64}();  # to store the value of each scenario
         ####################################################### Forward Steps ###########################################################
         for ω in keys(Ξ̃)
@@ -82,7 +96,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         μ̄ = mean(values(u));
         σ̂² = Statistics.var(values(u));
         UB = μ̄ + 1.96 * sqrt(σ̂²/numScenarios); # minimum([μ̄ + 1.96 * sqrt(σ̂²/numScenarios), UB]);
-        gap = round((UB-LB)/UB * 100 ,digits = 2); gapString = string(gap,"%"); push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, gap);
+        gap = round((UB-LB)/UB * 100 ,digits = 2); gapString = string(gap,"%"); push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, LM_iter, total_Time]); push!(gapList, gap);
         if i == 1
             println("---------------------------------- Iteration Info ------------------------------------")
             println("Iter |   LB                              UB                             gap")
@@ -99,11 +113,11 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
             for ω in [1]#keys(Ξ̃)
                 # λ₀ = 0.0; λ₁ = Dict{Symbol, Dict{Int64, Float64}}(); λ₁[:s] = Dict{Int64, Float64}(g => 0.0 for g in indexSets.G); λ₁[:y] = Dict{Int64, Float64}(g => 0.0 for g in indexSets.G);
                 for n in keys(scenarioTree.tree[t].nodes)
-                    f_star_value = solCollection[i, t, ω].OPT; backwardModification!(model = backwardInfoList[t], randomVariables = scenarioTree.tree[t].nodes[n], paramOPF = paramOPF, indexSets = indexSets, paramDemand = paramDemand);
+                    backwardModification!(model = backwardInfoList[t], randomVariables = scenarioTree.tree[t].nodes[n], paramOPF = paramOPF, indexSets = indexSets, paramDemand = paramDemand);
                     
-                    (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(stageDecision = solCollection[i, t-1, ω].stageSolution, f_star_value = f_star_value, cutSelection = "LC", max_iter = max_iter, paramOPF = paramOPF,
+                    (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(stageDecision = solCollection[i, t-1, ω].stageSolution, f_star_value = solCollection[i, t, ω].OPT, cutSelection = "LC", max_iter = max_iter, paramOPF = paramOPF,
                                                                             Output_Gap = Output_Gap, ℓ = .0, λ = .1 );
-                    (λ₀, λ₁) = LevelSetMethod_optimization!(levelSetMethodParam = levelSetMethodParam, model = backwardInfoList[t], cutSelection = "LC", indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF,
+                    ((λ₀, λ₁), LMiter) = LevelSetMethod_optimization!(levelSetMethodParam = levelSetMethodParam, model = backwardInfoList[t], cutSelection = "LC", indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF,
                                                             stageDecision = solCollection[i, t-1, ω].stageSolution,
                                                                     x_interior = nothing, x₀ = x₀, tightness = tightness, δ = δ);
                     f_star_value = λ₀ + sum(λ₁[:s][g] * solCollection[i, t-1, ω].stageSolution[:s][g] + 
@@ -120,15 +134,15 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                     ## using enhancement cuts under conditions
                     if cutSelection != "LC" # && gap ≥ 2.0
                         if i ≤ 3
-                            ℓ = 0.0
+                            ℓ = 0.0                     # ℓ is used to control the interior point
                         else
                             ℓ = rand([.0, .5, .8])
                         end
                         (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(stageDecision = solCollection[i, t-1, ω].stageSolution, f_star_value = f_star_value, cutSelection = cutSelection, max_iter = max_iter, paramOPF = paramOPF,
-                                                                                    Output_Gap = Output_Gap, ℓ = ℓ, λ = .1 );
+                                                                                    Output_Gap = Output_Gap, ℓ = ℓ, λ = .3);
                         # model = backwardInfoList[t]; stageDecision = solCollection[i, t-1, ω].stageSolution;
-                        (λ₀, λ₁) = LevelSetMethod_optimization!(levelSetMethodParam = levelSetMethodParam, model = backwardInfoList[t], cutSelection = cutSelection, indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF,
-                                                                    stageDecision = solCollection[i, t-1, ω].stageSolution,
+                        ((λ₀, λ₁), LMiter) = LevelSetMethod_optimization!(levelSetMethodParam = levelSetMethodParam, model = backwardInfoList[t], cutSelection = cutSelection, indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF,
+                                                                    stageDecision = solCollection[i, t-1, ω].stageSolution, 
                                                                             x_interior = x_interior, x₀ = x₀, tightness = tightness, δ = δ);
                         # add cut to both backward models and forward models
                         @constraint(forwardInfoList[t-1], forwardInfoList[t-1][:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + 
@@ -147,9 +161,11 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                                                             sum(sum(λ₁[:sur][g][k] * backwardInfoList[t-1][:sur][g, k] for k in keys(solCollection[i, t-1, ω].stageSolution[:sur][g])) for g in indexSets.G));
                     end
 
-                end            
+                end  
+                LM_iter += LMiter;          
             end
         end
+        LM_iter = floor(Int64, LM_iter/sum(length(scenarioTree.tree[t].nodes) for t in 2:indexSets.T));
         
         ####################################################### Backward Steps ###########################################################
         for t in 1:indexSets.T-1 
@@ -211,8 +227,8 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                     @constraint(backwardInfoList[t+1], backwardInfoList[t+1][:sur_copy][g, left] + backwardInfoList[t+1][:sur_copy][g, right] == backwardInfoList[t+1][:sur_copy][g, keys_with_value_1]);
                     @constraint(backwardInfoList[t], backwardInfoList[t][:sur][g, left] + backwardInfoList[t][:sur][g, right] == backwardInfoList[t][:sur][g, keys_with_value_1]);
                     ### bounding constraints
-                    @constraint(backwardInfoList[t+1], backwardInfoList[t+1][:s][g] ≥ sum(StateVarList[t].sur[g][k][:lb] * backwardInfoList[t+1][:sur_copy][g, k] for k in StateVarList[t].leaf[g]));
-                    @constraint(backwardInfoList[t+1], backwardInfoList[t+1][:s][g] ≤ sum(StateVarList[t].sur[g][k][:ub] * backwardInfoList[t+1][:sur_copy][g, k] for k in StateVarList[t].leaf[g]));
+                    @constraint(backwardInfoList[t+1], backwardInfoList[t+1][:s_copy][g] ≥ sum(StateVarList[t].sur[g][k][:lb] * backwardInfoList[t+1][:sur_copy][g, k] for k in StateVarList[t].leaf[g]));
+                    @constraint(backwardInfoList[t+1], backwardInfoList[t+1][:s_copy][g] ≤ sum(StateVarList[t].sur[g][k][:ub] * backwardInfoList[t+1][:sur_copy][g, k] for k in StateVarList[t].leaf[g]));
                     @constraint(backwardInfoList[t], backwardInfoList[t][:s][g] ≥ sum(StateVarList[t].sur[g][k][:lb] * backwardInfoList[t][:sur][g, k] for k in StateVarList[t].leaf[g]));
                     @constraint(backwardInfoList[t], backwardInfoList[t][:s][g] ≤ sum(StateVarList[t].sur[g][k][:ub] * backwardInfoList[t][:sur][g, k] for k in StateVarList[t].leaf[g]));
                     # @constraint(backwardInfoList[t+1], backwardInfoList[t+1][:s][g] ≥ lb -  paramOPF.smax[g] * (1 - backwardInfoList[t+1][:sur][g, left]) );

@@ -47,7 +47,7 @@ function forwardModel!(; indexSets::IndexSets = indexSets,
 
     ## approximate the continuous state s[g], s[g] = ∑_{i=0}^{κ-1} 2ⁱ * λ[g, i] * ε, κ = log2(paramOPF.smax[g] / ε) + 1
     @variable(model, λ[g in G, i in 1:κ[g]], Bin)  
-    @constraint(model, [g in G], ε * sum(2^(i-1) * λ[g, i] for i in 1:κ[g]) == s[g])
+    @constraint(model, ContiApprox[g in G], ε * sum(2^(i-1) * λ[g, i] for i in 1:κ[g]) == s[g])
     # power flow constraints
     for l in L
         i = l[1]
@@ -127,4 +127,35 @@ function forwardModification!(; model::Model = model,
                                                             sum(model[:P][(i, j)] for j in indexSets.out_L[i]) + 
                                                                 sum(model[:P][(j, i)] for j in indexSets.in_L[i]) 
                                                                     .== sum(paramDemand.demand[d] * randomVariables.deviation[d] * model[:x][d] for d in indexSets.Dᵢ[i]) )
+end
+
+"""
+sample_scenarios(numRealization::Int64 = 3, scenarioTree::ScenarioTree = scenarioTree)
+
+Simulation
+
+# Arguments
+
+  1. `numScenarios`: The number of scenarios will be sampled
+
+# Returns
+  1. `Ξ`: A subset of scenarios.
+"""
+function sample_scenarios(; numScenarios::Int64 = 10, scenarioTree::ScenarioTree = scenarioTree)
+    # if seed !== nothing
+    #     Random.seed!(seed)
+    # end
+
+    Ξ = Dict{Int64, Dict{Int64, RandomVariables}}()
+    for ω in 1:numScenarios
+        ξ = Dict{Int64, RandomVariables}()
+        ξ[1] = scenarioTree.tree[1].nodes[1]
+        n = wsample(collect(keys(scenarioTree.tree[1].prob)), collect(values(scenarioTree.tree[1].prob)), 1)[1]
+        for t in 2:length(keys(scenarioTree.tree))
+            ξ[t] = scenarioTree.tree[t].nodes[n]
+            n = wsample(collect(keys(scenarioTree.tree[t].prob)), collect(values(scenarioTree.tree[t].prob)), 1)[1]
+        end
+        Ξ[ω] = ξ
+    end
+    return Ξ
 end

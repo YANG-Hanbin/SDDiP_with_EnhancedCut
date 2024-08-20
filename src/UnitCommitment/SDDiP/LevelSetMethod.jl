@@ -65,16 +65,16 @@ function setupLevelSetMethod(; stageDecision::Dict = stageDecision,
                                         Output_Gap::Bool = false, max_iter::Int64 =100, ℓ::Real = .0, λ::Union{Real, Nothing} = .1
                             )
     if cutSelection == "SMC" 
-        λ_value = λ; Output = 0; threshold = 1e-3 * f_star_value; 
+        λ_value = λ; Output = 0; threshold = 1e-3;
         levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, max_iter, Output, Output_Gap, f_star_value);
         x_interior = nothing;
     elseif cutSelection == "ELC"
-        λ_value = λ; Output = 0; threshold = 1e-2 * f_star_value; 
+        λ_value = λ; Output = 0; threshold = 1e-3;
         levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, max_iter, Output, Output_Gap, f_star_value);
         x_interior = Dict(:λ => Dict(g => Dict(i => stageDecision[:λ][g][i] * ℓ .+ (1 - ℓ)/2 for i in 1:κ[g]) for g in keys(stageDecision[:y])), 
                             :y => Dict( g => stageDecision[:y][g] * ℓ .+ (1 - ℓ)/2 for g in keys(stageDecision[:y])));
     elseif cutSelection == "LC"
-        λ_value = λ; Output = 0; threshold = 1e-5 * f_star_value; 
+        λ_value = λ; Output = 0; threshold = 1e-3;
         levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, max_iter, Output, Output_Gap, f_star_value);
         x_interior = nothing;
     end
@@ -282,8 +282,8 @@ function LevelSetMethod_optimization!(; model::Model = model,
         if st == MOI.OPTIMAL
             f_star = JuMP.objective_value(oracleModel);
         else 
-            @info "Oracle Model is $st"
-            return cutInfo
+            # @info "Oracle Model is $st"
+            return (cutInfo = cutInfo, iter = iter)
         end
 
         # formulate alpha model
@@ -326,10 +326,10 @@ function LevelSetMethod_optimization!(; model::Model = model,
         w = α * f_star;
         W = minimum( α * functionHistory.f_his[j] + (1-α) * functionHistory.G_max_his[j] for j in 1:iter);
 
-        λ = iter ≤ 10 ? 0.1 : 0.2;
-        λ = iter ≥ 20 ? 0.3 : λ;
-        λ = iter ≥ 40 ? 0.5 : λ;
-        λ = iter ≥ 60 ? 0.7 : λ;
+        # λ = iter ≤ 10 ? 0.1 : 0.2;
+        # λ = iter ≥ 20 ? 0.3 : λ;
+        # λ = iter ≥ 40 ? 0.5 : λ;
+        # λ = iter ≥ 60 ? 0.7 : λ;
         
         level = w + λ * (W - w)
         
@@ -374,7 +374,7 @@ function LevelSetMethod_optimization!(; model::Model = model,
             optimize!(nxtModel);
             st = termination_status(nxtModel);
             if st != MOI.OPTIMAL 
-                return cutInfo
+                return (cutInfo = cutInfo, iter = iter)
             end
             x_nxt = Dict(:λ => Dict(g => Dict(i => JuMP.value(xλ[g, i]) for i in 1:κ[g]) for g in indexSets.G), 
                             :y => Dict( g => JuMP.value(xy[g]) for g in indexSets.G));
@@ -385,15 +385,21 @@ function LevelSetMethod_optimization!(; model::Model = model,
             optimize!(nxtModel);
             st = termination_status(nxtModel);
             if st != MOI.OPTIMAL 
-                return cutInfo
+                return (cutInfo = cutInfo, iter = iter)
             end
             x_nxt = Dict(:λ => Dict(g => Dict(i => JuMP.value(xλ[g, i]) for i in 1:κ[g]) for g in indexSets.G), 
                             :y => Dict( g => JuMP.value(xy[g]) for g in indexSets.G));
         end
 
         ## stop rule: gap ≤ .07 * function-value && constraint ≤ 0.05 * LagrangianFunction
-        if (Δ ≤ 5 * threshold && currentInfo.G[1] ≤ threshold) || (iter > max_iter) || (Δ ≤ 10 * threshold && currentInfo.G[1] ≤ 0.0)
-            return cutInfo
+        if cutSelection == "LC"
+            if Δ ≤ .5 || (iter > max_iter)
+                return (cutInfo = cutInfo, iter = iter)
+            end
+        else
+            if Δ ≤ threshold * f_star_value || iter > max_iter
+                return (cutInfo = cutInfo, iter = iter)
+            end
         end
         
         ## ==================================================== end ============================================== ##

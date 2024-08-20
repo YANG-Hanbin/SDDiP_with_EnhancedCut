@@ -48,7 +48,8 @@ function add_constraint(currentInfo::CurrentInfo, modelInfo::ModelInfo)
     xⱼ = currentInfo.x
     # add constraints     
     @constraint(modelInfo.model, modelInfo.z .≥ currentInfo.f + sum(currentInfo.df[:s][g] * (modelInfo.xs[g] - xⱼ[:s][g]) for g in keys(currentInfo.df[:s]))
-                                                                    + sum(currentInfo.df[:y][g] * (modelInfo.xy[g] - xⱼ[:y][g]) for g in keys(currentInfo.df[:y])))
+                                                                    + sum(currentInfo.df[:y][g] * (modelInfo.xy[g] - xⱼ[:y][g]) for g in keys(currentInfo.df[:y]))
+                                                                    )
 
     @constraint(modelInfo.model, [k = 1:m], modelInfo.y .≥ currentInfo.G[k] + sum(currentInfo.dG[k][:s][g] * (modelInfo.xs[g] .- xⱼ[:s][g]) for g in keys(currentInfo.df[:s]))
                                                                                  + sum(currentInfo.dG[k][:y][g] * (modelInfo.xy[g] .- xⱼ[:y][g]) for g in keys(currentInfo.df[:y])) 
@@ -66,16 +67,16 @@ function setupLevelSetMethod(; stageDecision::Dict{Symbol, Dict{Int64, Float64}}
                                         Output_Gap::Bool = false, max_iter::Int64 =100, ℓ::Real = .0, λ::Union{Real, Nothing} = .1
                             )
     if cutSelection == "SMC" 
-        λ_value = λ; Output = 0; threshold = 1e-3 * f_star_value; 
+        λ_value = λ; Output = 0; threshold = 1e-3;
         levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, max_iter, Output, Output_Gap, f_star_value);
         x_interior = nothing;
     elseif cutSelection == "ELC"
-        λ_value = λ; Output = 0; threshold = 5e-3 * f_star_value; 
+        λ_value = λ; Output = 0; threshold = 1e-3;
         levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, max_iter, Output, Output_Gap, f_star_value);
         x_interior = Dict{Symbol, Dict{Int64, Float64}}(:s => Dict( g => stageDecision[:s][g] * ℓ  .+ (1 - ℓ)/2 for g in keys(stageDecision[:y])), 
                                                         :y => Dict( g => stageDecision[:y][g] * ℓ  .+ (1 - ℓ)/2 for g in keys(stageDecision[:s])));
     elseif cutSelection == "LC"
-        λ_value = λ; Output = 0; threshold = 1e-5 * f_star_value; 
+        λ_value = λ; Output = 0; threshold = 1e-3;
         levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, max_iter, Output, Output_Gap, f_star_value);
         x_interior = nothing;
     end
@@ -114,78 +115,151 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Float64}} = x₀,
                         model::Model = model, 
                         f_star_value::Float64 = f_star_value, x_interior::Union{Dict{Symbol, Dict{Int64, Float64}}, Nothing} = nothing, 
                         stageDecision::Dict{Symbol, Dict{Int64, Float64}} = stageDecision, 
-                        cutSelection::String = cutSelection, 
+                        cutSelection::String = cutSelection, tightness::Bool = false,
                         paramDemand::ParamDemand = paramDemand, paramOPF::ParamOPF = paramOPF, indexSets::IndexSets = indexSets, 
-                        ϵ::Float64 = 1e-4, δ::Float64 = 50.)
-    if cutSelection == "ELC"
-        # objective function
-        @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
-                                    paramOPF.intercept[g] * model[:y][g] +
-                                        paramOPF.C_start[g] * model[:v][g] + 
-                                            paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
-                                                sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
-                                                    sum(x₀[:s][g] * (stageDecision[:s][g] - model[:s_copy][g]) + x₀[:y][g] * (stageDecision[:y][g] - model[:y_copy][g]) for g in indexSets.G) 
-                    );
-        ## ==================================================== solve the model and display the result ==================================================== ##
-        optimize!(model);
-        F  = JuMP.objective_value(model);
-        negative_∇F = Dict( :s => Dict(g => JuMP.value(model[:s_copy][g]) - stageDecision[:s][g] for g in indexSets.G),
-                            :y => Dict(g => JuMP.value(model[:y_copy][g]) - stageDecision[:y][g] for g in indexSets.G)
-                            );
+                        δ::Float64 = 50.)
+    if tightness
+        if cutSelection == "ELC"
+            # objective function
+            @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
+                                        paramOPF.intercept[g] * model[:y][g] +
+                                            paramOPF.C_start[g] * model[:v][g] + 
+                                                paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
+                                                    sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
+                                                        sum(x₀[:s][g] * (stageDecision[:s][g] - model[:s_copy][g]) + x₀[:y][g] * (stageDecision[:y][g] - model[:y_copy][g]) for g in indexSets.G) 
+                        );
+            ## ==================================================== solve the model and display the result ==================================================== ##
+            optimize!(model);
+            F  = JuMP.objective_value(model);
+            negative_∇F = Dict( :s => Dict(g => JuMP.value(model[:s_copy][g]) - stageDecision[:s][g] for g in indexSets.G),
+                                :y => Dict(g => round(JuMP.value(model[:y_copy][g]), digits = 2) - stageDecision[:y][g] for g in indexSets.G)
+                                );
 
-        currentInfo = CurrentInfo(  x₀,                                                                                                                                                                ## current point
-                                    - F - sum(x₀[:s][g] * (x_interior[:s][g] .- stageDecision[:s][g]) + x₀[:y][g] * (x_interior[:y][g] - stageDecision[:y][g]) for g in indexSets.G),                   ## obj function value
-                                    Dict(1 => f_star_value - F - δ),                                                                                                                              ## constraint value
-                                    Dict{Symbol, Dict{Int64, Float64}}( :s => Dict(g => negative_∇F[:s][g] + stageDecision[:s][g] - x_interior[:s][g] for g in indexSets.G),
-                                                                        :y => Dict(g => negative_∇F[:y][g] + stageDecision[:y][g] - x_interior[:y][g] for g in indexSets.G)),                           ## obj gradient
-                                    Dict(1 => negative_∇F )                                                                                                                                             ## constraint gradient
-                                    );
-    elseif cutSelection == "LC"
-        # objective function
-        @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
-                                    paramOPF.intercept[g] * model[:y][g] +
-                                        paramOPF.C_start[g] * model[:v][g] + 
-                                            paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
-                                                sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) -
-                                                    sum(x₀[:s][g] * model[:s_copy][g] + x₀[:y][g] * model[:y_copy][g] for g in indexSets.G) 
-                    );
-        ## ==================================================== solve the model and display the result ==================================================== ##
-        optimize!(model);
-        F  = JuMP.objective_value(model);
-        negative_∇F = Dict( :s => Dict(g => JuMP.value(model[:s_copy][g]) for g in indexSets.G),
-                            :y => Dict(g => JuMP.value(model[:y_copy][g]) for g in indexSets.G)
-                            );
-
-                         
-        currentInfo = CurrentInfo( x₀,                                                                                                                                                  ## current point
-                                    - F - sum(x₀[:s][g] * stageDecision[:s][g] + x₀[:y][g] * stageDecision[:y][g] for g in indexSets.G),                                                          ## obj function value
-                                    Dict(1 => 0.0 ),                                                                                                                                    ## constraint value
-                                    Dict{Symbol, Dict{Int64, Float64}}(  :s => Dict(g => negative_∇F[:s][g] - stageDecision[:s][g] for g in indexSets.G),
-                                                                    :y => Dict(g => negative_∇F[:y][g] - stageDecision[:y][g] for g in indexSets.G)),                                   ## obj gradient
-                                    Dict(1 => Dict{Symbol, Dict{Int64, Float64}}(:s => Dict(g => .0 for g in indexSets.G), :y => Dict(g => .0 for g in indexSets.G)))                   ## constraint gradient
+            currentInfo = CurrentInfo(  x₀,                                                                                                                                                                ## current point
+                                        - F - sum(x₀[:s][g] * (x_interior[:s][g] .- stageDecision[:s][g]) + x₀[:y][g] * (x_interior[:y][g] - stageDecision[:y][g]) for g in indexSets.G),                   ## obj function value
+                                        Dict(1 => f_star_value - F - δ),                                                                                                                              ## constraint value
+                                        Dict{Symbol, Dict{Int64, Float64}}( :s => Dict(g => negative_∇F[:s][g] + stageDecision[:s][g] - x_interior[:s][g] for g in indexSets.G),
+                                                                            :y => Dict(g => negative_∇F[:y][g] + stageDecision[:y][g] - x_interior[:y][g] for g in indexSets.G)),                           ## obj gradient
+                                        Dict(1 => negative_∇F )                                                                                                                                             ## constraint gradient
                                         );
-    elseif cutSelection == "SMC"
-        # objective function
-        @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
-                                    paramOPF.intercept[g] * model[:y][g] +
-                                        paramOPF.C_start[g] * model[:v][g] + 
-                                            paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
-                                                sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
-                                                    sum(x₀[:s][g] * (stageDecision[:s][g] - model[:s_copy][g]) + x₀[:y][g] * (stageDecision[:y][g] - model[:y_copy][g]) for g in indexSets.G) 
-                    );
-        ## ==================================================== solve the model and display the result ==================================================== ##
-        optimize!(model)
-        F  = JuMP.objective_value(model);
-        negative_∇F = Dict( :s => Dict(g => JuMP.value(model[:s_copy][g]) - stageDecision[:s][g] for g in indexSets.G),
-                            :y => Dict(g => JuMP.value(model[:y_copy][g]) - stageDecision[:y][g] for g in indexSets.G)
-                            );
+        elseif cutSelection == "LC"
+            # objective function
+            @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
+                                        paramOPF.intercept[g] * model[:y][g] +
+                                            paramOPF.C_start[g] * model[:v][g] + 
+                                                paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
+                                                    sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) -
+                                                        sum(x₀[:s][g] * model[:s_copy][g] + x₀[:y][g] * model[:y_copy][g] for g in indexSets.G) 
+                        );
+            ## ==================================================== solve the model and display the result ==================================================== ##
+            optimize!(model);
+            F  = JuMP.objective_value(model);
+            negative_∇F = Dict( :s => Dict(g => JuMP.value(model[:s_copy][g]) for g in indexSets.G),
+                                :y => Dict(g => round(JuMP.value(model[:y_copy][g]), digits = 2) for g in indexSets.G)
+                                );
 
-        currentInfo = CurrentInfo( x₀,                                                                                                ## current point
-                                    1/2 * sum(x₀[:s][g] * x₀[:s][g] for g in indexSets.G) + 1/2 * sum(x₀[:y][g] * x₀[:y][g] for g in indexSets.G),                                        ## obj function value
-                                    Dict(1 => f_star_value - F - δ),                                                            ## constraint value
-                                    x₀,                                                                                               ## obj gradient
-                                    Dict(1 => negative_∇F )                                                                           ## constraint gradient
-                                    );
+                            
+            currentInfo = CurrentInfo( x₀,                                                                                                                                                  ## current point
+                                        - F - sum(x₀[:s][g] * stageDecision[:s][g] + x₀[:y][g] * stageDecision[:y][g] for g in indexSets.G),                                                          ## obj function value
+                                        Dict(1 => 0.0 ),                                                                                                                                    ## constraint value
+                                        Dict{Symbol, Dict{Int64, Float64}}(  :s => Dict(g => negative_∇F[:s][g] - stageDecision[:s][g] for g in indexSets.G),
+                                                                        :y => Dict(g => negative_∇F[:y][g] - stageDecision[:y][g] for g in indexSets.G)),                                   ## obj gradient
+                                        Dict(1 => Dict{Symbol, Dict{Int64, Float64}}(:s => Dict(g => .0 for g in indexSets.G), :y => Dict(g => .0 for g in indexSets.G)))                   ## constraint gradient
+                                            );
+        elseif cutSelection == "SMC"
+            # objective function
+            @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
+                                        paramOPF.intercept[g] * model[:y][g] +
+                                            paramOPF.C_start[g] * model[:v][g] + 
+                                                paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
+                                                    sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
+                                                        sum(x₀[:s][g] * (stageDecision[:s][g] - model[:s_copy][g]) + x₀[:y][g] * (stageDecision[:y][g] - model[:y_copy][g]) for g in indexSets.G) 
+                        );
+            ## ==================================================== solve the model and display the result ==================================================== ##
+            optimize!(model)
+            F  = JuMP.objective_value(model);
+            negative_∇F = Dict( :s => Dict(g => JuMP.value(model[:s_copy][g]) - stageDecision[:s][g] for g in indexSets.G),
+                                :y => Dict(g => round(JuMP.value(model[:y_copy][g]), digits = 2) - stageDecision[:y][g] for g in indexSets.G)
+                                );
+
+            currentInfo = CurrentInfo( x₀,                                                                                                ## current point
+                                        1/2 * sum(x₀[:s][g] * x₀[:s][g] + x₀[:y][g] * x₀[:y][g] for g in indexSets.G),                    ## obj function value
+                                        Dict(1 => f_star_value - F - δ),                                                                  ## constraint value
+                                        x₀,                                                                                               ## obj gradient
+                                        Dict(1 => negative_∇F )                                                                           ## constraint gradient
+                                        );
+        end
+    else
+        if cutSelection == "ELC"
+            # objective function
+            @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
+                                        paramOPF.intercept[g] * model[:y][g] +
+                                            paramOPF.C_start[g] * model[:v][g] + 
+                                                paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
+                                                    sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
+                                                        sum(x₀[:s][g] * (stageDecision[:s][g] - model[:s_copy][g]) + x₀[:y][g] * (stageDecision[:y][g] - model[:y_copy][g]) for g in indexSets.G) 
+                        );
+            ## ==================================================== solve the model and display the result ==================================================== ##
+            optimize!(model);
+            F  = JuMP.objective_value(model);
+            negative_∇F = Dict( :s => Dict(g => JuMP.value(model[:s_copy][g]) - stageDecision[:s][g] for g in indexSets.G),
+                                :y => Dict(g => JuMP.value(model[:y_copy][g]) - stageDecision[:y][g] for g in indexSets.G)
+                                );
+    
+            currentInfo = CurrentInfo(  x₀,                                                                                                                                                                ## current point
+                                        - F - sum(x₀[:s][g] * (x_interior[:s][g] .- stageDecision[:s][g]) + x₀[:y][g] * (x_interior[:y][g] - stageDecision[:y][g]) for g in indexSets.G),                   ## obj function value
+                                        Dict(1 => f_star_value - F - δ),                                                                                                                              ## constraint value
+                                        Dict{Symbol, Dict{Int64, Float64}}( :s => Dict(g => negative_∇F[:s][g] + stageDecision[:s][g] - x_interior[:s][g] for g in indexSets.G),
+                                                                            :y => Dict(g => negative_∇F[:y][g] + stageDecision[:y][g] - x_interior[:y][g] for g in indexSets.G)),                           ## obj gradient
+                                        Dict(1 => negative_∇F )                                                                                                                                             ## constraint gradient
+                                        );
+        elseif cutSelection == "LC"
+            # objective function
+            @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
+                                        paramOPF.intercept[g] * model[:y][g] +
+                                            paramOPF.C_start[g] * model[:v][g] + 
+                                                paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
+                                                    sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) -
+                                                        sum(x₀[:s][g] * model[:s_copy][g] + x₀[:y][g] * model[:y_copy][g] for g in indexSets.G) 
+                        );
+            ## ==================================================== solve the model and display the result ==================================================== ##
+            optimize!(model);
+            F  = JuMP.objective_value(model);
+            negative_∇F = Dict( :s => Dict(g => JuMP.value(model[:s_copy][g]) for g in indexSets.G),
+                                :y => Dict(g => JuMP.value(model[:y_copy][g]) for g in indexSets.G)
+                                );
+    
+                             
+            currentInfo = CurrentInfo( x₀,                                                                                                                                                  ## current point
+                                        - F - sum(x₀[:s][g] * stageDecision[:s][g] + x₀[:y][g] * stageDecision[:y][g] for g in indexSets.G),                                                          ## obj function value
+                                        Dict(1 => 0.0 ),                                                                                                                                    ## constraint value
+                                        Dict{Symbol, Dict{Int64, Float64}}(  :s => Dict(g => negative_∇F[:s][g] - stageDecision[:s][g] for g in indexSets.G),
+                                                                        :y => Dict(g => negative_∇F[:y][g] - stageDecision[:y][g] for g in indexSets.G)),                                   ## obj gradient
+                                        Dict(1 => Dict{Symbol, Dict{Int64, Float64}}(:s => Dict(g => .0 for g in indexSets.G), :y => Dict(g => .0 for g in indexSets.G)))                   ## constraint gradient
+                                            );
+        elseif cutSelection == "SMC"
+            # objective function
+            @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
+                                        paramOPF.intercept[g] * model[:y][g] +
+                                            paramOPF.C_start[g] * model[:v][g] + 
+                                                paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
+                                                    sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
+                                                        sum(x₀[:s][g] * (stageDecision[:s][g] - model[:s_copy][g]) + x₀[:y][g] * (stageDecision[:y][g] - model[:y_copy][g]) for g in indexSets.G) 
+                        );
+            ## ==================================================== solve the model and display the result ==================================================== ##
+            optimize!(model)
+            F  = JuMP.objective_value(model);
+            negative_∇F = Dict( :s => Dict(g => JuMP.value(model[:s_copy][g]) - stageDecision[:s][g] for g in indexSets.G),
+                                :y => Dict(g => JuMP.value(model[:y_copy][g]) - stageDecision[:y][g] for g in indexSets.G)
+                                );
+    
+            currentInfo = CurrentInfo( x₀,                                                                                                ## current point
+                                        1/2 * sum(x₀[:s][g] * x₀[:s][g] + x₀[:y][g] * x₀[:y][g] for g in indexSets.G),                    ## obj function value
+                                        Dict(1 => f_star_value - F - δ),                                                                  ## constraint value
+                                        x₀,                                                                                               ## obj gradient
+                                        Dict(1 => negative_∇F )                                                                           ## constraint gradient
+                                        );
+        end
     end
     return (currentInfo = currentInfo, currentInfo_f = F)
 end    
@@ -216,8 +290,8 @@ function LevelSetMethod_optimization!(; model::Model = model,
                                         cutSelection::String = cutSelection,## "ELC", "LC", "ShrinkageLC" 
                                         stageDecision::Dict{Symbol, Dict{Int64, Float64}} = stageDecision,
                                         x_interior::Union{Dict{Symbol, Dict{Int64, Float64}}, Nothing} = nothing, 
-                                        x₀::Dict{Symbol, Dict{Int64, Float64}} = x₀, tightness::Bool = false,
-                                        indexSets::IndexSets = indexSets, paramDemand::ParamDemand = paramDemand, paramOPF::ParamOPF = paramOPF, ϵ::Float64 = 1e-4, δ::Float64 = 50.
+                                        x₀::Dict{Symbol, Dict{Int64, Float64}} = x₀, 
+                                        indexSets::IndexSets = indexSets, paramDemand::ParamDemand = paramDemand, paramOPF::ParamOPF = paramOPF, δ::Float64 = 50., tightness::Bool = false
                                         )
 
     ## ==================================================== auxiliary function for function information ==================================================== ##
@@ -231,7 +305,7 @@ function LevelSetMethod_optimization!(; model::Model = model,
 
     # trajectory
     currentInfo, currentInfo_f = function_info(x₀ = x₀, model = model, f_star_value = f_star_value, stageDecision = stageDecision, cutSelection = cutSelection, x_interior = x_interior,
-                                                    paramDemand = paramDemand, paramOPF = paramOPF, indexSets = indexSets, ϵ = ϵ, δ = δ);
+                                                    paramDemand = paramDemand, paramOPF = paramOPF, indexSets = indexSets, δ = δ, tightness = tightness);
 
     functionHistory = FunctionHistory(  Dict(1 => currentInfo.f), 
                                         Dict(1 => maximum(currentInfo.G[k] for k in keys(currentInfo.G)) )
@@ -241,9 +315,10 @@ function LevelSetMethod_optimization!(; model::Model = model,
     oracleModel = Model(
         optimizer_with_attributes(
             ()->Gurobi.Optimizer(GRB_ENV), 
-            "OutputFlag" => Output, 
-            "Threads" => 0)
-            );
+            "Threads" => 0, 
+            "MIPGap" => 1e-4, 
+            # "TimeLimit" => 5, 
+            "OutputFlag" => Output));
 
     ## ==================================================== Levelset Method ============================================== ##
     para_oracle_bound = abs(currentInfo.f);
@@ -258,12 +333,12 @@ function LevelSetMethod_optimization!(; model::Model = model,
 
 
     nxtModel = Model(
-        optimizer_with_attributes(
-        ()->Gurobi.Optimizer(GRB_ENV), 
-        "OutputFlag" => Output, 
-        "Threads" => 0)
-        )
-
+                optimizer_with_attributes(
+                ()->Gurobi.Optimizer(GRB_ENV),  
+                "Threads" => 0, 
+                "MIPGap" => 1e-4, 
+                "TimeLimit" => 5, 
+                "OutputFlag" => Output));
     @variable(nxtModel, xs[G]);
     @variable(nxtModel, xy[G]);
     @variable(nxtModel, z1);
@@ -275,8 +350,8 @@ function LevelSetMethod_optimization!(; model::Model = model,
     if cutSelection == "ELC"
         cutInfo =  [ - currentInfo.f - sum(currentInfo.x[:s][g] * x_interior[:s][g] + currentInfo.x[:y][g] * x_interior[:y][g] for g in G), currentInfo.x] 
     elseif cutSelection == "LC"
-        # cutInfo =  [ - currentInfo.f - sum(currentInfo.x[:s][g] * stageDecision[:s][g] + currentInfo.x[:y][g] * stageDecision[:y][g] for g in G), currentInfo.x] 
-        cutInfo =  [ currentInfo_f, currentInfo.x] 
+        cutInfo =  [ - currentInfo.f - sum(currentInfo.x[:s][g] * stageDecision[:s][g] + currentInfo.x[:y][g] * stageDecision[:y][g] for g in G), currentInfo.x] 
+        # cutInfo =  [ currentInfo_f, currentInfo.x] 
     elseif cutSelection == "SMC"
         cutInfo =  [ currentInfo_f - sum(currentInfo.x[:s][g] * stageDecision[:s][g] + currentInfo.x[:y][g] * stageDecision[:y][g] for g in G), currentInfo.x] 
     end 
@@ -288,8 +363,8 @@ function LevelSetMethod_optimization!(; model::Model = model,
         if st == MOI.OPTIMAL
             f_star = JuMP.objective_value(oracleModel);
         else 
-            @info "Oracle Model is not optimal!"
-            return cutInfo
+            # @info "Oracle Model is $(st)!"
+            return (cutInfo = cutInfo, iter = iter)
         end
 
         # formulate alpha model
@@ -313,8 +388,8 @@ function LevelSetMethod_optimization!(; model::Model = model,
             if cutSelection == "ELC"
                 cutInfo =  [ - currentInfo.f - sum(currentInfo.x[:s][g] * x_interior[:s][g] + currentInfo.x[:y][g] * x_interior[:y][g] for g in G), currentInfo.x] 
             elseif cutSelection == "LC"
-                cutInfo =  [ currentInfo_f, currentInfo.x] 
-                # cutInfo =  [ - currentInfo.f - sum(currentInfo.x[:s][g] * stageDecision[:s][g] + currentInfo.x[:y][g] * stageDecision[:y][g] for g in G), currentInfo.x] 
+                # cutInfo =  [ currentInfo_f, currentInfo.x] 
+                cutInfo =  [ - currentInfo.f - sum(currentInfo.x[:s][g] * stageDecision[:s][g] + currentInfo.x[:y][g] * stageDecision[:y][g] for g in G), currentInfo.x] 
             elseif cutSelection == "SMC"
                 cutInfo =  [ currentInfo_f - sum(currentInfo.x[:s][g] * stageDecision[:s][g] + currentInfo.x[:y][g] * stageDecision[:y][g] for g in G), currentInfo.x] 
             end 
@@ -332,15 +407,15 @@ function LevelSetMethod_optimization!(; model::Model = model,
         w = α * f_star;
         W = minimum( α * functionHistory.f_his[j] + (1-α) * functionHistory.G_max_his[j] for j in 1:iter);
 
-        λ = iter ≤ 10 ? 0.05 : 0.15;
-        λ = iter ≥ 20 ? 0.25 : λ;
-        λ = iter ≥ 30 ? 0.35 : λ;
-        λ = iter ≥ 40 ? 0.45 : λ;
-        λ = iter ≥ 50 ? 0.55 : λ;
-        λ = iter ≥ 60 ? 0.65 : λ;
-        λ = iter ≥ 70 ? 0.75 : λ;
-        λ = iter ≥ 85 ? 0.85 : λ;
-        λ = iter ≥ 90 ? 0.95 : λ;
+        # λ = iter ≤ 10 ? 0.05 : 0.15;
+        # λ = iter ≥ 20 ? 0.25 : λ;
+        # λ = iter ≥ 30 ? 0.35 : λ;
+        # λ = iter ≥ 40 ? 0.45 : λ;
+        # λ = iter ≥ 50 ? 0.55 : λ;
+        # λ = iter ≥ 60 ? 0.65 : λ;
+        # λ = iter ≥ 70 ? 0.75 : λ;
+        # λ = iter ≥ 85 ? 0.85 : λ;
+        # λ = iter ≥ 90 ? 0.95 : λ;
         
         level = w + λ * (W - w)
         
@@ -367,9 +442,12 @@ function LevelSetMethod_optimization!(; model::Model = model,
         elseif st == MOI.NUMERICAL_ERROR ## need to figure out why this case happened and fix it
             # @info "Numerical Error occures! -- Build a new nxtModel"
             nxtModel = Model(
-                optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-                "OutputFlag" => Output, 
-                "Threads" => 0));
+                optimizer_with_attributes(
+                ()->Gurobi.Optimizer(GRB_ENV),  
+                "Threads" => 0, 
+                "MIPGap" => 1e-4, 
+                "TimeLimit" => 5, 
+                "OutputFlag" => Output));
             @variable(nxtModel, xs[G]);
             @variable(nxtModel, xy[G]);
             @variable(nxtModel, z1);
@@ -383,7 +461,7 @@ function LevelSetMethod_optimization!(; model::Model = model,
             optimize!(nxtModel);
             st = termination_status(nxtModel);
             if st != MOI.OPTIMAL 
-                return cutInfo
+                return (cutInfo = cutInfo, iter = iter)
             end
             x_nxt = Dict{Symbol, Dict{Int64, Float64}}(:s => Dict(g => JuMP.value(xs[g]) for g in G), 
                                                         :y => Dict(g => JuMP.value(xy[g]) for g in G)
@@ -395,7 +473,7 @@ function LevelSetMethod_optimization!(; model::Model = model,
             optimize!(nxtModel);
             st = termination_status(nxtModel);
             if st != MOI.OPTIMAL 
-                return cutInfo
+                return (cutInfo = cutInfo, iter = iter)
             end
             x_nxt = Dict{Symbol, Dict{Int64, Float64}}(:s => Dict(g => JuMP.value(xs[g]) for g in G), 
                                                         :y => Dict(g => JuMP.value(xy[g]) for g in G)
@@ -403,13 +481,19 @@ function LevelSetMethod_optimization!(; model::Model = model,
         end
 
         ## stop rule: gap ≤ .07 * function-value && constraint ≤ 0.05 * LagrangianFunction
-        if ( Δ ≤ threshold * 10 && currentInfo.G[1] ≤ threshold ) || (iter > max_iter)
-            return cutInfo
+        if cutSelection == "LC"
+            if Δ ≤ .5 || (iter > max_iter)
+                return (cutInfo = cutInfo, iter = iter)
+            end
+        else
+            if Δ ≤ threshold * f_star_value || iter > max_iter
+                return (cutInfo = cutInfo, iter = iter)
+            end
         end
         
         ## ==================================================== end ============================================== ##
         ## save the trajectory
-        currentInfo, currentInfo_f = function_info(x₀ = x_nxt, model = model, f_star_value = f_star_value, x_interior = x_interior, stageDecision = stageDecision, cutSelection = cutSelection, paramDemand = paramDemand, paramOPF = paramOPF, indexSets = indexSets, ϵ = ϵ, δ = δ)
+        currentInfo, currentInfo_f = function_info(x₀ = x_nxt, model = model, f_star_value = f_star_value, x_interior = x_interior, stageDecision = stageDecision, cutSelection = cutSelection, paramDemand = paramDemand, paramOPF = paramOPF, indexSets = indexSets, tightness = tightness, δ = δ)
         iter = iter + 1;
         functionHistory.f_his[iter] = currentInfo.f;
         functionHistory.G_max_his[iter] = maximum(currentInfo.G[k] for k in keys(currentInfo.G));
