@@ -22,10 +22,10 @@ include("src/UnitCommitment/SDDP/extForm.jl");
 #############################################################################################
 ####################################### Run Experiment ######################################
 #############################################################################################
-Output_Gap = false; max_iter = 150; MaxIter = 300; cutSelection = "SMC"; δ = 1.; numScenarios = 100; tightness = true; case = "case30"; # "RTS_GMLC", "case30"
+Output_Gap = false; max_iter = 150; MaxIter = 100; cutSelection = "SMC"; δ = .1; numScenarios = 100; tightness = true; case = "case30"; # "RTS_GMLC", "case30"
 T = 6; num = 5; TimeLimit = 60 * 60 * 1.; OPT = Inf; 
 for cutSelection in ["LC", "ELC", "SMC"]
-    for T in [3, 6, 8]
+    for T in [6, 8, 12]
         for num in [3, 5, 10]
             indexSets = load("src/UnitCommitment/experiment_$case/stage($T)real($num)/indexSets.jld2")["indexSets"]
             paramOPF = load("src/UnitCommitment/experiment_$case/stage($T)real($num)/paramOPF.jld2")["paramOPF"]
@@ -44,3 +44,5 @@ for cutSelection in ["LC", "ELC", "SMC"]
         end
     end
 end
+T = 12; num = 10; cutSelection = "SMC";
+sddpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddpResult-$cutSelection-$tightness.jld2")["sddpResult"][:solHistory]

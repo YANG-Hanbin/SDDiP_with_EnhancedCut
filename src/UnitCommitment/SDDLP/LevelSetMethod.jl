@@ -69,17 +69,17 @@ function setupLevelSetMethod(; stageDecision::Dict{Symbol, Dict{Int64, Any}} = s
                                         Output_Gap::Bool = false, ℓ::Real = .0, λ::Union{Real, Nothing} = .1  
                             )
     if cutSelection == "SMC" 
-        λ_value = λ; Output = 0; threshold = 1e-3; 
+        λ_value = λ; Output = 0; threshold = 1e-4; 
         levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e10, max_iter, Output, Output_Gap, f_star_value);
         x_interior = nothing;
     elseif cutSelection == "ELC"
-        λ_value = λ; Output = 0; threshold = 1e-3; 
+        λ_value = λ; Output = 0; threshold = 1e-4; 
         levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e10, max_iter, Output, Output_Gap, f_star_value);
         x_interior = Dict{Symbol, Dict{Int64, Any}}(:s => Dict( g => stageDecision[:s][g] * ℓ for g in keys(stageDecision[:s])), 
                                                         :y => Dict( g => stageDecision[:y][g] * ℓ for g in keys(stageDecision[:y])),
                                                         :sur => Dict(g => Dict(k => stageDecision[:sur][g][k] * ℓ for k in keys(stageDecision[:sur][g])) for g in keys(stageDecision[:y])));
     elseif cutSelection == "LC"
-        λ_value = λ; Output = 0; threshold = 1e-3; 
+        λ_value = λ; Output = 0; threshold = 1e-4; 
         levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e10, max_iter, Output, Output_Gap, f_star_value);
         x_interior = nothing;
     end
@@ -492,11 +492,16 @@ function LevelSetMethod_optimization!(; model::Model = model,
                                                     for g in G) #+ 2 * (α * z1 + (1 - α) * y1) * τₖ 
                                     );
             optimize!(nxtModel);
-            x_nxt = Dict{Symbol, Dict{Int64, Any}}(:s => Dict(g => JuMP.value(xs[g]) for g in G), 
-                                                        :y => Dict(g => JuMP.value(xy[g]) for g in G),
-                                                        :sur => Dict(g => Dict(k => JuMP.value(sur[g, k]) for k in keys(stageDecision[:sur][g])) for g in G)
-                                                    );
-            λₖ = abs(dual(levelConstraint)); μₖ = λₖ + 1; 
+            st = termination_status(nxtModel);
+            if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
+                λₖ = abs(dual(levelConstraint)); μₖ = λₖ + 1; 
+                x_nxt = Dict{Symbol, Dict{Int64, Any}}(:s => Dict(g => JuMP.value(xs[g]) for g in G), 
+                                                            :y => Dict(g => JuMP.value(xy[g]) for g in G),
+                                                            :sur => Dict(g => Dict(k => JuMP.value(sur[g, k]) for k in keys(stageDecision[:sur][g])) for g in G)
+                                                        );
+            else
+                return (cutInfo = cutInfo, iter = iter)
+            end
         else
             # @info "Re-compute Next Iteration Point -- change to a safe level!"
             set_normalized_rhs( levelConstraint, w + .99 * (W - w))

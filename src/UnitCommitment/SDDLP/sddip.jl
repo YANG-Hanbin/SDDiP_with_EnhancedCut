@@ -109,65 +109,6 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         end
 
         ####################################################### Backward Steps ###########################################################
-        for t = reverse(2:indexSets.T)
-            for ω in [1]#keys(Ξ̃)
-                # λ₀ = 0.0; λ₁ = Dict{Symbol, Dict{Int64, Float64}}(); λ₁[:s] = Dict{Int64, Float64}(g => 0.0 for g in indexSets.G); λ₁[:y] = Dict{Int64, Float64}(g => 0.0 for g in indexSets.G);
-                for n in keys(scenarioTree.tree[t].nodes)
-                    backwardModification!(model = backwardInfoList[t], randomVariables = scenarioTree.tree[t].nodes[n], paramOPF = paramOPF, indexSets = indexSets, paramDemand = paramDemand);
-                    
-                    (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(stageDecision = solCollection[i, t-1, ω].stageSolution, f_star_value = solCollection[i, t, ω].OPT, cutSelection = "LC", max_iter = max_iter, paramOPF = paramOPF,
-                                                                            Output_Gap = Output_Gap, ℓ = .0, λ = .1 );
-                    ((λ₀, λ₁), LMiter) = LevelSetMethod_optimization!(levelSetMethodParam = levelSetMethodParam, model = backwardInfoList[t], cutSelection = "LC", indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF,
-                                                            stageDecision = solCollection[i, t-1, ω].stageSolution,
-                                                                    x_interior = nothing, x₀ = x₀, tightness = tightness, δ = δ);
-                    f_star_value = λ₀ + sum(λ₁[:s][g] * solCollection[i, t-1, ω].stageSolution[:s][g] + 
-                                                λ₁[:y][g] * solCollection[i, t-1, ω].stageSolution[:y][g] + 
-                                                    sum(λ₁[:sur][g][k] * solCollection[i, t-1, ω].stageSolution[:sur][g][k] for k in keys(solCollection[i, t-1, ω].stageSolution[:sur][g])) for g in indexSets.G
-                                                    );
-                    # add cut to both backward models and forward models
-                    # @constraint(forwardInfoList[t-1], forwardInfoList[t-1][:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + 
-                    #                                 sum(λ₁[:s][g] * forwardInfoList[t-1][:s][g] + λ₁[:y][g] * forwardInfoList[t-1][:y][g] for g in indexSets.G) + 
-                    #                                     sum(sum(λ₁[:sur][g][k] * forwardInfoList[t-1][:sur][g, k] for k in keys(solCollection[i, t-1, ω].stageSolution[:sur][g])) for g in indexSets.G));
-                    # @constraint(backwardInfoList[t-1], backwardInfoList[t-1][:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + 
-                    #                                 sum(λ₁[:s][g] * backwardInfoList[t-1][:s][g] + λ₁[:y][g] * backwardInfoList[t-1][:y][g] for g in indexSets.G) + 
-                    #                                     sum(sum(λ₁[:sur][g][k] * backwardInfoList[t-1][:sur][g, k] for k in keys(solCollection[i, t-1, ω].stageSolution[:sur][g])) for g in indexSets.G));
-                    ## using enhancement cuts under conditions
-                    if cutSelection != "LC" # && gap ≥ 2.0
-                        if i ≤ 3
-                            ℓ = 0.0                     # ℓ is used to control the interior point
-                        else
-                            ℓ = rand([.0, .5, .8])
-                        end
-                        (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(stageDecision = solCollection[i, t-1, ω].stageSolution, f_star_value = f_star_value, cutSelection = cutSelection, max_iter = max_iter, paramOPF = paramOPF,
-                                                                                    Output_Gap = Output_Gap, ℓ = ℓ, λ = .3);
-                        # model = backwardInfoList[t]; stageDecision = solCollection[i, t-1, ω].stageSolution;
-                        ((λ₀, λ₁), LMiter) = LevelSetMethod_optimization!(levelSetMethodParam = levelSetMethodParam, model = backwardInfoList[t], cutSelection = cutSelection, indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF,
-                                                                    stageDecision = solCollection[i, t-1, ω].stageSolution, 
-                                                                            x_interior = x_interior, x₀ = x₀, tightness = tightness, δ = δ);
-                        # add cut to both backward models and forward models
-                        @constraint(forwardInfoList[t-1], forwardInfoList[t-1][:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + 
-                                                        sum(λ₁[:s][g] * forwardInfoList[t-1][:s][g] + λ₁[:y][g] * forwardInfoList[t-1][:y][g] for g in indexSets.G) + 
-                                                            sum(sum(λ₁[:sur][g][k] * forwardInfoList[t-1][:sur][g, k] for k in keys(solCollection[i, t-1, ω].stageSolution[:sur][g])) for g in indexSets.G));
-                        @constraint(backwardInfoList[t-1], backwardInfoList[t-1][:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + 
-                                                        sum(λ₁[:s][g] * backwardInfoList[t-1][:s][g] + λ₁[:y][g] * backwardInfoList[t-1][:y][g] for g in indexSets.G) + 
-                                                            sum(sum(λ₁[:sur][g][k] * backwardInfoList[t-1][:sur][g, k] for k in keys(solCollection[i, t-1, ω].stageSolution[:sur][g])) for g in indexSets.G));
-                    
-                    else
-                        @constraint(forwardInfoList[t-1], forwardInfoList[t-1][:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + 
-                                                        sum(λ₁[:s][g] * forwardInfoList[t-1][:s][g] + λ₁[:y][g] * forwardInfoList[t-1][:y][g] for g in indexSets.G) + 
-                                                            sum(sum(λ₁[:sur][g][k] * forwardInfoList[t-1][:sur][g, k] for k in keys(solCollection[i, t-1, ω].stageSolution[:sur][g])) for g in indexSets.G));
-                        @constraint(backwardInfoList[t-1], backwardInfoList[t-1][:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + 
-                                                        sum(λ₁[:s][g] * backwardInfoList[t-1][:s][g] + λ₁[:y][g] * backwardInfoList[t-1][:y][g] for g in indexSets.G) + 
-                                                            sum(sum(λ₁[:sur][g][k] * backwardInfoList[t-1][:sur][g, k] for k in keys(solCollection[i, t-1, ω].stageSolution[:sur][g])) for g in indexSets.G));
-                    end
-
-                end  
-                LM_iter += LMiter;          
-            end
-        end
-        LM_iter = floor(Int64, LM_iter/sum(length(scenarioTree.tree[t].nodes) for t in 2:indexSets.T));
-        
-        ####################################################### Backward Steps ###########################################################
         for t in 1:indexSets.T-1 
             for ω in  [1]#keys(Ξ̃)
                 dev = Dict()
@@ -179,7 +120,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                     end
                 end
                 g = [k for (k, v) in dev if v == maximum(values(dev))][1]
-                if dev[g] >= 1e-6
+                if dev[g] ≥ 1e-6
                     # find the active leaf node 
                     keys_with_value_1 = maximum([k for (k, v) in solCollection[i, t, ω].stageSolution[:sur][g] if v == 1])
                     # find the lb and ub of this leaf node 
@@ -235,9 +176,80 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                     # @constraint(backwardInfoList[t+1], backwardInfoList[t+1][:s][g] ≤ med + paramOPF.smax[g] * (1 - backwardInfoList[t+1][:sur][g, left]) );
                     # @constraint(backwardInfoList[t+1], backwardInfoList[t+1][:s][g] ≥ med -  paramOPF.smax[g] * (1 - backwardInfoList[t+1][:sur][g, right]));
                     # @constraint(backwardInfoList[t+1], backwardInfoList[t+1][:s][g] ≤ ub + paramOPF.smax[g] * (1 - backwardInfoList[t+1][:sur][g, right]) );
+
+                    ## update the stageDecision
+                    stageDecision = deepcopy(solCollection[i, t, ω].stageSolution);
+                    stageDecision[:sur][g] = Dict{Int64, Float64}()
+                    for k in StateVarList[t].leaf[g]
+                        stageDecision[:sur][g][k] = 0.0
+                    end
+                    stageDecision[:sur][g][left] = 1.0; 
+                    solCollection[i, t, ω] = ( stageSolution = deepcopy(stageDecision), 
+                                                stageValue = solCollection[i, t, ω].stageValue, 
+                                                OPT = solCollection[i, t, ω].OPT
+                                            );
                 end
             end
         end
+
+        ####################################################### Backward Steps ###########################################################
+        for t = reverse(2:indexSets.T)
+            for ω in [1]#keys(Ξ̃)
+                # λ₀ = 0.0; λ₁ = Dict{Symbol, Dict{Int64, Float64}}(); λ₁[:s] = Dict{Int64, Float64}(g => 0.0 for g in indexSets.G); λ₁[:y] = Dict{Int64, Float64}(g => 0.0 for g in indexSets.G);
+                for n in keys(scenarioTree.tree[t].nodes)
+                    backwardModification!(model = backwardInfoList[t], randomVariables = scenarioTree.tree[t].nodes[n], paramOPF = paramOPF, indexSets = indexSets, paramDemand = paramDemand);
+                    
+                    (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(stageDecision = solCollection[i, t-1, ω].stageSolution, f_star_value = solCollection[i, t, ω].OPT, cutSelection = "LC", max_iter = max_iter, paramOPF = paramOPF,
+                                                                            Output_Gap = Output_Gap, ℓ = .0, λ = .1 );
+                    ((λ₀, λ₁), LMiter) = LevelSetMethod_optimization!(levelSetMethodParam = levelSetMethodParam, model = backwardInfoList[t], cutSelection = "LC", indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF,
+                                                            stageDecision = solCollection[i, t-1, ω].stageSolution,
+                                                                    x_interior = nothing, x₀ = x₀, tightness = tightness, δ = δ);
+                    f_star_value = λ₀ + sum(λ₁[:s][g] * solCollection[i, t-1, ω].stageSolution[:s][g] + 
+                                                λ₁[:y][g] * solCollection[i, t-1, ω].stageSolution[:y][g] + 
+                                                    sum(λ₁[:sur][g][k] * solCollection[i, t-1, ω].stageSolution[:sur][g][k] for k in keys(solCollection[i, t-1, ω].stageSolution[:sur][g])) for g in indexSets.G
+                                                    );
+                    # add cut to both backward models and forward models
+                    # @constraint(forwardInfoList[t-1], forwardInfoList[t-1][:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + 
+                    #                                 sum(λ₁[:s][g] * forwardInfoList[t-1][:s][g] + λ₁[:y][g] * forwardInfoList[t-1][:y][g] for g in indexSets.G) + 
+                    #                                     sum(sum(λ₁[:sur][g][k] * forwardInfoList[t-1][:sur][g, k] for k in keys(solCollection[i, t-1, ω].stageSolution[:sur][g])) for g in indexSets.G));
+                    # @constraint(backwardInfoList[t-1], backwardInfoList[t-1][:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + 
+                    #                                 sum(λ₁[:s][g] * backwardInfoList[t-1][:s][g] + λ₁[:y][g] * backwardInfoList[t-1][:y][g] for g in indexSets.G) + 
+                    #                                     sum(sum(λ₁[:sur][g][k] * backwardInfoList[t-1][:sur][g, k] for k in keys(solCollection[i, t-1, ω].stageSolution[:sur][g])) for g in indexSets.G));
+                    ## using enhancement cuts under conditions
+                    if cutSelection != "LC" # && gap ≥ 2.0
+                        if i ≤ 3
+                            ℓ = 0.0                     # ℓ is used to control the interior point
+                        else
+                            ℓ = rand([.0, .5, .8])
+                        end
+                        (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(stageDecision = solCollection[i, t-1, ω].stageSolution, f_star_value = f_star_value, cutSelection = cutSelection, max_iter = max_iter, paramOPF = paramOPF,
+                                                                                    Output_Gap = Output_Gap, ℓ = ℓ, λ = .3);
+                        # model = backwardInfoList[t]; stageDecision = solCollection[i, t-1, ω].stageSolution;
+                        ((λ₀, λ₁), LMiter) = LevelSetMethod_optimization!(levelSetMethodParam = levelSetMethodParam, model = backwardInfoList[t], cutSelection = cutSelection, indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF,
+                                                                    stageDecision = solCollection[i, t-1, ω].stageSolution, 
+                                                                            x_interior = x_interior, x₀ = x₀, tightness = tightness, δ = δ);
+                        # add cut to both backward models and forward models
+                        @constraint(forwardInfoList[t-1], forwardInfoList[t-1][:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + 
+                                                        sum(λ₁[:s][g] * forwardInfoList[t-1][:s][g] + λ₁[:y][g] * forwardInfoList[t-1][:y][g] for g in indexSets.G) + 
+                                                            sum(sum(λ₁[:sur][g][k] * forwardInfoList[t-1][:sur][g, k] for k in keys(solCollection[i, t-1, ω].stageSolution[:sur][g])) for g in indexSets.G));
+                        @constraint(backwardInfoList[t-1], backwardInfoList[t-1][:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + 
+                                                        sum(λ₁[:s][g] * backwardInfoList[t-1][:s][g] + λ₁[:y][g] * backwardInfoList[t-1][:y][g] for g in indexSets.G) + 
+                                                            sum(sum(λ₁[:sur][g][k] * backwardInfoList[t-1][:sur][g, k] for k in keys(solCollection[i, t-1, ω].stageSolution[:sur][g])) for g in indexSets.G));
+                    
+                    else
+                        @constraint(forwardInfoList[t-1], forwardInfoList[t-1][:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + 
+                                                        sum(λ₁[:s][g] * forwardInfoList[t-1][:s][g] + λ₁[:y][g] * forwardInfoList[t-1][:y][g] for g in indexSets.G) + 
+                                                            sum(sum(λ₁[:sur][g][k] * forwardInfoList[t-1][:sur][g, k] for k in keys(solCollection[i, t-1, ω].stageSolution[:sur][g])) for g in indexSets.G));
+                        @constraint(backwardInfoList[t-1], backwardInfoList[t-1][:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + 
+                                                        sum(λ₁[:s][g] * backwardInfoList[t-1][:s][g] + λ₁[:y][g] * backwardInfoList[t-1][:y][g] for g in indexSets.G) + 
+                                                            sum(sum(λ₁[:sur][g][k] * backwardInfoList[t-1][:sur][g, k] for k in keys(solCollection[i, t-1, ω].stageSolution[:sur][g])) for g in indexSets.G));
+                    end
+                    LM_iter += LMiter;         
+                end   
+            end
+        end
+        LM_iter = floor(Int64, LM_iter/sum(length(scenarioTree.tree[t].nodes) for t in 2:indexSets.T));
+        
         t1 = now(); iter_time = (t1 - t0).value/1000; total_Time = (t1 - initial).value/1000; i += 1; 
 
     end

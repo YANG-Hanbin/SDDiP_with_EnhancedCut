@@ -22,8 +22,8 @@ include("src/UnitCommitment/SDDiP/extForm.jl");
 #############################################################################################
 ####################################### Run Experiment ######################################
 #############################################################################################
-Output_Gap = false; max_iter = 150; MaxIter = 300; cutSelection = "SMC"; δ = .0; numScenarios = 100; tightness = true; case = "case30"; # "RTS_GMLC", "case30"
-T = 6; num = 5; TimeLimit = 60 * 60 * 1.; OPT = Inf;
+Output_Gap = false; max_iter = 150; MaxIter = 100; cutSelection = "SMC"; δ = 1.; numScenarios = 100; tightness = true; case = "case30"; # "RTS_GMLC", "case30"
+T = 3; num = 3; TimeLimit = 60 * 60 * 1.; OPT = Inf;
 for cutSelection in ["LC", "ELC", "SMC"]
     for T in [6, 8, 12]
         for num in [3, 5, 10]
@@ -40,7 +40,9 @@ for cutSelection in ["LC", "ELC", "SMC"]
                                         paramOPF = paramOPF, 
                                             initialStageDecision = initialStageDecision, numScenarios = numScenarios, TimeLimit = TimeLimit, OPT = OPT, tightness = tightness,
                                             Output_Gap = Output_Gap, max_iter = max_iter, MaxIter = MaxIter, δ = δ, cutSelection = cutSelection)
-                                            save("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddlpResult-$cutSelection-$tightness.jld2", "sddlpResult", sddlpResult)
+            save("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddlpResult-$cutSelection-$tightness.jld2", "sddlpResult", sddlpResult)
         end
     end
 end
+T = 12; num = 10; cutSelection = "SMC";
+sddlpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddlpResult-$cutSelection-$tightness.jld2")["sddlpResult"][:solHistory]

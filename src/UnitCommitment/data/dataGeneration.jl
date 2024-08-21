@@ -12,7 +12,7 @@ include("src/UnitCommitment/data/readin.jl");
 case = "case30" # case_RTS_GMLC"; "case30";
 network_data = PowerModels.parse_file("src/UnitCommitment/data/$case/$case.m");
 branchInfo = CSV.read("src/UnitCommitment/data/case_RTS_GMLC/branch.csv", DataFrame);
-T = 8; numRealization = 10;
+T = 12; numRealization = 10;
 
 for T in [6, 8, 12]
     for numRealization in [3, 5, 10]
