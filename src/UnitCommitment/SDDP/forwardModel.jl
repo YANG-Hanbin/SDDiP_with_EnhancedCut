@@ -155,3 +155,38 @@ function sample_scenarios(; numScenarios::Int64 = 10, scenarioTree::ScenarioTree
     end
     return Ξ
 end
+
+
+"""
+forwardPass(ξ): function for forward pass in parallel computing
+
+# Arguments
+
+  1. `ξ`: A sampled scenario path
+
+# Returns
+  1. `scenario_solution_collection`: cut coefficients
+
+"""
+function forwardPass(ξ::Dict{Int64, RandomVariables}; 
+                        indexSets::IndexSets = indexSets, paramDemand::ParamDemand = paramDemand, paramOPF::ParamOPF = paramOPF, 
+                            forwardInfoList::Dict{Int, Model} = forwardInfoList, 
+                                initialStageDecision::Dict{Symbol, Dict{Int64, Float64}} = initialStageDecision
+                    )
+
+    stageDecision[:s] = Dict{Int64, Float64}(g => initialStageDecision[:s][g] for g in indexSets.G); stageDecision[:y] = Dict{Int64, Float64}(g => initialStageDecision[:y][g] for g in indexSets.G);  
+    
+    scenario_solution_collection = Dict();
+    for t in 1:indexSets.T
+        forwardModification!(model = forwardInfoList[t], randomVariables = ξ[t], paramOPF = paramOPF, indexSets = indexSets, stageDecision = stageDecision, paramDemand = paramDemand);
+        optimize!(forwardInfoList[t]);
+        stageDecision[:s] = Dict{Int64, Float64}(g => JuMP.value(forwardInfoList[t][:s][g]) for g in indexSets.G);
+        stageDecision[:y] = Dict{Int64, Float64}(g => round(JuMP.value(forwardInfoList[t][:y][g]), digits = 2) for g in indexSets.G);
+        scenario_solution_collection[t] = ( stageSolution = deepcopy(stageDecision), 
+                                                stageValue = JuMP.objective_value(forwardInfoList[t]) - sum(JuMP.value.(forwardInfoList[t][:θ])), 
+                                                    OPT = JuMP.objective_value(forwardInfoList[t])
+                                            );
+
+    end
+    return scenario_solution_collection
+end

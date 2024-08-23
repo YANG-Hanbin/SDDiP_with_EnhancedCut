@@ -112,3 +112,50 @@ function backwardModification!(; model::Model = model,
                                                                 sum(model[:P][(j, i)] for j in indexSets.in_L[i]) 
                                                                     .== sum(paramDemand.demand[d] * randomVariables.deviation[d] * model[:x][d] for d in indexSets.Dᵢ[i]) )
 end
+
+
+"""
+backwardPass(backwardNodeInfo)
+
+function for backward pass in parallel computing
+"""
+function backwardPass(backwardNodeInfo::Tuple; 
+                            indexSets::IndexSets = indexSets, 
+                            paramDemand::ParamDemand = paramDemand, 
+                            paramOPF::ParamOPF = paramOPF, max_iter::Int64 = max_iter, Output_Gap::Bool = Output_Gap, tightness::Bool = tightness, δ::Float64 = δ,
+                            backwardInfoList::Dict{Int64, Model} = backwardInfoList, forwardInfoList::Dict{Int64, Model} = forwardInfoList, scenarioTree::ScenarioTree = scenarioTree, solCollection::Dict{Any, Any} = solCollection
+                            )
+    (i, t, n, ω, cutSelection) = backwardNodeInfo; 
+
+    # forwardModification!(model = forwardInfoList[t], randomVariables = scenarioTree.tree[t].nodes[n], stageDecision = solCollection[i, t-1, ω].stageSolution, paramOPF = paramOPF, indexSets = indexSets, paramDemand = paramDemand);
+    # optimize!(forwardInfoList[t]); f_star_value = JuMP.objective_value(forwardInfoList[t]);
+
+    backwardModification!(model = backwardInfoList[t], randomVariables = scenarioTree.tree[t].nodes[n], paramOPF = paramOPF, indexSets = indexSets, paramDemand = paramDemand);
+
+    (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(stageDecision = solCollection[i, t-1, ω].stageSolution, 
+                                                        f_star_value = solCollection[i, t, ω].OPT, 
+                                                            cutSelection = "LC", max_iter = max_iter,
+                                                                Output_Gap = Output_Gap, ℓ = .0, λ = .3);
+    # model = backwardInfoList[t]; stageDecision = solCollection[i, t-1, ω].stageSolution;
+    ((λ₀, λ₁), LMiter) = LevelSetMethod_optimization!(levelSetMethodParam = levelSetMethodParam, model = backwardInfoList[t],
+                                            cutSelection = "LC",
+                                                stageDecision = solCollection[i, t-1, ω].stageSolution, tightness = tightness,
+                                                        x_interior = x_interior, x₀ = x₀, indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF, δ = δ);
+
+    
+    if cutSelection != "LC"  # && gap ≥ 5e-2
+        f_star_value = λ₀ + sum(λ₁[:s][g] * solCollection[i, t-1, ω].stageSolution[:s][g] + 
+                                λ₁[:y][g] * solCollection[i, t-1, ω].stageSolution[:y][g] for g in indexSets.G );
+        (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(stageDecision = solCollection[i, t-1, ω].stageSolution, 
+                                                                    f_star_value = f_star_value, 
+                                                                    cutSelection = cutSelection, max_iter = max_iter,
+                                                                    Output_Gap = Output_Gap, ℓ = .0, λ = .1 );
+        # model = backwardInfoList[t]; stageDecision = solCollection[i, t-1, ω].stageSolution;
+        ((λ₀, λ₁), LMiter) = LevelSetMethod_optimization!(levelSetMethodParam = levelSetMethodParam, model = backwardInfoList[t],
+                                            cutSelection = cutSelection,
+                                                stageDecision = solCollection[i, t-1, ω].stageSolution, tightness = tightness,
+                                                        x_interior = x_interior, x₀ = x₀, indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF, δ = δ);
+    end
+
+    return ((λ₀, λ₁), LMiter)  
+end
