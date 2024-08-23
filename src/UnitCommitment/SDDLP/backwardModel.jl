@@ -27,12 +27,13 @@ function backwardModel!(; tightness::Bool = true, indexSets::IndexSets = indexSe
     (Dᵢ, Gᵢ, in_L, out_L) = (indexSets.Dᵢ, indexSets.Gᵢ, indexSets.in_L, indexSets.out_L) 
     N = keys(stageRealization.prob)
 
-    model = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-                                            "OutputFlag" => outputFlag, 
-                                            "Threads" => 0, 
-                                            "MIPGap" => mipGap, 
-                                            "TimeLimit" => timelimit);
-                                ) 
+    model = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
+                                                    "OutputFlag" => outputFlag, 
+                                                    "Threads" => 0)); 
+    MOI.set(model, MOI.Silent(), true);
+    set_optimizer_attribute(model, "MIPGap", mipGap);
+    set_optimizer_attribute(model, "TimeLimit", timelimit);
+    
     @variable(model, θ_angle[B])                                    ## phase angle of the bus i
     @variable(model, P[L])                                          ## real power flow on line l; elements in L is Tuple (i, j)
     @variable(model, 0 ≤ s[g in G] ≤ paramOPF.smax[g])              ## real power generation at generator g

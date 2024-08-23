@@ -1,14 +1,14 @@
 """
     This function is to constraint the model for solving gap and alpha
 """
-function Δ_model_formulation(functionHistory::FunctionHistory, f_star::Float64, iter::Int64; Output::Int64 = 0)
+function Δ_model_formulation(functionHistory::FunctionHistory, f_star::Float64, iter::Int64; Output::Int64 = 0, mipGap::Float64 = 1e-3, timelimit::Int64 = 3)
     
-    alphaModel = Model(
-        optimizer_with_attributes(
-            ()->Gurobi.Optimizer(GRB_ENV),
-            "OutputFlag" => Output, 
-            "Threads" => 0)
-            )
+    alphaModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
+                                                    "OutputFlag" => Output, 
+                                                    "Threads" => 0)); 
+    MOI.set(alphaModel, MOI.Silent(), true);
+    set_optimizer_attribute(alphaModel, "MIPGap", mipGap);
+    set_optimizer_attribute(alphaModel, "TimeLimit", timelimit);
 
     @variable(alphaModel, z)
     @variable(alphaModel, 0 ≤ α ≤ 1)
@@ -228,14 +228,12 @@ function LevelSetMethod_optimization!(; model::Model = model,
                                         );
 
     # model for oracle
-    oracleModel = Model(
-        optimizer_with_attributes(
-            ()->Gurobi.Optimizer(GRB_ENV), 
-            "OutputFlag" => Output, 
-            "Threads" => 0, 
-            "MIPGap" => mipGap, 
-            "TimeLimit" => timelimit)
-            );
+    oracleModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
+                                                    "OutputFlag" => Output, 
+                                                    "Threads" => 0)); 
+    MOI.set(oracleModel, MOI.Silent(), true);
+    set_optimizer_attribute(oracleModel, "MIPGap", mipGap);
+    set_optimizer_attribute(oracleModel, "TimeLimit", timelimit);
 
     ## ==================================================== Levelset Method ============================================== ##
     para_oracle_bound = abs(currentInfo.f);
@@ -249,14 +247,12 @@ function LevelSetMethod_optimization!(; model::Model = model,
     oracleInfo = ModelInfo(oracleModel, xλ_oracle, xy_oracle, y, z);
 
 
-    nxtModel = Model(
-        optimizer_with_attributes(
-            ()->Gurobi.Optimizer(GRB_ENV), 
-            "OutputFlag" => Output, 
-            "Threads" => 0, 
-            "MIPGap" => mipGap, 
-            "TimeLimit" => timelimit)
-            );
+    nxtModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
+    "OutputFlag" => Output, 
+    "Threads" => 0)); 
+    MOI.set(nxtModel, MOI.Silent(), true);
+    set_optimizer_attribute(nxtModel, "MIPGap", mipGap);
+    set_optimizer_attribute(nxtModel, "TimeLimit", timelimit);
 
     @variable(nxtModel, xλ[g in G, i in 1:κ[g]]);
     @variable(nxtModel, xy[G]);
@@ -354,12 +350,12 @@ function LevelSetMethod_optimization!(; model::Model = model,
             λₖ = abs(dual(levelConstraint)); μₖ = λₖ + 1; 
         elseif st == MOI.NUMERICAL_ERROR ## need to figure out why this case happened and fix it
             # @info "Numerical Error occures! -- Build a new nxtModel"
-            nxtModel = Model(
-                optimizer_with_attributes(
-                ()->Gurobi.Optimizer(GRB_ENV), 
-                "OutputFlag" => Output, 
-                "Threads" => 0)
-                )
+            nxtModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
+            "OutputFlag" => Output, 
+            "Threads" => 0)); 
+            MOI.set(nxtModel, MOI.Silent(), true);
+            set_optimizer_attribute(nxtModel, "MIPGap", mipGap);
+            set_optimizer_attribute(nxtModel, "TimeLimit", timelimit);
 
             @variable(nxtModel, xλ[g in G, i in 1:κ[g]]);
             @variable(nxtModel, xy[G]);
