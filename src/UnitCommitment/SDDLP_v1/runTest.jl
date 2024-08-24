@@ -14,12 +14,12 @@ using Distributed; addprocs(5);
     const GRB_ENV = Gurobi.Env();
 
 
-    include("src/UnitCommitment/SDDLP/def.jl")
-    include("src/UnitCommitment/SDDLP/backwardModel.jl");
-    include("src/UnitCommitment/SDDLP/forwardModel.jl");
-    include("src/UnitCommitment/SDDLP/LevelSetMethod.jl");
-    include("src/UnitCommitment/SDDLP/sddip.jl");
-    include("src/UnitCommitment/SDDiP/extForm.jl");
+    include("src/UnitCommitment/SDDLP_v1/def.jl")
+    include("src/UnitCommitment/SDDLP_v1/backwardModel.jl");
+    include("src/UnitCommitment/SDDLP_v1/forwardModel.jl");
+    include("src/UnitCommitment/SDDLP_v1/LevelSetMethod.jl");
+    include("src/UnitCommitment/SDDLP_v1/sddip.jl");
+    include("src/UnitCommitment/SDDLP_v1/extForm.jl");
 
 
     Output_Gap = false; max_iter = 150; MaxIter = 100; cutSelection = "LC"; δ = 1.; numScenarios = 100; tightness = true; case = "case30"; # "RTS_GMLC", "case30"

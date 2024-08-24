@@ -98,10 +98,13 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         UB = μ̄ + 1.96 * sqrt(σ̂²/numScenarios); # minimum([μ̄ + 1.96 * sqrt(σ̂²/numScenarios), UB]);
         gap = round((UB-LB)/UB * 100 ,digits = 2); gapString = string(gap,"%"); push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, LM_iter, total_Time]); push!(gapList, gap);
         if i == 1
-            println("---------------------------------- Iteration Info ------------------------------------")
-            println("Iter |   LB                              UB                             gap")
+            println("----------------------------------------- Iteration Info ------------------------------------------------")
+            println("Iter |        LB        |        UB        |       Gap      |      i-time     |    #LM     |     T-Time")
+            println("----------------------------------------------------------------------------------------------------------")
         end
-        @printf("%3d  |   %5.3g                         %5.3g                              %1.3f%s\n", i, LB, UB, gap, "%")
+        @printf("%4d | %12.2f     | %12.2f     | %9.2f%%     | %9.2f s     | %6d     | %10.2f s     \n", 
+                i, LB, UB, gap, iter_time, LM_iter, total_Time); LM_iter = 0;
+
         if total_Time > TimeLimit || i > MaxIter # || UB-LB ≤ 1e-2 * UB  
             return Dict(:solHistory => sddipResult, 
                             :solution => solCollection[i, 1, 1].stageSolution, 
@@ -114,7 +117,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                 dev = Dict()
                 for g in indexSets.G 
                     if solCollection[i, t, ω].stageSolution[:y][g] > .5
-                        k = maximum([k for (k, v) in solCollection[i, t, ω].stageSolution[:sur][g] if v == maximum(values(solCollection[i, t, ω].stageSolution[:sur][g]))])
+                        k = maximum([k for (k, v) in solCollection[i, t, ω].stageSolution[:sur][g] if v > 0.5])
                         info = StateVarList[t].sur[g][k]
                         dev[g] = round(minimum([(info[:ub] - solCollection[i, t, ω].stageSolution[:s][g])/(info[:ub] - info[:lb] + 1e-6), (solCollection[i, t, ω].stageSolution[:s][g] - info[:lb])/(info[:ub] - info[:lb] + 1e-6)]), digits = 5)
                     end
@@ -122,7 +125,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                 g = [k for (k, v) in dev if v == maximum(values(dev))][1]
                 if dev[g] ≥ 1e-6
                     # find the active leaf node 
-                    keys_with_value_1 = maximum([k for (k, v) in solCollection[i, t, ω].stageSolution[:sur][g] if v == 1])
+                    keys_with_value_1 = maximum([k for (k, v) in solCollection[i, t, ω].stageSolution[:sur][g] if v > 0.5])
                     # find the lb and ub of this leaf node 
                     (lb, ub) = StateVarList[t].sur[g][keys_with_value_1][:lb], StateVarList[t].sur[g][keys_with_value_1][:ub]; med = solCollection[i, t, ω].stageSolution[:s][g]; # solCollection[i, t, ω].stageSolution[:s][g];# (lb + ub)/2; #round(solCollection[i, t, ω].stageSolution[:s][g], digits = 3); 
                     # create two new leaf nodes, and update their info (lb, ub)

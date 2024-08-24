@@ -23,7 +23,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                         )
     ## d: x dim
     initial = now(); i = 1; LB = - Inf; UB = Inf; 
-    iter_time = 0; total_Time = 0; t0 = 0.0; LMiter = 0; LM_iter = 0; gap = 100.0; gapString = "100%";
+    iter_time = 0; total_Time = 0; t0 = 0.0; LMiter = 0; LM_iter = 0; gap = 100.0; gapString = "100%"; branching = false;
 
     col_names = [:Iter, :LB, :OPT, :UB, :gap, :time, :LM_iter, :Time]; # needs to be a vector Symbols
     col_types = [Int64, Float64, Union{Float64,Nothing}, Float64, String, Float64, Int64, Float64];
@@ -101,90 +101,95 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         end
 
         ####################################################### Backward Steps ###########################################################
-        for t in 1:indexSets.T-1 
-            for ω in  [1]#keys(Ξ̃)
-                dev = Dict()
-                for g in indexSets.G 
-                    if solCollection[i, t, ω].stageSolution[:y][g] > .5
-                        k = maximum([k for (k, v) in solCollection[i, t, ω].stageSolution[:sur][g] if v > 0.5]); # maximum(values(solCollection[i, t, ω].stageSolution[:sur][g]))
-                        info = StateVarList[t].sur[g][k]
-                        dev[g] = round(minimum([(info[:ub] - solCollection[i, t, ω].stageSolution[:s][g])/(info[:ub] - info[:lb] + 1e-6), (solCollection[i, t, ω].stageSolution[:s][g] - info[:lb])/(info[:ub] - info[:lb] + 1e-6)]), digits = 5)
-                    end
-                end
-                g = [g for (g, v) in dev if v == maximum(values(dev))][1]
-                if dev[g] ≥ 1e-6
-                    @everywhere begin
-                        t = $t; ω = $ω; g = $g; i = $i; 
-                        # find the active leaf node 
-                        keys_with_value_1 = maximum([k for (k, v) in solCollection[i, t, ω].stageSolution[:sur][g] if v > 0.5]); ## find the active leaf node: maximum(values(solCollection[i, t, ω].stageSolution[:sur][g]))
-                        # find the lb and ub of this leaf node 
-                        (lb, ub) = StateVarList[t].sur[g][keys_with_value_1][:lb], StateVarList[t].sur[g][keys_with_value_1][:ub]; med = solCollection[i, t, ω].stageSolution[:s][g]; # solCollection[i, t, ω].stageSolution[:s][g];# (lb + ub)/2; #round(solCollection[i, t, ω].stageSolution[:s][g], digits = 3); 
-                        # create two new leaf nodes, and update their info (lb, ub)
-                        left = length(StateVarList[t].sur[g]) + 1; right = length(StateVarList[t].sur[g]) + 2; 
-                        forwardInfoList[t][:sur][g, left] = @variable(forwardInfoList[t], base_name = "sur[$g, $left]", binary = true); 
-                        forwardInfoList[t][:sur][g, right] = @variable(forwardInfoList[t], base_name = "sur[$g, $right]", binary = true);
-                        StateVarList[t].sur[g][left] = Dict(:lb => lb, :ub => med, :var => forwardInfoList[t][:sur][g, left])
-                        StateVarList[t].sur[g][right] =  Dict(:lb => med, :ub => ub, :var => forwardInfoList[t][:sur][g, right])
-                        # pop and push new leaf nodes
-                        deleteat!(StateVarList[t].leaf[g], findall(x -> x == keys_with_value_1, StateVarList[t].leaf[g])); push!(StateVarList[t].leaf[g], left); push!(StateVarList[t].leaf[g], right);
-                        
-                        # add logic constraints
-                        ## for forward models
-                        ### Parent-Child relationship
-                        @constraint(forwardInfoList[t], forwardInfoList[t][:sur][g, left] + forwardInfoList[t][:sur][g, right] == forwardInfoList[t][:sur][g, keys_with_value_1])
-                        ### bounding constraints
-                        # if i > 1
-                        #     for g in indexSets.G
-                        #         delete(forwardInfoList[t], forwardInfoList[t][:bounding][g]);
-                        #         delete(backwardInfoList[t], backwardInfoList[t][:bounding][g]);
-                        #     end
-                        #     unregister(forwardInfoList[t], :Nonanticipativity); unregister(backwardInfoList[t], :Nonanticipativity);
-                        # end
-                        @constraint(forwardInfoList[t], forwardInfoList[t][:s][g] ≥ sum(StateVarList[t].sur[g][k][:lb] * forwardInfoList[t][:sur][g, k] for k in StateVarList[t].leaf[g]))
-                        @constraint(forwardInfoList[t], forwardInfoList[t][:s][g] ≤ sum(StateVarList[t].sur[g][k][:ub] * forwardInfoList[t][:sur][g, k] for k in StateVarList[t].leaf[g]))
-                        # @constraint(forwardInfoList[t], forwardInfoList[t][:s][g] ≥ lb -  paramOPF.smax[g] * (1 - forwardInfoList[t][:sur][g, left]) );
-                        # @constraint(forwardInfoList[t], forwardInfoList[t][:s][g] ≤ med + paramOPF.smax[g] * (1 - forwardInfoList[t][:sur][g, left]) );
-                        # @constraint(forwardInfoList[t], forwardInfoList[t][:s][g] ≥ med -  paramOPF.smax[g] * (1 - forwardInfoList[t][:sur][g, right]));
-                        # @constraint(forwardInfoList[t], forwardInfoList[t][:s][g] ≤ ub + paramOPF.smax[g] * (1 - forwardInfoList[t][:sur][g, right]) );
-                        ## for backward models
-                        ### Parent-Child relationship
-                        if tightness
-                            backwardInfoList[t+1][:sur_copy][g, left] = @variable(backwardInfoList[t+1], base_name = "sur_copy[$g, $left]", binary = true); 
-                            backwardInfoList[t+1][:sur_copy][g, right] = @variable(backwardInfoList[t+1], base_name = "sur_copy[$g, $left]", binary = true); 
-                            backwardInfoList[t][:sur][g, left] = @variable(backwardInfoList[t], base_name = "sur[$g, $left]", binary = true); 
-                            backwardInfoList[t][:sur][g, right] = @variable(backwardInfoList[t], base_name = "sur[$g, $left]", binary = true); 
-                        else
-                            backwardInfoList[t+1][:sur_copy][g, left] = @variable(backwardInfoList[t+1], base_name = "sur_copy[$g, $left]", lower_bound = 0, upper_bound = 1); 
-                            backwardInfoList[t+1][:sur_copy][g, right] = @variable(backwardInfoList[t+1], base_name = "sur_copy[$g, $left]", lower_bound = 0, upper_bound = 1); 
-                            backwardInfoList[t][:sur][g, left] = @variable(backwardInfoList[t], base_name = "sur[$g, $left]", lower_bound = 0, upper_bound = 1); 
-                            backwardInfoList[t][:sur][g, right] = @variable(backwardInfoList[t], base_name = "sur[$g, $left]", lower_bound = 0, upper_bound = 1); 
+        if gap ≤ 2 && i ≥ 10
+            branching = true
+        end
+        if branching == true
+            for t in 1:indexSets.T-1 
+                for ω in  [1]#keys(Ξ̃)
+                    dev = Dict()
+                    for g in indexSets.G 
+                        if solCollection[i, t, ω].stageSolution[:y][g] > .5
+                            k = maximum([k for (k, v) in solCollection[i, t, ω].stageSolution[:sur][g] if v > 0.5]); # maximum(values(solCollection[i, t, ω].stageSolution[:sur][g]))
+                            info = StateVarList[t].sur[g][k]
+                            dev[g] = round(minimum([(info[:ub] - solCollection[i, t, ω].stageSolution[:s][g])/(info[:ub] - info[:lb] + 1e-6), (solCollection[i, t, ω].stageSolution[:s][g] - info[:lb])/(info[:ub] - info[:lb] + 1e-6)]), digits = 5)
                         end
-                        @constraint(backwardInfoList[t+1], backwardInfoList[t+1][:sur_copy][g, left] + backwardInfoList[t+1][:sur_copy][g, right] == backwardInfoList[t+1][:sur_copy][g, keys_with_value_1]);
-                        @constraint(backwardInfoList[t], backwardInfoList[t][:sur][g, left] + backwardInfoList[t][:sur][g, right] == backwardInfoList[t][:sur][g, keys_with_value_1]);
-                        ### bounding constraints
-                        @constraint(backwardInfoList[t+1], backwardInfoList[t+1][:s_copy][g] ≥ sum(StateVarList[t].sur[g][k][:lb] * backwardInfoList[t+1][:sur_copy][g, k] for k in StateVarList[t].leaf[g]));
-                        @constraint(backwardInfoList[t+1], backwardInfoList[t+1][:s_copy][g] ≤ sum(StateVarList[t].sur[g][k][:ub] * backwardInfoList[t+1][:sur_copy][g, k] for k in StateVarList[t].leaf[g]));
-                        @constraint(backwardInfoList[t], backwardInfoList[t][:s][g] ≥ sum(StateVarList[t].sur[g][k][:lb] * backwardInfoList[t][:sur][g, k] for k in StateVarList[t].leaf[g]));
-                        @constraint(backwardInfoList[t], backwardInfoList[t][:s][g] ≤ sum(StateVarList[t].sur[g][k][:ub] * backwardInfoList[t][:sur][g, k] for k in StateVarList[t].leaf[g]));
-                        # @constraint(backwardInfoList[t+1], backwardInfoList[t+1][:s][g] ≥ lb -  paramOPF.smax[g] * (1 - backwardInfoList[t+1][:sur][g, left]) );
-                        # @constraint(backwardInfoList[t+1], backwardInfoList[t+1][:s][g] ≤ med + paramOPF.smax[g] * (1 - backwardInfoList[t+1][:sur][g, left]) );
-                        # @constraint(backwardInfoList[t+1], backwardInfoList[t+1][:s][g] ≥ med -  paramOPF.smax[g] * (1 - backwardInfoList[t+1][:sur][g, right]));
-                        # @constraint(backwardInfoList[t+1], backwardInfoList[t+1][:s][g] ≤ ub + paramOPF.smax[g] * (1 - backwardInfoList[t+1][:sur][g, right]) );
+                    end
+                    g = [g for (g, v) in dev if v == maximum(values(dev))][1]
+                    if dev[g] ≥ 1e-6
+                        @everywhere begin
+                            t = $t; ω = $ω; g = $g; i = $i; 
+                            # find the active leaf node 
+                            keys_with_value_1 = maximum([k for (k, v) in solCollection[i, t, ω].stageSolution[:sur][g] if v > 0.5]); ## find the active leaf node: maximum(values(solCollection[i, t, ω].stageSolution[:sur][g]))
+                            # find the lb and ub of this leaf node 
+                            (lb, ub) = StateVarList[t].sur[g][keys_with_value_1][:lb], StateVarList[t].sur[g][keys_with_value_1][:ub]; med = solCollection[i, t, ω].stageSolution[:s][g]; # solCollection[i, t, ω].stageSolution[:s][g];# (lb + ub)/2; #round(solCollection[i, t, ω].stageSolution[:s][g], digits = 3); 
+                            # create two new leaf nodes, and update their info (lb, ub)
+                            left = length(StateVarList[t].sur[g]) + 1; right = length(StateVarList[t].sur[g]) + 2; 
+                            forwardInfoList[t][:sur][g, left] = @variable(forwardInfoList[t], base_name = "sur[$g, $left]", binary = true); 
+                            forwardInfoList[t][:sur][g, right] = @variable(forwardInfoList[t], base_name = "sur[$g, $right]", binary = true);
+                            StateVarList[t].sur[g][left] = Dict(:lb => lb, :ub => med, :var => forwardInfoList[t][:sur][g, left])
+                            StateVarList[t].sur[g][right] =  Dict(:lb => med, :ub => ub, :var => forwardInfoList[t][:sur][g, right])
+                            # pop and push new leaf nodes
+                            deleteat!(StateVarList[t].leaf[g], findall(x -> x == keys_with_value_1, StateVarList[t].leaf[g])); push!(StateVarList[t].leaf[g], left); push!(StateVarList[t].leaf[g], right);
+                            
+                            # add logic constraints
+                            ## for forward models
+                            ### Parent-Child relationship
+                            @constraint(forwardInfoList[t], forwardInfoList[t][:sur][g, left] + forwardInfoList[t][:sur][g, right] == forwardInfoList[t][:sur][g, keys_with_value_1])
+                            ### bounding constraints
+                            # if i > 1
+                            #     for g in indexSets.G
+                            #         delete(forwardInfoList[t], forwardInfoList[t][:bounding][g]);
+                            #         delete(backwardInfoList[t], backwardInfoList[t][:bounding][g]);
+                            #     end
+                            #     unregister(forwardInfoList[t], :Nonanticipativity); unregister(backwardInfoList[t], :Nonanticipativity);
+                            # end
+                            @constraint(forwardInfoList[t], forwardInfoList[t][:s][g] ≥ sum(StateVarList[t].sur[g][k][:lb] * forwardInfoList[t][:sur][g, k] for k in StateVarList[t].leaf[g]))
+                            @constraint(forwardInfoList[t], forwardInfoList[t][:s][g] ≤ sum(StateVarList[t].sur[g][k][:ub] * forwardInfoList[t][:sur][g, k] for k in StateVarList[t].leaf[g]))
+                            # @constraint(forwardInfoList[t], forwardInfoList[t][:s][g] ≥ lb -  paramOPF.smax[g] * (1 - forwardInfoList[t][:sur][g, left]) );
+                            # @constraint(forwardInfoList[t], forwardInfoList[t][:s][g] ≤ med + paramOPF.smax[g] * (1 - forwardInfoList[t][:sur][g, left]) );
+                            # @constraint(forwardInfoList[t], forwardInfoList[t][:s][g] ≥ med -  paramOPF.smax[g] * (1 - forwardInfoList[t][:sur][g, right]));
+                            # @constraint(forwardInfoList[t], forwardInfoList[t][:s][g] ≤ ub + paramOPF.smax[g] * (1 - forwardInfoList[t][:sur][g, right]) );
+                            ## for backward models
+                            ### Parent-Child relationship
+                            if tightness
+                                backwardInfoList[t+1][:sur_copy][g, left] = @variable(backwardInfoList[t+1], base_name = "sur_copy[$g, $left]", binary = true); 
+                                backwardInfoList[t+1][:sur_copy][g, right] = @variable(backwardInfoList[t+1], base_name = "sur_copy[$g, $left]", binary = true); 
+                                backwardInfoList[t][:sur][g, left] = @variable(backwardInfoList[t], base_name = "sur[$g, $left]", binary = true); 
+                                backwardInfoList[t][:sur][g, right] = @variable(backwardInfoList[t], base_name = "sur[$g, $left]", binary = true); 
+                            else
+                                backwardInfoList[t+1][:sur_copy][g, left] = @variable(backwardInfoList[t+1], base_name = "sur_copy[$g, $left]", lower_bound = 0, upper_bound = 1); 
+                                backwardInfoList[t+1][:sur_copy][g, right] = @variable(backwardInfoList[t+1], base_name = "sur_copy[$g, $left]", lower_bound = 0, upper_bound = 1); 
+                                backwardInfoList[t][:sur][g, left] = @variable(backwardInfoList[t], base_name = "sur[$g, $left]", lower_bound = 0, upper_bound = 1); 
+                                backwardInfoList[t][:sur][g, right] = @variable(backwardInfoList[t], base_name = "sur[$g, $left]", lower_bound = 0, upper_bound = 1); 
+                            end
+                            @constraint(backwardInfoList[t+1], backwardInfoList[t+1][:sur_copy][g, left] + backwardInfoList[t+1][:sur_copy][g, right] == backwardInfoList[t+1][:sur_copy][g, keys_with_value_1]);
+                            @constraint(backwardInfoList[t], backwardInfoList[t][:sur][g, left] + backwardInfoList[t][:sur][g, right] == backwardInfoList[t][:sur][g, keys_with_value_1]);
+                            ### bounding constraints
+                            @constraint(backwardInfoList[t+1], backwardInfoList[t+1][:s_copy][g] ≥ sum(StateVarList[t].sur[g][k][:lb] * backwardInfoList[t+1][:sur_copy][g, k] for k in StateVarList[t].leaf[g]));
+                            @constraint(backwardInfoList[t+1], backwardInfoList[t+1][:s_copy][g] ≤ sum(StateVarList[t].sur[g][k][:ub] * backwardInfoList[t+1][:sur_copy][g, k] for k in StateVarList[t].leaf[g]));
+                            @constraint(backwardInfoList[t], backwardInfoList[t][:s][g] ≥ sum(StateVarList[t].sur[g][k][:lb] * backwardInfoList[t][:sur][g, k] for k in StateVarList[t].leaf[g]));
+                            @constraint(backwardInfoList[t], backwardInfoList[t][:s][g] ≤ sum(StateVarList[t].sur[g][k][:ub] * backwardInfoList[t][:sur][g, k] for k in StateVarList[t].leaf[g]));
+                            # @constraint(backwardInfoList[t+1], backwardInfoList[t+1][:s][g] ≥ lb -  paramOPF.smax[g] * (1 - backwardInfoList[t+1][:sur][g, left]) );
+                            # @constraint(backwardInfoList[t+1], backwardInfoList[t+1][:s][g] ≤ med + paramOPF.smax[g] * (1 - backwardInfoList[t+1][:sur][g, left]) );
+                            # @constraint(backwardInfoList[t+1], backwardInfoList[t+1][:s][g] ≥ med -  paramOPF.smax[g] * (1 - backwardInfoList[t+1][:sur][g, right]));
+                            # @constraint(backwardInfoList[t+1], backwardInfoList[t+1][:s][g] ≤ ub + paramOPF.smax[g] * (1 - backwardInfoList[t+1][:sur][g, right]) );
 
-                        ## update the stageDecision
-                        stageDecision = deepcopy(solCollection[i, t, ω].stageSolution);
-                        stageDecision[:sur][g] = Dict{Int64, Float64}()
-                        for k in StateVarList[t].leaf[g]
-                            stageDecision[:sur][g][k] = 0.0
+                            ## update the stageDecision
+                            stageDecision = deepcopy(solCollection[i, t, ω].stageSolution);
+                            stageDecision[:sur][g] = Dict{Int64, Float64}()
+                            for k in StateVarList[t].leaf[g]
+                                stageDecision[:sur][g][k] = 0.0
+                            end
+                            stageDecision[:sur][g][left] = 1.0; 
+                            solCollection[i, t, ω] = ( stageSolution = deepcopy(stageDecision), 
+                                                        stageValue = solCollection[i, t, ω].stageValue, 
+                                                        OPT = solCollection[i, t, ω].OPT
+                                                    );
                         end
-                        stageDecision[:sur][g][left] = 1.0; 
-                        solCollection[i, t, ω] = ( stageSolution = deepcopy(stageDecision), 
-                                                    stageValue = solCollection[i, t, ω].stageValue, 
-                                                    OPT = solCollection[i, t, ω].OPT
-                                                );
                     end
+                
                 end
-            
             end
         end
 

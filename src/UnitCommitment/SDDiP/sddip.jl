@@ -72,12 +72,14 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         μ̄ = mean(values(u));
         σ̂² = Statistics.var(values(u));
         UB = μ̄ + 1.96 * sqrt(σ̂²/numScenarios); # minimum([μ̄ + 1.96 * sqrt(σ̂²/numScenarios), UB]);
-        gap = round((UB-LB)/UB * 100 ,digits = 2); gapString = string(gap,"%"); push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, LM_iter, total_Time]); push!(gapList, gap); LM_iter = 0;
+        gap = round((UB-LB)/UB * 100 ,digits = 2); gapString = string(gap,"%"); push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, LM_iter, total_Time]); push!(gapList, gap); 
         if i == 1
-            println("---------------------------------- Iteration Info ------------------------------------")
-            println("Iter |   LB                              UB                             gap")
+            println("----------------------------------------- Iteration Info ------------------------------------------------")
+            println("Iter |        LB        |        UB        |       Gap      |      i-time     |    #LM     |     T-Time")
+            println("----------------------------------------------------------------------------------------------------------")
         end
-        @printf("%3d  |   %5.3g                         %5.3g                              %1.3f%s\n", i, LB, UB, gap, "%")
+        @printf("%4d | %12.2f     | %12.2f     | %9.2f%%     | %9.2f s     | %6d     | %10.2f s     \n", 
+                i, LB, UB, gap, iter_time, LM_iter, total_Time); LM_iter = 0;
         if total_Time > TimeLimit || i > MaxIter # || UB-LB ≤ 1e-2 * UB
             return Dict(:solHistory => sddipResult, 
                             :solution => solCollection[i, 1, 1].stageSolution, 
@@ -85,16 +87,17 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         end
 
         ####################################################### Backward Steps ###########################################################
+        cutGeneration = false;
         for t = reverse(2:indexSets.T)
             for ω in [1]#keys(Ξ̃)
-                current_state = solCollection[i, t-1, ω].stageSolution; cutGeneration = true;
+                current_state = solCollection[i, t-1, ω].stageSolution; 
                 for j in reverse(1:i-1)
-                    if current_state == solCollection[j, t-1, ω].stageSolution
-                        cutGeneration = false; 
+                    if current_state != solCollection[j, t-1, ω].stageSolution
+                        cutGeneration = true; 
                         break;
                     end
                 end
-                if cutGeneration || UB-LB ≥ 1e-2 * UB
+                if cutGeneration == true
                     backwardNodeInfoSet = Dict{Int64, Tuple}();
                     for n in keys(scenarioTree.tree[t].nodes) backwardNodeInfoSet[n] = (i, t, n, ω, cutSelection) end
                     backwardPassResult = pmap(backwardPass, values(backwardNodeInfoSet));

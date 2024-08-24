@@ -68,10 +68,12 @@ function SDDP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         UB = μ̄ + 1.96 * sqrt(σ̂²/numScenarios); # minimum([μ̄ + 1.96 * sqrt(σ̂²/numScenarios), UB]);
         gap = round((UB-LB)/UB * 100 ,digits = 2); gapString = string(gap,"%"); push!(sddpResult, [i, LB, OPT, UB, gapString, iter_time, LM_iter, total_Time]); push!(gapList, gap);
         if i == 1
-            println("---------------------------------- Iteration Info ------------------------------------")
-            println("Iter |   LB                              UB                             gap")
+            println("----------------------------------------- Iteration Info ------------------------------------------------")
+            println("Iter |        LB        |        UB        |       Gap      |      i-time     |    #LM     |     T-Time")
+            println("----------------------------------------------------------------------------------------------------------")
         end
-        @printf("%3d  |   %5.3g                         %5.3g                              %1.3f%s\n", i, LB, UB, gap, "%")
+        @printf("%4d | %12.2f     | %12.2f     | %9.2f%%     | %9.2f s     | %6d     | %10.2f s     \n", 
+                i, LB, UB, gap, iter_time, LM_iter, total_Time); LM_iter = 0;
         if total_Time > TimeLimit || i > MaxIter # || UB-LB ≤ 1e-2 * UB  
             return Dict(:solHistory => sddpResult, 
                             :solution => solCollection[i, 1, 1].stageSolution, 
