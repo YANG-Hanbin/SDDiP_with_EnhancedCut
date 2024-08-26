@@ -1,6 +1,3 @@
-#############################################################################################
-####################################    Without Parallel   ##################################
-#############################################################################################
 using Pkg
 Pkg.activate(".")
 using Distributed; addprocs(5); 
@@ -23,8 +20,10 @@ using Distributed; addprocs(5);
 
 
     Output_Gap = false; max_iter = 150; MaxIter = 100; cutSelection = "SMC"; δ = 1.; numScenarios = 100; tightness = true; case = "case30"; # "RTS_GMLC", "case30"
-    T = 3; num = 3; TimeLimit = 60 * 60 * 2.; OPT = Inf; ε = 1/2^(5); ℓ = .7; 
+    T = 12; num = 5; TimeLimit = 60 * 60 * 2.; OPT = Inf; ε = 1/2^(5); ℓ = .7; 
 end
+
+
 for cutSelection in ["LC", "ELC", "SMC"]
     for num in [3, 5, 10]
         for T in [6, 8, 12]

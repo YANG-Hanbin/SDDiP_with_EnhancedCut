@@ -19,7 +19,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                                         paramOPF::ParamOPF = paramOPF, 
                                             initialStageDecision::Dict{Symbol, Dict{Int64, Float64}} = initialStageDecision, numScenarios::Real = 2,
                                             Output_Gap::Bool = true, MaxIter::Int64 = 100, max_iter::Int64 = 100, TimeLimit::Float64 = 1e3, cutSelection::String = "LC", 
-                                            δ::Float64 = 1., tightness::Bool = true, OPT::Float64 = Inf
+                                            δ::Float64 = 1., tightness::Bool = true, OPT::Float64 = Inf, core_point_strategy::String = "Eps"
                         )
     ## d: x dim
     initial = now(); i = 1; LB = - Inf; UB = Inf; 
@@ -198,9 +198,9 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                         cutGeneration = true; break;
                     end
                 end
-                if cutGeneration == true
-                    backwardNodeInfoSet = Dict{Int64, Tuple}();
-                    for n in keys(scenarioTree.tree[t].nodes) backwardNodeInfoSet[n] = (i, t, n, ω, cutSelection) end
+                if cutGeneration == true || i == 1
+                    backwardNodeInfoSet = Dict{Int64, Tuple}(); 
+                    for n in keys(scenarioTree.tree[t].nodes) backwardNodeInfoSet[n] = (i, t, n, ω, cutSelection, core_point_strategy) end
                     backwardPassResult = pmap(backwardPass, values(backwardNodeInfoSet));
 
                     for n in keys(scenarioTree.tree[t].nodes)

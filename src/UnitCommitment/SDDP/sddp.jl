@@ -101,7 +101,7 @@ function SDDP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                         cutGeneration = true; break;
                     end
                 end
-                if cutGeneration == true
+                if cutGeneration == true || i == 1
                     backwardNodeInfoSet = Dict{Int64, Tuple}();
                     for n in keys(scenarioTree.tree[t].nodes) backwardNodeInfoSet[n] = (i, t, n, ω, cutSelection) end
                     backwardPassResult = pmap(backwardPass, values(backwardNodeInfoSet));

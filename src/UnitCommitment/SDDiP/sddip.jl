@@ -45,7 +45,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                                                                             mipGap = 1e-4, tightness = tightness, θ_bound = 0.0, timelimit = 5
                                                     );
         end 
-        # stageDecision = Dict();
+        stageDecision = Dict{Symbol, Dict{Int64, Float64}}(); stageDecision[:s] = Dict{Int64, Float64}(); stageDecision[:y] = Dict{Int64, Float64}(); stageDecision[:λ] = Dict{Int64, Dict{Int64, Float64}}();
         λ₀ = 0.0; λ₁ = Dict{Symbol, Dict{Int64, Float64}}();
         solCollection = Dict();  # to store every iteration results
     end
@@ -97,7 +97,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                         break;
                     end
                 end
-                if cutGeneration == true
+                if cutGeneration == true || i == 1
                     backwardNodeInfoSet = Dict{Int64, Tuple}();
                     for n in keys(scenarioTree.tree[t].nodes) backwardNodeInfoSet[n] = (i, t, n, ω, cutSelection) end
                     backwardPassResult = pmap(backwardPass, values(backwardNodeInfoSet));

@@ -172,12 +172,12 @@ forwardPass(ξ): function for forward pass in parallel computing
 
 """
 function forwardPass(ξ::Dict{Int64, RandomVariables}; 
-    indexSets::IndexSets = indexSets, paramDemand::ParamDemand = paramDemand, paramOPF::ParamOPF = paramOPF, 
-        forwardInfoList::Dict{Int, Model} = forwardInfoList, 
-            initialStageDecision::Dict{Symbol, Dict{Int64, Float64}} = initialStageDecision, 
-                κ::Dict{Int64, Int64} = κ
-)
-
+                        indexSets::IndexSets = indexSets, paramDemand::ParamDemand = paramDemand, paramOPF::ParamOPF = paramOPF, 
+                            forwardInfoList::Dict{Int, Model} = forwardInfoList, 
+                                initialStageDecision::Dict{Symbol, Dict{Int64, Float64}} = initialStageDecision, 
+                                    κ::Dict{Int64, Int64} = κ
+                        )
+    stageDecision = Dict();
     stageDecision[:s] = Dict{Int64, Float64}(g => initialStageDecision[:s][g] for g in indexSets.G); stageDecision[:y] = Dict{Int64, Float64}(g => initialStageDecision[:y][g] for g in indexSets.G); 
     scenario_solution_collection = Dict();
 
