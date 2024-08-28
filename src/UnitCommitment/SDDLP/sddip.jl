@@ -17,7 +17,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                                 indexSets::IndexSets = indexSets, 
                                     paramDemand::ParamDemand = paramDemand, 
                                         paramOPF::ParamOPF = paramOPF, 
-                                            initialStageDecision::Dict{Symbol, Dict{Int64, Float64}} = initialStageDecision, numScenarios::Real = 2,
+                                            initialStageDecision::Dict{Symbol, Dict{Int64, Float64}} = initialStageDecision, numScenarios::Real = 2, ℓ::Float64 = .1,
                                             Output_Gap::Bool = true, MaxIter::Int64 = 100, max_iter::Int64 = 100, TimeLimit::Float64 = 1e3, cutSelection::String = "LC", 
                                             δ::Float64 = 1., tightness::Bool = true, OPT::Float64 = Inf, core_point_strategy::String = "Eps"
                         )
@@ -94,7 +94,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         end
         @printf("%4d | %12.2f     | %12.2f     | %9.2f%%     | %9.2f s     | %6d     | %10.2f s     \n", 
                 i, LB, UB, gap, iter_time, LM_iter, total_Time); LM_iter = 0;
-        if total_Time > TimeLimit || i > MaxIter # || UB-LB ≤ 1e-2 * UB  
+        if total_Time > TimeLimit || i ≥ MaxIter || UB-LB ≤ 1e-2 * UB  
             return Dict(:solHistory => sddipResult, 
                             :solution => solCollection[i, 1, 1].stageSolution, 
                                 :gapHistory => gapList) 

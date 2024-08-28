@@ -17,13 +17,13 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                                 indexSets::IndexSets = indexSets, 
                                     paramDemand::ParamDemand = paramDemand, 
                                         paramOPF::ParamOPF = paramOPF, 
-                                            initialStageDecision::Dict{Symbol, Dict{Int64, Float64}} = initialStageDecision, numScenarios::Real = 2,
+                                            initialStageDecision::Dict{Symbol, Dict{Int64, Float64}} = initialStageDecision, numScenarios::Real = 2, ℓ::Float64 = .1,
                                             Output_Gap::Bool = true, MaxIter::Int64 = 100, max_iter::Int64 = 100, TimeLimit::Float64 = 1e3, cutSelection::String = "LC", 
-                                            δ::Float64 = 1., tightness::Bool = true, OPT::Float64 = Inf
+                                            δ::Float64 = 1., tightness::Bool = true, OPT::Float64 = Inf, core_point_strategy::String = "Eps"
                         )
     ## d: x dim
     initial = now(); i = 1; LB = - Inf; UB = Inf; 
-    iter_time = 0; total_Time = 0; t0 = 0.0; LMiter = 0; LM_iter = 0; gap = 100.0; gapString = "100%"; branching = false;
+    iter_time = 0; total_Time = 0; t0 = 0.0; LMiter = 0; LM_iter = 0; gap = 100.0; gapString = "100%"; branchDecision = false;
 
     col_names = [:Iter, :LB, :OPT, :UB, :gap, :time, :LM_iter, :Time]; # needs to be a vector Symbols
     col_types = [Int64, Float64, Union{Float64,Nothing}, Float64, String, Float64, Int64, Float64];
@@ -94,17 +94,17 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         end
         @printf("%4d | %12.2f     | %12.2f     | %9.2f%%     | %9.2f s     | %6d     | %10.2f s     \n", 
                 i, LB, UB, gap, iter_time, LM_iter, total_Time); LM_iter = 0;
-        if total_Time > TimeLimit || i > MaxIter # || UB-LB ≤ 1e-2 * UB  
+        if total_Time > TimeLimit || i ≥ MaxIter 
             return Dict(:solHistory => sddipResult, 
                             :solution => solCollection[i, 1, 1].stageSolution, 
                                 :gapHistory => gapList) 
         end
 
         ####################################################### Backward Steps ###########################################################
-        if gap ≤ 2 && i ≥ 10
-            branching = true
+        if i ≥ 50 || (UB-LB)/UB ≤ 1e-2
+            branchDecision = true;
         end
-        if branching == true
+        if branchDecision == true
             for t in 1:indexSets.T-1 
                 for ω in  [1]#keys(Ξ̃)
                     dev = Dict()
@@ -204,8 +204,8 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                     end
                 end
                 if cutGeneration == true || i == 1
-                    backwardNodeInfoSet = Dict{Int64, Tuple}();
-                    for n in keys(scenarioTree.tree[t].nodes) backwardNodeInfoSet[n] = (i, t, n, ω, cutSelection) end
+                    backwardNodeInfoSet = Dict{Int64, Tuple}(); 
+                    for n in keys(scenarioTree.tree[t].nodes) backwardNodeInfoSet[n] = (i, t, n, ω, cutSelection, core_point_strategy) end
                     backwardPassResult = pmap(backwardPass, values(backwardNodeInfoSet));
 
                     for n in keys(scenarioTree.tree[t].nodes)

@@ -11,16 +11,16 @@ using Distributed; addprocs(5);
     const GRB_ENV = Gurobi.Env();
 
 
-    include("src/UnitCommitment/SDDLP/def.jl")
-    include("src/UnitCommitment/SDDLP/backwardModel.jl");
-    include("src/UnitCommitment/SDDLP/forwardModel.jl");
-    include("src/UnitCommitment/SDDLP/LevelSetMethod.jl");
-    include("src/UnitCommitment/SDDLP/sddip.jl");
-    include("src/UnitCommitment/SDDiP/extForm.jl");
+    include("src/UnitCommitment/SDDLP_hybrid_cut/def.jl")
+    include("src/UnitCommitment/SDDLP_hybrid_cut/backwardModel.jl");
+    include("src/UnitCommitment/SDDLP_hybrid_cut/forwardModel.jl");
+    include("src/UnitCommitment/SDDLP_hybrid_cut/LevelSetMethod.jl");
+    include("src/UnitCommitment/SDDLP_hybrid_cut/sddip.jl");
+    # include("src/UnitCommitment/SDDiP/extForm.jl");
 
 
     Output_Gap = false; max_iter = 150; MaxIter = 100; δ = 1.; numScenarios = 100; tightness = true;  TimeLimit = 60 * 60 * 2.; OPT = Inf; case = "case30"; # "RTS_GMLC", "case30"
-    T = 12; num = 5; cutSelection = "ELC"; # "LC", "ELC", "SMC"
+    T = 12; num = 5; cutSelection = "SMC"; # "LC", "ELC", "SMC"
     ℓ = .0; core_point_strategy = "Eps"; # "Mid", "In-Out", "Eps", "Relint", "Conv"
 end
 
@@ -46,9 +46,9 @@ for cut in ["LC", "ELC", "SMC"]
                                             initialStageDecision = initialStageDecision, numScenarios = numScenarios, TimeLimit = TimeLimit, OPT = OPT, tightness = tightness,
                                             Output_Gap = Output_Gap, max_iter = max_iter, MaxIter = MaxIter, δ = δ, cutSelection = cutSelection, core_point_strategy = core_point_strategy)
             if cutSelection == "ELC" 
-                save("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddlpResult-$ℓ-$tightness.jld2", "sddlpResult", sddlpResult)
+                save("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddlpHCResult-$ℓ-$tightness.jld2", "sddlpResult", sddlpResult)
             else
-                save("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddlpResult-$cutSelection-$tightness.jld2", "sddlpResult", sddlpResult)
+                save("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddlpHCResult-$cutSelection-$tightness.jld2", "sddlpResult", sddlpResult)
             end
             
             # remove all redundant variables for processes
@@ -67,9 +67,9 @@ end
 
 T = 6; num = 3; cutSelection = "SMC"; ℓ = 0.0;
 if cutSelection == "ELC" 
-    sddlpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddlpResult-$ℓ-$tightness.jld2")["sddlpResult"][:solHistory]
+    sddlpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddlpHCResult-$ℓ-$tightness.jld2")["sddlpResult"][:solHistory]
 else
-    sddlpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddlpResult-$cutSelection-$tightness.jld2")["sddlpResult"][:solHistory]
+    sddlpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddlpHCResult-$cutSelection-$tightness.jld2")["sddlpResult"][:solHistory]
 end
 
 
