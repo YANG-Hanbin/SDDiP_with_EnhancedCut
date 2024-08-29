@@ -65,7 +65,7 @@ for cut in ["LC", "ELC", "SMC"]
     end
 end
 
-T = 6; num = 3; cutSelection = "SMC"; ℓ = 0.0;
+T = 12; num = 3; cutSelection = "SMC"; ℓ = 0.0;
 if cutSelection == "ELC" 
     sddlpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddlpResult-$ℓ-$tightness.jld2")["sddlpResult"][:solHistory]
 else

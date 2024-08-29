@@ -101,7 +101,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         end
 
         ####################################################### Backward Steps ###########################################################
-        if i ≥ 50 || (UB-LB)/UB ≤ 1e-2
+        if i ≥ 50 && (UB-LB)/UB ≤ 1e-2
             branchDecision = true;
         end
         if branchDecision == true

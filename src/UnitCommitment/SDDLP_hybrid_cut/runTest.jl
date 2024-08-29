@@ -20,7 +20,7 @@ using Distributed; addprocs(5);
 
 
     Output_Gap = false; max_iter = 150; MaxIter = 100; δ = 1.; numScenarios = 100; tightness = true;  TimeLimit = 60 * 60 * 2.; OPT = Inf; case = "case30"; # "RTS_GMLC", "case30"
-    T = 12; num = 5; cutSelection = "SMC"; # "LC", "ELC", "SMC"
+    T = 12; num = 3; cutSelection = "SMC"; # "LC", "ELC", "SMC"
     ℓ = .0; core_point_strategy = "Eps"; # "Mid", "In-Out", "Eps", "Relint", "Conv"
 end
 
