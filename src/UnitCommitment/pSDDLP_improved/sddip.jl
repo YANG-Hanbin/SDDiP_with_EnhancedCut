@@ -25,8 +25,8 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
     initial = now(); i = 1; LB = - Inf; UB = Inf; 
     iter_time = 0; total_Time = 0; t0 = 0.0; LMiter = 0; LM_iter = 0; gap = 100.0; gapString = "100%"; branchDecision = false;
 
-    col_names = [:Iter, :LB, :OPT, :UB, :gap, :time, :LM_iter, :Time]; # needs to be a vector Symbols
-    col_types = [Int64, Float64, Union{Float64,Nothing}, Float64, String, Float64, Int64, Float64];
+    col_names = [:Iter, :LB, :OPT, :UB, :gap, :time, :LM_iter, :Time, :Branch]; # needs to be a vector Symbols
+    col_types = [Int64, Float64, Union{Float64,Nothing}, Float64, String, Float64, Int64, Float64, Bool]; # needs to be a vector of types
     named_tuple = (; zip(col_names, type[] for type in col_types )...);
     sddipResult = DataFrame(named_tuple); # 0×7 DataFrame
     gapList = [];
@@ -86,7 +86,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         μ̄ = mean(values(u));
         σ̂² = Statistics.var(values(u));
         UB = μ̄ + 1.96 * sqrt(σ̂²/numScenarios); # minimum([μ̄ + 1.96 * sqrt(σ̂²/numScenarios), UB]);
-        gap = round((UB-LB)/UB * 100 ,digits = 2); gapString = string(gap,"%"); push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, LM_iter, total_Time]); push!(gapList, gap); 
+        gap = round((UB-LB)/UB * 100 ,digits = 2); gapString = string(gap,"%"); push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, LM_iter, total_Time, branchDecision]); push!(gapList, gap); 
         if i == 1
             println("----------------------------------------- Iteration Info ------------------------------------------------")
             println("Iter |        LB        |        UB        |       Gap      |      i-time     |    #LM     |     T-Time")
@@ -103,6 +103,8 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         ####################################################### Backward Steps ###########################################################
         if i ≥ 50 && (UB-LB)/UB ≤ 1e-2
             branchDecision = true;
+        else 
+            branchDecision = false;
         end
         if branchDecision == true
             for t in 1:indexSets.T-1 
@@ -194,15 +196,8 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         end
 
         ####################################################### Backward Steps ###########################################################
-        cutGeneration = false;
         for t = reverse(2:indexSets.T)
             for ω in [1]#keys(Ξ̃)
-                current_state = solCollection[i, t-1, ω].stageSolution; 
-                for j in reverse(1:i-1)
-                    if current_state != solCollection[j, t-1, ω].stageSolution
-                        cutGeneration = true; break;
-                    end
-                end
                 if cutGeneration == true || i == 1
                     backwardNodeInfoSet = Dict{Int64, Tuple}(); 
                     for n in keys(scenarioTree.tree[t].nodes) backwardNodeInfoSet[n] = (i, t, n, ω, cutSelection, core_point_strategy) end

@@ -21,7 +21,8 @@ function forwardModel!(; indexSets::IndexSets = indexSets,
                             paramDemand::ParamDemand = paramDemand, 
                                 paramOPF::ParamOPF = paramOPF, 
                                     stageRealization::StageRealization = stageRealization,
-                                            θ_bound::Real = 0.0, outputFlag::Int64 = 0, timelimit::Real = 3, mipGap::Float64 = 1e-4
+                                    κ:: Dict{Int64, Int64} = κ, ε::Real = 0.125,
+                                    θ_bound::Real = 0.0, outputFlag::Int64 = 0, timelimit::Real = 3, mipGap::Float64 = 1e-3
                             )
     (D, G, L, B) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T) 
     (Dᵢ, Gᵢ, in_L, out_L) = (indexSets.Dᵢ, indexSets.Gᵢ, indexSets.in_L, indexSets.out_L) 
@@ -33,29 +34,20 @@ function forwardModel!(; indexSets::IndexSets = indexSets,
     MOI.set(model, MOI.Silent(), true);
     set_optimizer_attribute(model, "MIPGap", mipGap);
     set_optimizer_attribute(model, "TimeLimit", timelimit);
-    @variable(model, θ_angle[B])                                                ## phase angle of the bus i
-    @variable(model, P[L])                                                      ## real power flow on line l; elements in L is Tuple (i, j)
-    @variable(model, 0 ≤ s[g in G] ≤ paramOPF.smax[g])                          ## real power generation at generator g
-    @variable(model, 0 ≤ x[D] ≤ 1)                                              ## load shedding
+    @variable(model, θ_angle[B])                            ## phase angle of the bus i
+    @variable(model, P[L])                                  ## real power flow on line l; elements in L is Tuple (i, j)
+    @variable(model, 0 ≤ s[g in G] ≤ paramOPF.smax[g])      ## real power generation at generator g
+    @variable(model, 0 ≤ x[D] ≤ 1)                          ## load shedding
 
-    @variable(model, y[G], Bin)                                                 ## binary variable for generator commitment status
-    @variable(model, v[G], Bin)                                                 ## binary variable for generator startup decision
-    @variable(model, w[G], Bin)                                                 ## binary variable for generator shutdowm decision
+    @variable(model, y[G], Bin)                 ## binary variable for generator commitment status
+    @variable(model, v[G], Bin)                 ## binary variable for generator startup decision
+    @variable(model, w[G], Bin)                 ## binary variable for generator shutdowm decision
 
-    @variable(model, θ[N] ≥ θ_bound)                                            ## auxiliary variable for approximation of the value function
+    @variable(model, θ[N] ≥ θ_bound)            ## auxiliary variable for approximation of the value function
 
-    # @variable(model, sur[G, 1:1], Bin)                                    ## sur[g, k] is the kth surrogate variable of s[g]
-    sur = Dict(
-        (g, i) => @variable(model, base_name = "sur[$g, $i]", binary = true)
-        for g in G for i in 1:1
-    );
-    model[:sur] = sur;
-
-    # constraints for surrogate variables
-    ## Choosing one leaf node
-    @constraint(model, [g in G], sur[g, 1] == 1)
-
-
+    ## approximate the continuous state s[g], s[g] = ∑_{i=0}^{κ-1} 2ⁱ * λ[g, i] * ε, κ = log2(paramOPF.smax[g] / ε) + 1
+    @variable(model, λ[g in G, i in 1:κ[g]], Bin)  
+    @constraint(model, ContiApprox[g in G], ε * sum(2^(i-1) * λ[g, i] for i in 1:κ[g]) == s[g])
     # power flow constraints
     for l in L
         i = l[1]
@@ -108,7 +100,7 @@ forwardModification!(; model::Model = model)
 function forwardModification!(; model::Model = model, 
                             randomVariables::RandomVariables = randomVariables,
                                     paramOPF::ParamOPF = paramOPF, paramDemand::ParamDemand = paramDemand,
-                                        stageDecision::Dict{Symbol, Dict{Int64, Any}} = stageDecision, 
+                                        stageDecision::Dict = stageDecision, 
                                             indexSets::IndexSets = indexSets
                                         )
 
@@ -166,4 +158,40 @@ function sample_scenarios(; numScenarios::Int64 = 10, scenarioTree::ScenarioTree
         Ξ[ω] = ξ
     end
     return Ξ
+end
+
+"""
+forwardPass(ξ): function for forward pass in parallel computing
+
+# Arguments
+
+  1. `ξ`: A sampled scenario path
+
+# Returns
+  1. `scenario_solution_collection`: cut coefficients
+
+"""
+function forwardPass(ξ::Dict{Int64, RandomVariables}; 
+                        indexSets::IndexSets = indexSets, paramDemand::ParamDemand = paramDemand, paramOPF::ParamOPF = paramOPF, 
+                            forwardInfoList::Dict{Int, Model} = forwardInfoList, 
+                                initialStageDecision::Dict{Symbol, Dict{Int64, Float64}} = initialStageDecision, 
+                                    κ::Dict{Int64, Int64} = κ
+                        )
+    stageDecision = Dict();
+    stageDecision[:s] = Dict{Int64, Float64}(g => initialStageDecision[:s][g] for g in indexSets.G); stageDecision[:y] = Dict{Int64, Float64}(g => initialStageDecision[:y][g] for g in indexSets.G); 
+    scenario_solution_collection = Dict();
+
+    for t in 1:indexSets.T
+        forwardModification!(model = forwardInfoList[t], randomVariables = ξ[t], paramOPF = paramOPF, indexSets = indexSets, stageDecision = stageDecision, paramDemand = paramDemand);
+        optimize!(forwardInfoList[t]); st = termination_status(forwardInfoList[t]);
+        stageDecision = Dict();
+        stageDecision[:y] = Dict{Int64, Float64}(g => round(JuMP.value(forwardInfoList[t][:y][g]), digits = 6) for g in indexSets.G);
+        stageDecision[:s] = Dict{Int64, Float64}(g => JuMP.value(forwardInfoList[t][:s][g]) for g in indexSets.G);
+        stageDecision[:λ] = Dict{Int64, Dict{Int64, Float64}}(g => Dict(i => round(JuMP.value(forwardInfoList[t][:λ][g, i]), digits = 6) for i in 1:κ[g]) for g in indexSets.G);
+        scenario_solution_collection[t] = ( stageSolution = deepcopy(stageDecision), 
+                                        stageValue = JuMP.objective_value(forwardInfoList[t]) - sum(JuMP.value.(forwardInfoList[t][:θ])), 
+                                            OPT = JuMP.objective_value(forwardInfoList[t]));
+
+    end
+    return scenario_solution_collection
 end

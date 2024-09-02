@@ -11,11 +11,11 @@ using Distributed; addprocs(5);
     const GRB_ENV = Gurobi.Env();
 
 
-    include("src/UnitCommitment/SDDLP_hybrid_cut/def.jl")
-    include("src/UnitCommitment/SDDLP_hybrid_cut/backwardModel.jl");
-    include("src/UnitCommitment/SDDLP_hybrid_cut/forwardModel.jl");
-    include("src/UnitCommitment/SDDLP_hybrid_cut/LevelSetMethod.jl");
-    include("src/UnitCommitment/SDDLP_hybrid_cut/sddip.jl");
+    include("src/UnitCommitment/pSDDLP/def.jl")
+    include("src/UnitCommitment/pSDDLP/backwardModel.jl");
+    include("src/UnitCommitment/pSDDLP/forwardModel.jl");
+    include("src/UnitCommitment/pSDDLP/LevelSetMethod.jl");
+    include("src/UnitCommitment/pSDDLP/sddip.jl");
     # include("src/UnitCommitment/SDDiP/extForm.jl");
 
 
@@ -46,9 +46,9 @@ for cut in ["LC", "ELC", "SMC"]
                                             initialStageDecision = initialStageDecision, numScenarios = numScenarios, TimeLimit = TimeLimit, OPT = OPT, tightness = tightness,
                                             Output_Gap = Output_Gap, max_iter = max_iter, MaxIter = MaxIter, δ = δ, cutSelection = cutSelection, core_point_strategy = core_point_strategy)
             if cutSelection == "ELC" 
-                save("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddlpHCResult-$ℓ-$tightness.jld2", "sddlpResult", sddlpResult)
+                save("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/isddlpHCResult-$ℓ-$tightness.jld2", "sddlpResult", sddlpResult)
             else
-                save("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddlpHCResult-$cutSelection-$tightness.jld2", "sddlpResult", sddlpResult)
+                save("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/isddlpResult-$cutSelection-$tightness.jld2", "sddlpResult", sddlpResult)
             end
             
             # remove all redundant variables for processes
@@ -67,9 +67,9 @@ end
 
 T = 6; num = 3; cutSelection = "SMC"; ℓ = 0.0;
 if cutSelection == "ELC" 
-    sddlpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddlpHCResult-$ℓ-$tightness.jld2")["sddlpResult"][:solHistory]
+    sddlpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/isddlpResult-$ℓ-$tightness.jld2")["sddlpResult"][:solHistory]
 else
-    sddlpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddlpHCResult-$cutSelection-$tightness.jld2")["sddlpResult"][:solHistory]
+    sddlpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/isddlpResult-$cutSelection-$tightness.jld2")["sddlpResult"][:solHistory]
 end
 
 

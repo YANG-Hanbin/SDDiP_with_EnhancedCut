@@ -440,8 +440,8 @@ function LevelSetMethod_optimization!(; model::Model = model,
         elseif st == MOI.NUMERICAL_ERROR ## need to figure out why this case happened and fix it
             # @info "Numerical Error occures! -- Build a new nxtModel"
             nxtModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-                                                    "OutputFlag" => Output, 
-                                                    "Threads" => 0)); 
+            "OutputFlag" => Output, 
+            "Threads" => 0)); 
             MOI.set(nxtModel, MOI.Silent(), true);
             set_optimizer_attribute(nxtModel, "MIPGap", mipGap);
             set_optimizer_attribute(nxtModel, "TimeLimit", timelimit);

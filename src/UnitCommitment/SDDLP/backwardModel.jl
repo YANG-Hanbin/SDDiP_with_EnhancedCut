@@ -33,7 +33,6 @@ function backwardModel!(; tightness::Bool = true, indexSets::IndexSets = indexSe
     MOI.set(model, MOI.Silent(), true);
     set_optimizer_attribute(model, "MIPGap", mipGap);
     set_optimizer_attribute(model, "TimeLimit", timelimit);
-    
     @variable(model, θ_angle[B])                                    ## phase angle of the bus i
     @variable(model, P[L])                                          ## real power flow on line l; elements in L is Tuple (i, j)
     @variable(model, 0 ≤ s[g in G] ≤ paramOPF.smax[g])              ## real power generation at generator g
@@ -170,49 +169,4 @@ function getValueFunctionLB(; model::Model = model,
     end
     unregister(model, :Nonanticipativity);
     return f_star_value 
-end
-
-
-"""
-backwardPass(backwardNodeInfo)
-
-function for backward pass in parallel computing
-"""
-function backwardPass(backwardNodeInfo::Tuple; 
-                            indexSets::IndexSets = indexSets, 
-                            paramDemand::ParamDemand = paramDemand, 
-                            paramOPF::ParamOPF = paramOPF, max_iter::Int64 = max_iter, Output_Gap::Bool = Output_Gap, tightness::Bool = tightness, δ::Float64 = δ, ℓ::Float64 = ℓ,
-                            backwardInfoList::Dict{Int64, Model} = backwardInfoList, scenarioTree::ScenarioTree = scenarioTree, solCollection::Dict{Any, Any} = solCollection
-                            )
-    (i, t, n, ω, cutSelection, core_point_strategy) = backwardNodeInfo; 
-    backwardModification!(model = backwardInfoList[t], randomVariables = scenarioTree.tree[t].nodes[n], paramOPF = paramOPF, indexSets = indexSets, paramDemand = paramDemand); 
-
-    (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(stageDecision = solCollection[i, t-1, ω].stageSolution, f_star_value = solCollection[i, t, ω].OPT, cutSelection = "LC", max_iter = max_iter, paramOPF = paramOPF,
-                                                            Output_Gap = Output_Gap, ℓ = ℓ, λ = .1, core_point_strategy = core_point_strategy); 
-
-    ((λ₀, λ₁), LMiter) = LevelSetMethod_optimization!(levelSetMethodParam = levelSetMethodParam, model = backwardInfoList[t], cutSelection = "LC", indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF,
-                                            stageDecision = solCollection[i, t-1, ω].stageSolution, 
-                                                    x_interior = nothing, x₀ = x₀, tightness = tightness, δ = δ);
-
-                                                    
-    f_star_value = λ₀ + sum(λ₁[:s][g] * solCollection[i, t-1, ω].stageSolution[:s][g] + 
-                                λ₁[:y][g] * solCollection[i, t-1, ω].stageSolution[:y][g] + 
-                                    sum(λ₁[:sur][g][k] * solCollection[i, t-1, ω].stageSolution[:sur][g][k] for k in keys(solCollection[i, t-1, ω].stageSolution[:sur][g])) for g in indexSets.G
-                                    );
-    ## using enhancement cuts under conditions
-    if cutSelection != "LC" # && gap ≥ 2.0
-        if i ≤ 3
-            ℓ = 0.0                     # ℓ is used to control the interior point
-        else
-            ℓ = rand([.0, .5, .8])
-        end
-        (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(stageDecision = solCollection[i, t-1, ω].stageSolution, f_star_value = f_star_value, cutSelection = cutSelection, max_iter = max_iter, paramOPF = paramOPF,
-                                                                    Output_Gap = Output_Gap, ℓ = ℓ, λ = .3);
-        ((λ₀, λ₁), LMiter) = LevelSetMethod_optimization!(levelSetMethodParam = levelSetMethodParam, model = backwardInfoList[t], cutSelection = cutSelection, indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF,
-                                                    stageDecision = solCollection[i, t-1, ω].stageSolution, 
-                                                            x_interior = x_interior, x₀ = x₀, tightness = tightness, δ = δ);
-
-    end
-
-    return ((λ₀, λ₁), LMiter)  
 end

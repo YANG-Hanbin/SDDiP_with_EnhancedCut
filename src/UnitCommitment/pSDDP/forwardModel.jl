@@ -21,8 +21,7 @@ function forwardModel!(; indexSets::IndexSets = indexSets,
                             paramDemand::ParamDemand = paramDemand, 
                                 paramOPF::ParamOPF = paramOPF, 
                                     stageRealization::StageRealization = stageRealization,
-                                    κ:: Dict{Int64, Int64} = κ, ε::Real = 0.125,
-                                    θ_bound::Real = 0.0, outputFlag::Int64 = 0, timelimit::Real = 3, mipGap::Float64 = 1e-3
+                                    θ_bound::Real = 0.0, outputFlag::Int64 = 0, timelimit::Real = 3, mipGap::Float64 = 1e-4
                             )
     (D, G, L, B) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T) 
     (Dᵢ, Gᵢ, in_L, out_L) = (indexSets.Dᵢ, indexSets.Gᵢ, indexSets.in_L, indexSets.out_L) 
@@ -45,9 +44,6 @@ function forwardModel!(; indexSets::IndexSets = indexSets,
 
     @variable(model, θ[N] ≥ θ_bound)            ## auxiliary variable for approximation of the value function
 
-    ## approximate the continuous state s[g], s[g] = ∑_{i=0}^{κ-1} 2ⁱ * λ[g, i] * ε, κ = log2(paramOPF.smax[g] / ε) + 1
-    @variable(model, λ[g in G, i in 1:κ[g]], Bin)  
-    @constraint(model, ContiApprox[g in G], ε * sum(2^(i-1) * λ[g, i] for i in 1:κ[g]) == s[g])
     # power flow constraints
     for l in L
         i = l[1]
@@ -100,7 +96,7 @@ forwardModification!(; model::Model = model)
 function forwardModification!(; model::Model = model, 
                             randomVariables::RandomVariables = randomVariables,
                                     paramOPF::ParamOPF = paramOPF, paramDemand::ParamDemand = paramDemand,
-                                        stageDecision::Dict = stageDecision, 
+                                        stageDecision::Dict{Symbol, Dict{Int64, Float64}} = stageDecision, 
                                             indexSets::IndexSets = indexSets
                                         )
 
@@ -158,4 +154,39 @@ function sample_scenarios(; numScenarios::Int64 = 10, scenarioTree::ScenarioTree
         Ξ[ω] = ξ
     end
     return Ξ
+end
+
+
+"""
+forwardPass(ξ): function for forward pass in parallel computing
+
+# Arguments
+
+  1. `ξ`: A sampled scenario path
+
+# Returns
+  1. `scenario_solution_collection`: cut coefficients
+
+"""
+function forwardPass(ξ::Dict{Int64, RandomVariables}; 
+                        indexSets::IndexSets = indexSets, paramDemand::ParamDemand = paramDemand, paramOPF::ParamOPF = paramOPF, 
+                            forwardInfoList::Dict{Int, Model} = forwardInfoList, 
+                                initialStageDecision::Dict{Symbol, Dict{Int64, Float64}} = initialStageDecision
+                    )
+
+    stageDecision[:s] = Dict{Int64, Float64}(g => initialStageDecision[:s][g] for g in indexSets.G); stageDecision[:y] = Dict{Int64, Float64}(g => initialStageDecision[:y][g] for g in indexSets.G);  
+    
+    scenario_solution_collection = Dict();
+    for t in 1:indexSets.T
+        forwardModification!(model = forwardInfoList[t], randomVariables = ξ[t], paramOPF = paramOPF, indexSets = indexSets, stageDecision = stageDecision, paramDemand = paramDemand);
+        optimize!(forwardInfoList[t]);
+        stageDecision[:s] = Dict{Int64, Float64}(g => JuMP.value(forwardInfoList[t][:s][g]) for g in indexSets.G);
+        stageDecision[:y] = Dict{Int64, Float64}(g => round(JuMP.value(forwardInfoList[t][:y][g]), digits = 2) for g in indexSets.G);
+        scenario_solution_collection[t] = ( stageSolution = deepcopy(stageDecision), 
+                                                stageValue = JuMP.objective_value(forwardInfoList[t]) - sum(JuMP.value.(forwardInfoList[t][:θ])), 
+                                                    OPT = JuMP.objective_value(forwardInfoList[t])
+                                            );
+
+    end
+    return scenario_solution_collection
 end

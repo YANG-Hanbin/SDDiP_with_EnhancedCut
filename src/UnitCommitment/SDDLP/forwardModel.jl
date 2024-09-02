@@ -33,8 +33,6 @@ function forwardModel!(; indexSets::IndexSets = indexSets,
     MOI.set(model, MOI.Silent(), true);
     set_optimizer_attribute(model, "MIPGap", mipGap);
     set_optimizer_attribute(model, "TimeLimit", timelimit);
-
-                                
     @variable(model, θ_angle[B])                                                ## phase angle of the bus i
     @variable(model, P[L])                                                      ## real power flow on line l; elements in L is Tuple (i, j)
     @variable(model, 0 ≤ s[g in G] ≤ paramOPF.smax[g])                          ## real power generation at generator g
@@ -168,46 +166,4 @@ function sample_scenarios(; numScenarios::Int64 = 10, scenarioTree::ScenarioTree
         Ξ[ω] = ξ
     end
     return Ξ
-end
-
-"""
-forwardPass(ξ): function for forward pass in parallel computing
-
-# Arguments
-
-  1. `ξ`: A sampled scenario path
-
-# Returns
-  1. `scenario_solution_collection`: cut coefficients
-
-"""
-function forwardPass(ξ::Dict{Int64, RandomVariables}; 
-                        indexSets::IndexSets = indexSets, paramDemand::ParamDemand = paramDemand, paramOPF::ParamOPF = paramOPF, 
-                            forwardInfoList::Dict{Int, Model} = forwardInfoList, 
-                                initialStageDecision::Dict{Symbol, Dict{Int64, Float64}} = initialStageDecision, 
-                                    StateVarList::Dict{Any, Any} = StateVarList
-                    )
-
-    stageDecision[:s] = Dict{Int64, Float64}(g => initialStageDecision[:s][g] for g in indexSets.G); stageDecision[:y] = Dict{Int64, Float64}(g => initialStageDecision[:y][g] for g in indexSets.G);  
-    for g in indexSets.G stageDecision[:sur][g] = Dict(1 => 1.) end; # augmented state variables
-
-    scenario_solution_collection = Dict();
-    for t in 1:indexSets.T
-        forwardModification!(model = forwardInfoList[t], randomVariables = ξ[t], paramOPF = paramOPF, indexSets = indexSets, stageDecision = stageDecision, paramDemand = paramDemand);
-        optimize!(forwardInfoList[t]);
-        stageDecision[:s] = Dict{Int64, Float64}(g => JuMP.value(forwardInfoList[t][:s][g]) for g in indexSets.G);
-        stageDecision[:y] = Dict{Int64, Float64}(g => round(JuMP.value(forwardInfoList[t][:y][g]), digits = 6) for g in indexSets.G);
-        for g in indexSets.G 
-            stageDecision[:sur][g] = Dict{Int64, Float64}()
-            for k in StateVarList[t].leaf[g]
-                stageDecision[:sur][g][k] = round(JuMP.value(forwardInfoList[t][:sur][g, k]), digits = 6)
-            end
-        end
-        scenario_solution_collection[t] = ( stageSolution = deepcopy(stageDecision), 
-                                                stageValue = JuMP.objective_value(forwardInfoList[t]) - sum(JuMP.value.(forwardInfoList[t][:θ])), 
-                                                    OPT = JuMP.objective_value(forwardInfoList[t])
-                                            );
-
-    end  
-    return scenario_solution_collection  
 end
