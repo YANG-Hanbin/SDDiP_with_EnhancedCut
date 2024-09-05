@@ -101,13 +101,8 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         end
 
         ####################################################### Backward Steps ###########################################################
-        if i ≥ 50 && (UB-LB)/UB ≤ 1e-2
-            branchDecision = true;
-        else 
-            branchDecision = false;
-        end
-        if branchDecision == true
-            for t in 1:indexSets.T-1 
+        if i ≥ 50 && (UB-LB)/UB ≤ 1e-2                                      ## the first rule:: for branching: current convex envelope is good enough
+            for t in reverse(1:indexSets.T-1) 
                 for ω in  [1]#keys(Ξ̃)
                     dev = Dict()
                     for g in indexSets.G 
@@ -118,7 +113,8 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                         end
                     end
                     g = [g for (g, v) in dev if v == maximum(values(dev))][1]
-                    if dev[g] ≥ 1e-6
+                    if dev[g] ≥ 1e-3                                        ## the second rule: current point is far from being an extreme point
+                        branchDecision = true;
                         @everywhere begin
                             t = $t; ω = $ω; g = $g; i = $i; 
                             # find the active leaf node 
@@ -189,8 +185,9 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                                                         OPT = solCollection[i, t, ω].OPT
                                                     );
                         end
-                    end
-                
+                    else 
+                        branchDecision = false;
+                    end            
                 end
             end
         end

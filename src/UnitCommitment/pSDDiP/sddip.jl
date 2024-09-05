@@ -89,21 +89,19 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         ####################################################### Backward Steps ###########################################################
         for t = reverse(2:indexSets.T)
             for ω in [1]#keys(Ξ̃)
-                if cutGeneration == true || i == 1
-                    backwardNodeInfoSet = Dict{Int64, Tuple}();
-                    for n in keys(scenarioTree.tree[t].nodes) backwardNodeInfoSet[n] = (i, t, n, ω, cutSelection) end
-                    backwardPassResult = pmap(backwardPass, values(backwardNodeInfoSet));
+                backwardNodeInfoSet = Dict{Int64, Tuple}();
+                for n in keys(scenarioTree.tree[t].nodes) backwardNodeInfoSet[n] = (i, t, n, ω, cutSelection) end
+                backwardPassResult = pmap(backwardPass, values(backwardNodeInfoSet));
 
-                    for n in keys(scenarioTree.tree[t].nodes)
-                        @everywhere begin
-                            n = $n; t = $t; i = $i; ω = $ω; (λ₀, λ₁) = $backwardPassResult[n][1]; 
-                            @constraint(forwardInfoList[t-1], forwardInfoList[t-1][:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + sum(sum(λ₁[:λ][g][k] * forwardInfoList[t-1][:λ][g, k] for k in 1:κ[g]) + λ₁[:y][g] * forwardInfoList[t-1][:y][g] for g in indexSets.G));
-                            @constraint(backwardInfoList[t-1], backwardInfoList[t-1][:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + sum(sum(λ₁[:λ][g][k] * backwardInfoList[t-1][:λ][g, k] for k in 1:κ[g]) + λ₁[:y][g] * backwardInfoList[t-1][:y][g] for g in indexSets.G));
-                        end
+                for n in keys(scenarioTree.tree[t].nodes)
+                    @everywhere begin
+                        n = $n; t = $t; i = $i; ω = $ω; (λ₀, λ₁) = $backwardPassResult[n][1]; 
+                        @constraint(forwardInfoList[t-1], forwardInfoList[t-1][:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + sum(sum(λ₁[:λ][g][k] * forwardInfoList[t-1][:λ][g, k] for k in 1:κ[g]) + λ₁[:y][g] * forwardInfoList[t-1][:y][g] for g in indexSets.G));
+                        @constraint(backwardInfoList[t-1], backwardInfoList[t-1][:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + sum(sum(λ₁[:λ][g][k] * backwardInfoList[t-1][:λ][g, k] for k in 1:κ[g]) + λ₁[:y][g] * backwardInfoList[t-1][:y][g] for g in indexSets.G));
                     end
+                end
 
-                    LM_iter = LM_iter + sum(backwardPassResult[n][2] for n in keys(scenarioTree.tree[t].nodes))
-                end 
+                LM_iter = LM_iter + sum(backwardPassResult[n][2] for n in keys(scenarioTree.tree[t].nodes))
             end
         end
         LM_iter = floor(Int64, LM_iter/sum(length(scenarioTree.tree[t].nodes) for t in 2:indexSets.T));
