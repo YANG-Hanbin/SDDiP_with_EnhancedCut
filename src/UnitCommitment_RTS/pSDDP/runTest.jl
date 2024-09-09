@@ -18,8 +18,8 @@ using Distributed; addprocs(5);
     include("src/UnitCommitment/pSDDP/sddp.jl");
     # include("src/UnitCommitment/SDDP/extForm.jl");
 
-    Output_Gap = false; max_iter = 150; MaxIter = 100; cutSelection = "ELC"; δ = .1; numScenarios = 100; tightness = true; case = "case30"; # "RTS_GMLC", "case30"
-    T = 6; num = 5; TimeLimit = 60 * 60 * 2.; OPT = Inf; ℓ = 0.0;
+    Output_Gap = false; max_iter = 150; MaxIter = 100; cutSelection = "SMC"; δ = .1; numScenarios = 100; tightness = true; case = "case30"; # "RTS_GMLC", "case30"
+    T = 3; num = 3; TimeLimit = 60 * 60 * 2.; OPT = Inf; 
 end
 
 
@@ -31,7 +31,7 @@ for cut in ["LC", "ELC", "SMC"]
             paramDemand = load("src/UnitCommitment/experiment_$case/stage($T)real($num)/paramDemand.jld2")["paramDemand"];
             scenarioTree = load("src/UnitCommitment/experiment_$case/stage($T)real($num)/scenarioTree.jld2")["scenarioTree"];
             initialStageDecision = load("src/UnitCommitment/experiment_$case/initialStageDecision.jld2")["initialStageDecision"];
-            # cutSelection = cut
+            cutSelection = cut
             @everywhere begin
                 indexSets = $indexSets; paramOPF = $paramOPF; paramDemand = $paramDemand; scenarioTree = $scenarioTree; initialStageDecision = $initialStageDecision;
             end

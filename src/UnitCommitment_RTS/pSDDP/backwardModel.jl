@@ -38,6 +38,8 @@ function backwardModel!(; tightness::Bool = tightness, indexSets::IndexSets = in
     @variable(model, 0 ≤ s[g in G] ≤ paramOPF.smax[g])              ## real power generation at generator g
     @variable(model, 0 ≤ x[D] ≤ 1)                                  ## load shedding
 
+    @variable(model, h[G] ≥ 0);                 ## production cost at generator g
+
     @variable(model, y[G], Bin)                 ## binary variable for generator commitment status
     @variable(model, v[G], Bin)                 ## binary variable for generator startup decision
     @variable(model, w[G], Bin)                 ## binary variable for generator shutdowm decision
@@ -79,6 +81,10 @@ function backwardModel!(; tightness::Bool = tightness, indexSets::IndexSets = in
     @constraint(model, ShutUpDown[g in G], v[g] - w[g] == y[g] - y_copy[g])
     @constraint(model, Ramping1[g in G], s[g] - s_copy[g] <= paramOPF.M[g] * y_copy[g] + paramOPF.smin[g] * v[g])
     @constraint(model, Ramping2[g in G], s[g] - s_copy[g] >= - paramOPF.M[g] * y[g] - paramOPF.smin[g] * w[g])
+
+    # production cost
+    @constraint(model, production[g in indexSets.G, o in keys(paramOPF.slope[g])], h[g] ≥ paramOPF.slope[g][o] * s[g] + paramOPF.intercept[g][o] * y[g])
+
 
     return model
 end
@@ -122,7 +128,7 @@ function for backward pass in parallel computing
 function backwardPass(backwardNodeInfo::Tuple; 
                             indexSets::IndexSets = indexSets, 
                             paramDemand::ParamDemand = paramDemand, 
-                            paramOPF::ParamOPF = paramOPF, max_iter::Int64 = max_iter, Output_Gap::Bool = Output_Gap, tightness::Bool = tightness, δ::Float64 = δ, ℓ::Float64 = ℓ,
+                            paramOPF::ParamOPF = paramOPF, max_iter::Int64 = max_iter, Output_Gap::Bool = Output_Gap, tightness::Bool = tightness, δ::Float64 = δ,
                             backwardInfoList::Dict{Int64, Model} = backwardInfoList, forwardInfoList::Dict{Int64, Model} = forwardInfoList, scenarioTree::ScenarioTree = scenarioTree, solCollection::Dict{Any, Any} = solCollection
                             )
     (i, t, n, ω, cutSelection) = backwardNodeInfo; 
@@ -135,7 +141,7 @@ function backwardPass(backwardNodeInfo::Tuple;
     (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(stageDecision = solCollection[i, t-1, ω].stageSolution, 
                                                         f_star_value = solCollection[i, t, ω].OPT, 
                                                             cutSelection = "LC", max_iter = max_iter,
-                                                                Output_Gap = Output_Gap, ℓ = ℓ, λ = .3);
+                                                                Output_Gap = Output_Gap, ℓ = .0, λ = .3);
     # model = backwardInfoList[t]; stageDecision = solCollection[i, t-1, ω].stageSolution;
     ((λ₀, λ₁), LMiter) = LevelSetMethod_optimization!(levelSetMethodParam = levelSetMethodParam, model = backwardInfoList[t],
                                             cutSelection = "LC",

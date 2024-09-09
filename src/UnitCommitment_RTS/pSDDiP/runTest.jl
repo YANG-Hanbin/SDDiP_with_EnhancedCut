@@ -19,8 +19,8 @@ using Distributed; addprocs(5);
     # include("src/UnitCommitment/pSDDiP/extForm.jl");
 
 
-    Output_Gap = false; max_iter = 150; MaxIter = 100; cutSelection = "ELC"; δ = 1.; numScenarios = 100; tightness = true; case = "case30"; # "RTS_GMLC", "case30"
-    T = 6; num = 5; TimeLimit = 60 * 60 * 2.; OPT = Inf; coef = 10; ε = 1/2^(coef); ℓ = .0; 
+    Output_Gap = false; max_iter = 150; MaxIter = 100; cutSelection = "SMC"; δ = 1.; numScenarios = 100; tightness = true; case = "case30"; # "RTS_GMLC", "case30"
+    T = 8; num = 5; TimeLimit = 60 * 60 * 2.; OPT = Inf; coef = 10; ε = 1/2^(coef); ℓ = .7; 
 end
 
 
