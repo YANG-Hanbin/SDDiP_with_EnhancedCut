@@ -43,6 +43,8 @@ function backwardModel!(; tightness::Bool = tightness, indexSets::IndexSets = in
     @variable(model, v[G], Bin)                 ## binary variable for generator startup decision
     @variable(model, w[G], Bin)                 ## binary variable for generator shutdowm decision
 
+    @variable(model, h[G] ≥ 0);                 ## production cost at generator g
+
     @variable(model, θ[N] ≥ θ_bound)            ## auxiliary variable for approximation of the value function
     ## approximate the continuous state s[g], s[g] = ∑_{i=0}^{κ-1} 2ⁱ * λ[g, i] * ε, κ = log2(paramOPF.smax[g] / ε) + 1
     @variable(model, λ[g in G, i in 1:κ[g]], Bin)  
@@ -84,6 +86,9 @@ function backwardModel!(; tightness::Bool = tightness, indexSets::IndexSets = in
     @constraint(model, ShutUpDown[g in G], v[g] - w[g] == y[g] - y_copy[g])
     @constraint(model, Ramping1[g in G], s[g] - s_copy[g] <= paramOPF.M[g] * y_copy[g] + paramOPF.smin[g] * v[g])
     @constraint(model, Ramping2[g in G], s[g] - s_copy[g] >= - paramOPF.M[g] * y[g] - paramOPF.smin[g] * w[g])
+    
+    # production cost
+    @constraint(model, production[g in indexSets.G, o in keys(paramOPF.slope[g])], h[g] ≥ paramOPF.slope[g][o] * s[g] + paramOPF.intercept[g][o] * y[g]);
 
     return model
 end
@@ -116,4 +121,35 @@ function backwardModification!(; model::Model = model,
                                                             sum(model[:P][(i, j)] for j in indexSets.out_L[i]) + 
                                                                 sum(model[:P][(j, i)] for j in indexSets.in_L[i]) 
                                                                     .== sum(paramDemand.demand[d] * randomVariables.deviation[d] * model[:x][d] for d in indexSets.Dᵢ[i]) )
+end
+
+"""
+backwardPass(backwardNodeInfo)
+
+function for backward pass in parallel computing
+"""
+function backwardPass(backwardNodeInfo::Tuple; 
+                            indexSets::IndexSets = indexSets, 
+                            paramDemand::ParamDemand = paramDemand, 
+                            paramOPF::ParamOPF = paramOPF, max_iter::Int64 = max_iter, Output_Gap::Bool = Output_Gap, tightness::Bool = tightness, δ::Float64 = δ,
+                            backwardInfoList::Dict{Int64, Model} = backwardInfoList, forwardInfoList::Dict{Int64, Model} = forwardInfoList, scenarioTree::ScenarioTree = scenarioTree, solCollection::Dict{Any, Any} = solCollection
+                            )
+    (i, t, n, ω, cutSelection) = backwardNodeInfo; 
+    forwardModification!(model = forwardInfoList[t], randomVariables = scenarioTree.tree[t].nodes[n], stageDecision = solCollection[i, t-1, ω].stageSolution, paramOPF = paramOPF, indexSets = indexSets, paramDemand = paramDemand);
+    optimize!(forwardInfoList[t]); f_star_value = JuMP.objective_value(forwardInfoList[t]);
+
+    backwardModification!(model = backwardInfoList[t], randomVariables = scenarioTree.tree[t].nodes[n], paramOPF = paramOPF, indexSets = indexSets, paramDemand = paramDemand);
+
+    (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(stageDecision = solCollection[i, t-1, ω].stageSolution, 
+                                                        f_star_value = f_star_value, κ = κ,
+                                                            cutSelection = cutSelection, max_iter = max_iter,
+                                                                Output_Gap = Output_Gap, ℓ = ℓ, λ = .3);
+    # model = backwardInfoList[t]; stageDecision = solCollection[i, t-1, ω].stageSolution;
+    ((λ₀, λ₁), LMiter) = LevelSetMethod_optimization!(levelSetMethodParam = levelSetMethodParam, model = backwardInfoList[t],
+                                                                    cutSelection = cutSelection, stageDecision = solCollection[i, t-1, ω].stageSolution, κ = κ,
+                                                                        x_interior = x_interior, x₀ = x₀, indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF, δ = δ);
+
+
+    return ((λ₀, λ₁), LMiter)  
+
 end

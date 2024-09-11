@@ -34,8 +34,8 @@ struct ParamOPF  ## included in a period dict
     smax        :: Dict{Int64, Float64}                     ## :g ∈ G  Pmax
     smin        :: Dict{Int64, Float64}                     ## :g ∈ G
     M           :: Dict{Int64, Float64}                     ## :g ∈ G  multi-period ramping limit 
-    slope       :: Dict{Int64, Float64}                     ## :g ∈ G  cost function
-    intercept   :: Dict{Int64, Float64}                     ## :g ∈ G
+    slope       :: Dict{Int64, Dict{Int64, Float64}}        ## :g ∈ G, :o ∈ O  cost function slope
+    intercept   :: Dict{Int64, Dict{Int64, Float64}}        ## :g ∈ G, :o ∈ O  cost function intercept
     C_start     :: Dict{Int64, Float64}                     ## :g ∈ G
     C_down      :: Dict{Int64, Float64}                     ## :g ∈ G
 end

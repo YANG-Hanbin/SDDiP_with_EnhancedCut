@@ -25,8 +25,8 @@ function prepareIndexSets(  ; T::Int64 = 10,
     smax = Dict{Int64, Float64}()
     smin = Dict{Int64, Float64}()
     M = Dict{Int64, Float64}()
-    slope = Dict{Int64, Float64}()
-    intercept = Dict{Int64, Float64}()
+    slope = Dict{Int64, Dict{Int64, Float64}}()
+    intercept = Dict{Int64, Dict{Int64, Float64}}()
     C_start = Dict{Int64, Float64}()
     C_down = Dict{Int64, Float64}()
 
@@ -67,9 +67,25 @@ function prepareIndexSets(  ; T::Int64 = 10,
         smax[g] = round(network_data["gen"][i]["pmax"], digits = 6)
         smin[g] = round(network_data["gen"][i]["pmin"], digits = 6)
         M[g] = round(network_data["gen"][i]["ramp_30"], digits = 6)
-        cg[g] = wsample([5000, 100000, 250000], [0.2, .75, 0.05], 1)[1]  
-        slope[g] = round(network_data["gen"][i]["cost"][2], digits = 6)
-        intercept[g] = round(network_data["gen"][i]["cost"][1], digits = 6)
+        cg[g] = wsample([5000, 100000, 250000], [0.2, .75, 0.05], 1)[1] 
+        
+        if network_data["gen"][i]["model"] == 1
+            cost = network_data["gen"][i]["cost"]; O = length(cost)/2; slope[g] = Dict{Int64, Float64}(); intercept[g] = Dict{Int64, Float64}();
+            for o in 1:Int(O-1)
+                slope[g][o] = (cost[2*o+2] - cost[2*o])/(cost[2*o+1] - cost[2*o-1])
+                intercept[g][o] = cost[2*o] - slope[g][o] * cost[2*o-1]
+            end
+        elseif network_data["gen"][i]["model"] == 2
+            cost = network_data["gen"][i]["cost"]; 
+            x_vals = [network_data["gen"][i]["pmin"], (network_data["gen"][i]["pmin"] + network_data["gen"][i]["pmax"]) * .25, (network_data["gen"][i]["pmin"] + network_data["gen"][i]["pmax"]) * .75, network_data["gen"][i]["pmax"]] 
+            slope_vec, intercept_vec = piecewise_linear_coefficients(cost, x_vals)
+            O = length(slope_vec); slope[g] = Dict{Int64, Float64}(); intercept[g] = Dict{Int64, Float64}();
+            for o in 1:O
+                slope[g][o] = slope_vec[o]
+                intercept[g][o] = intercept_vec[o]
+            end
+        end
+
         C_start[g] = round(network_data["gen"][i]["startup"], digits = 6)
         C_down[g] = round(network_data["gen"][i]["shutdown"], digits = 6)
 
@@ -102,6 +118,35 @@ function prepareIndexSets(  ; T::Int64 = 10,
      return (indexSets = indexSets, 
              paramOPF = paramOPF, 
              paramDemand = paramDemand)
+end
+
+"""
+    auxiliary functions to linearize the quadratic cost function
+"""
+
+function poly_cost(c_vec, x)
+    n = length(c_vec) - 1
+    return sum(c_vec[i] * x^(n-i+1) for i in 1:n) + c_vec[n+1]
+end
+
+
+function piecewise_linear_coefficients(c_vec, x_vals)
+    k = length(x_vals)
+    a = zeros(k)
+    b = zeros(k)
+    
+    for i in 1:k
+        # slope
+        a[i] = 0.
+        n = length(c_vec)
+        for j in 0:n-1
+            a[i] = a[i] + (n - j) * c_vec[j+1] * x_vals[i]^(n-j-1)
+        end
+        # intercept
+        b[i] = poly_cost(c_vec, x_vals[i]) - a[i] * x_vals[i]
+    end
+    
+    return a, b
 end
 
 """

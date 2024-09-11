@@ -115,8 +115,7 @@ function function_info(; x₀::Dict = x₀,
                         ϵ::Float64 = 1e-4, δ::Float64 = 50.)
     if cutSelection == "ELC"
         # objective function
-        @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
-                                    paramOPF.intercept[g] * model[:y][g] +
+        @objective(model, Min,  sum(model[:h][g] +
                                         paramOPF.C_start[g] * model[:v][g] + 
                                             paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
                                                 sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
@@ -136,8 +135,7 @@ function function_info(; x₀::Dict = x₀,
                                     Dict(1 => negative_∇F ));
     elseif cutSelection == "LC"
         # objective function
-        @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
-                                    paramOPF.intercept[g] * model[:y][g] +
+        @objective(model, Min,  sum(model[:h][g] +
                                         paramOPF.C_start[g] * model[:v][g] + 
                                             paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
                                                 sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) -
@@ -156,8 +154,7 @@ function function_info(; x₀::Dict = x₀,
                                         );
     elseif cutSelection == "SMC"
         # objective function
-        @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
-                                    paramOPF.intercept[g] * model[:y][g] +
+        @objective(model, Min,  sum(model[:h][g] +
                                         paramOPF.C_start[g] * model[:v][g] + 
                                             paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
                                                 sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +

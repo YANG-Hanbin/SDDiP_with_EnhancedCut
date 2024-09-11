@@ -6,13 +6,14 @@ using Statistics, StatsBase, Random, Dates, Distributions;
 using CSV, DataFrames, Printf;
 using JLD2, FileIO;
 
-include("src/UnitCommitment/data/def.jl");
-include("src/UnitCommitment/data/readin.jl");
+project_root = @__DIR__;
+include(joinpath(project_root, "src", "UnitCommitment", "data", "def.jl"))
+include(joinpath(project_root, "src", "UnitCommitment", "data", "readin.jl"))
 
-case = "case30" # case_RTS_GMLC"; "case30";
+case = "case30" # "case_RTS_GMLC", "case30"
 network_data = PowerModels.parse_file("src/UnitCommitment/data/$case/$case.m");
 branchInfo = CSV.read("src/UnitCommitment/data/case_RTS_GMLC/branch.csv", DataFrame);
-T = 12; numRealization = 10;
+# T = 6; numRealization = 3;
 
 for T in [6, 8, 12]
     for numRealization in [3, 5, 10]
@@ -20,7 +21,6 @@ for T in [6, 8, 12]
 
         scenarioTree = scenario_tree_generation(T = T, numRealization = numRealization, indexSets = indexSets)
         # path = Dict(1 => 1); prob = 1.; Ξ = Dict(); build_scenarios(t = 2, path = path, prob = prob, scenarioTree = scenarioTree);
-
         save("src/UnitCommitment/experiment_$case/stage($T)real($numRealization)/indexSets.jld2", "indexSets", indexSets)
         save("src/UnitCommitment/experiment_$case/stage($T)real($numRealization)/paramOPF.jld2", "paramOPF", paramOPF)
         save("src/UnitCommitment/experiment_$case/stage($T)real($numRealization)/paramDemand.jld2", "paramDemand", paramDemand)

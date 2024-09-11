@@ -24,7 +24,7 @@ lbiter = @df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/
                                                 xlab = "Iteration", 
                                                 # ylab = "Lower Bounds",
                                                 # ylim = [1000,10000],
-                                                xlim = [0,60],
+                                                # xlim = [0,60],
                                                 titlefont = font(15,"Times New Roman"), 
                                                 xguidefont=font(15,"Times New Roman"), 
                                                 yguidefont=font(15,"Times New Roman"), 
@@ -35,9 +35,9 @@ lbiter = @df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/
                                                 marker=(:circle, 3, 1.),
                                                 yformatter=y->string(Int(y)),
                                                 tickfont=font("Computer Modern"),
-                                                legendfont=font("Times New Roman"), legend=:right) # :right, :left, :top, :bottom, :inside, :best, :legend, :topright, :topleft, :bottomleft, :bottomright
+                                                legendfont=font("Times New Roman"), legend=:bottomright) # :right, :left, :top, :bottom, :inside, :best, :legend, :topright, :topleft, :bottomleft, :bottomright
 @df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddipResult-LC-$tightness-5.jld2")["sddipResult"][:solHistory] plot!(:Iter, :LB, marker=(:star, 3, 1.), label="LC")
-@df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddpResult-$ℓ-$tightness.jld2")["sddpResult"][:solHistory] plot!(:Iter, :LB, marker=(:hexagon, 3, 1.), label="ELC")
+@df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddipResult-$ℓ-$tightness-10.jld2")["sddipResult"][:solHistory] plot!(:Iter, :LB, marker=(:hexagon, 3, 1.), label="ELC")
 lbiter |> save("/Users/aaron/Downloads/figures/sddipResult-cut_comparsion.pdf")
 
 
@@ -47,7 +47,7 @@ lbiter = @df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/
                                                 xlab = "Iteration", 
                                                 # ylab = "Lower Bounds",
                                                 # ylim = [1000,10000],
-                                                xlim = [0,60],
+                                                # xlim = [0,60],
                                                 titlefont = font(15,"Times New Roman"), 
                                                 xguidefont=font(15,"Times New Roman"), 
                                                 yguidefont=font(15,"Times New Roman"), 
@@ -60,7 +60,7 @@ lbiter = @df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/
                                                 tickfont=font("Computer Modern"),
                                                 legendfont=font("Times New Roman"), legend=:right) # :right, :left, :top, :bottom, :inside, :best, :legend, :topright, :topleft, :bottomleft, :bottomright
 @df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddpResult-LC-$tightness.jld2")["sddpResult"][:solHistory] plot!(:Iter, :LB, marker=(:star, 3, 1.), label="LC")
-@df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddpResult-$ℓ-$tightness.jld2")["sddpResult"][:solHistory] plot!(:Iter, :LB, marker=(:hexagon, 3, 1.), label="ELC")
+@df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddipResult-$ℓ-$tightness-10.jld2")["sddipResult"][:solHistory] plot!(:Iter, :LB, marker=(:hexagon, 3, 1.), label="ELC")
 lbiter |> save("/Users/aaron/Downloads/figures/sddpResult-cut_comparsion.pdf")
 
 lbiter = @df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddlpResult-SMC-$tightness.jld2")["sddlpResult"][:solHistory] plot(:Iter, :LB, 
@@ -69,7 +69,7 @@ lbiter = @df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/
                                                 xlab = "Iteration", 
                                                 # ylab = "Lower Bounds",
                                                 # ylim = [1000,10000],
-                                                xlim = [0,60],
+                                                # xlim = [0,60],
                                                 titlefont = font(15,"Times New Roman"), 
                                                 xguidefont=font(15,"Times New Roman"), 
                                                 yguidefont=font(15,"Times New Roman"), 
@@ -82,8 +82,7 @@ lbiter = @df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/
                                                 tickfont=font("Computer Modern"),
                                                 legendfont=font("Times New Roman"), legend=:right) # :right, :left, :top, :bottom, :inside, :best, :legend, :topright, :topleft, :bottomleft, :bottomright
 @df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddlpResult-LC-$tightness.jld2")["sddlpResult"][:solHistory] plot!(:Iter, :LB, marker=(:star, 3, 1.), label="LC")
-
-@df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddlpResult-$ℓ-$tightness.jld2")["sddlpResult"][:solHistory] plot!(:Iter, :LB, marker=(:hexagon, 3, 1.), label="ELC")
+@df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddipResult-$ℓ-$tightness-10.jld2")["sddipResult"][:solHistory] plot!(:Iter, :LB, marker=(:hexagon, 3, 1.), label="ELC")
 lbiter |> save("/Users/aaron/Downloads/figures/sddlp-cut_comparsion.pdf")
 
 

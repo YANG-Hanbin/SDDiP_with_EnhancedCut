@@ -121,8 +121,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Float64}} = x₀,
     if tightness
         if cutSelection == "ELC"
             # objective function
-            @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
-                                        paramOPF.intercept[g] * model[:y][g] +
+            @objective(model, Min,  sum(model[:h][g] +
                                             paramOPF.C_start[g] * model[:v][g] + 
                                                 paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
                                                     sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
@@ -144,8 +143,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Float64}} = x₀,
                                         );
         elseif cutSelection == "LC"
             # objective function
-            @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
-                                        paramOPF.intercept[g] * model[:y][g] +
+            @objective(model, Min,  sum(model[:h][g] +
                                             paramOPF.C_start[g] * model[:v][g] + 
                                                 paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
                                                     sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) -
@@ -168,8 +166,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Float64}} = x₀,
                                             );
         elseif cutSelection == "SMC"
             # objective function
-            @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
-                                        paramOPF.intercept[g] * model[:y][g] +
+            @objective(model, Min,  sum(model[:h][g] +
                                             paramOPF.C_start[g] * model[:v][g] + 
                                                 paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
                                                     sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
@@ -192,8 +189,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Float64}} = x₀,
     else
         if cutSelection == "ELC"
             # objective function
-            @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
-                                        paramOPF.intercept[g] * model[:y][g] +
+            @objective(model, Min,  sum(model[:h][g] +
                                             paramOPF.C_start[g] * model[:v][g] + 
                                                 paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
                                                     sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
@@ -215,8 +211,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Float64}} = x₀,
                                         );
         elseif cutSelection == "LC"
             # objective function
-            @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
-                                        paramOPF.intercept[g] * model[:y][g] +
+            @objective(model, Min,  sum(model[:h][g] +
                                             paramOPF.C_start[g] * model[:v][g] + 
                                                 paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
                                                     sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) -
@@ -239,8 +234,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Float64}} = x₀,
                                             );
         elseif cutSelection == "SMC"
             # objective function
-            @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
-                                        paramOPF.intercept[g] * model[:y][g] +
+            @objective(model, Min,  sum(model[:h][g] +
                                             paramOPF.C_start[g] * model[:v][g] + 
                                                 paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
                                                     sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
@@ -440,8 +434,8 @@ function LevelSetMethod_optimization!(; model::Model = model,
         elseif st == MOI.NUMERICAL_ERROR ## need to figure out why this case happened and fix it
             # @info "Numerical Error occures! -- Build a new nxtModel"
             nxtModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-            "OutputFlag" => Output, 
-            "Threads" => 0)); 
+                                                    "OutputFlag" => Output, 
+                                                    "Threads" => 0)); 
             MOI.set(nxtModel, MOI.Silent(), true);
             set_optimizer_attribute(nxtModel, "MIPGap", mipGap);
             set_optimizer_attribute(nxtModel, "TimeLimit", timelimit);

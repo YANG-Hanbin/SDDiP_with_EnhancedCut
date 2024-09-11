@@ -58,14 +58,53 @@ function add_constraint(currentInfo::CurrentInfo, modelInfo::ModelInfo)
                                                                                  
 end
 
+
+"""
+    This function is to setup a core point.
+"""
+function setupCorePoint(;core_point_strategy::String = core_point_strategy, 
+                            stageDecision::Dict{Symbol, Dict{Int64, Any}} = stageDecision, paramOPF::ParamOPF = paramOPF, ℓ::Real = .0)
+
+    x_interior = Dict{Symbol, Dict{Int64, Any}}(:s => Dict( g => stageDecision[:s][g] * ℓ for g in keys(stageDecision[:s])), 
+                                                        :y => Dict( g => stageDecision[:y][g] * ℓ for g in keys(stageDecision[:y])),
+                                                        :sur => Dict(g => Dict(k => stageDecision[:sur][g][k] * ℓ for k in keys(stageDecision[:sur][g])) for g in keys(stageDecision[:y])));
+
+    if core_point_strategy == "Mid"
+        x_interior = Dict{Symbol, Dict{Int64, Any}}(:s => Dict( g => (paramOPF.smin[g] + paramOPF.smax[g])/2 for g in keys(stageDecision[:s])), 
+                                                        :y => Dict( g => .5 for g in keys(stageDecision[:y])),
+                                                        :sur => Dict(g => Dict(k => .5 for k in keys(stageDecision[:sur][g])) for g in keys(stageDecision[:y])))
+
+    # elseif core_point_strategy == "In-Out"
+    #     x_interior = Dict{Symbol, Dict{Int64, Any}}(:s => Dict( g => stageDecision[:s][g]/2 + x_old[:s][g]/2 for g in keys(stageDecision[:s])), 
+    #                                                     :y => Dict( g => stageDecision[:y][g]/2 + x_old[:y][g]/2 for g in keys(stageDecision[:y])),
+    #                                                     :sur => Dict(g => Dict(k => stageDecision[:sur][g][k]/2 + x_old[:sur][g][k]/2 for k in keys(stageDecision[:sur][g])) for g in keys(stageDecision[:y])))
+
+    # elseif core_point_strategy == "Relint"
+    #     x_interior = Dict{Symbol, Dict{Int64, Any}}(:s => Dict( g => stageDecision[:s][g] * ℓ for g in keys(stageDecision[:s])), 
+    #                                                     :y => Dict( g => stageDecision[:y][g] * ℓ for g in keys(stageDecision[:y])),
+    #                                                     :sur => Dict(g => Dict(k => stageDecision[:sur][g][k] * ℓ for k in keys(stageDecision[:sur][g])) for g in keys(stageDecision[:y])))
+    elseif core_point_strategy == "Eps"
+        x_interior = Dict{Symbol, Dict{Int64, Any}}(:s => Dict( g => stageDecision[:s][g] * ℓ + (1 - ℓ) * (paramOPF.smin[g] + paramOPF.smax[g])/2 for g in keys(stageDecision[:s])), 
+                                                        :y => Dict( g => stageDecision[:y][g] * ℓ + (1 - ℓ)/2 for g in keys(stageDecision[:y])),
+                                                        :sur => Dict(g => Dict(k => stageDecision[:sur][g][k] * ℓ + (1 - ℓ)/2 for k in keys(stageDecision[:sur][g])) for g in keys(stageDecision[:y])))
+    # elseif core_point_strategy == "Conv"
+    #     x_interior = Dict{Symbol, Dict{Int64, Any}}(:s => Dict( g => stageDecision[:s][g] * ℓ for g in keys(stageDecision[:s])), 
+    #                                                     :y => Dict( g => stageDecision[:y][g] * ℓ for g in keys(stageDecision[:y])),
+    #                                                     :sur => Dict(g => Dict(k => stageDecision[:sur][g][k] * ℓ for k in keys(stageDecision[:sur][g])) for g in keys(stageDecision[:y])))
+    end
+
+    return x_interior
+end
+
+
 """
     This function is to setup the levelset method.
 """
 function setupLevelSetMethod(; stageDecision::Dict{Symbol, Dict{Int64, Any}} = stageDecision, 
                                 f_star_value::Float64 = f_star_value, paramOPF::ParamOPF = paramOPF,
-                                    cutSelection::String = cutSelection, max_iter::Int64 = 100,
-                                        Output_Gap::Bool = false, ℓ::Real = .0, λ::Union{Real, Nothing} = .1  
-                            )
+                                    core_point_strategy::String = core_point_strategy,
+                                        cutSelection::String = cutSelection, max_iter::Int64 = 100, 
+                                            Output_Gap::Bool = false, ℓ::Real = .0, λ::Union{Real, Nothing} = .1)
     if cutSelection == "SMC" 
         λ_value = λ; Output = 0; threshold = 1e-4; 
         levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e10, max_iter, Output, Output_Gap, f_star_value);
@@ -73,9 +112,7 @@ function setupLevelSetMethod(; stageDecision::Dict{Symbol, Dict{Int64, Any}} = s
     elseif cutSelection == "ELC"
         λ_value = λ; Output = 0; threshold = 1e-4; 
         levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e10, max_iter, Output, Output_Gap, f_star_value);
-        x_interior = Dict{Symbol, Dict{Int64, Any}}(:s => Dict( g => stageDecision[:s][g] * ℓ for g in keys(stageDecision[:s])), 
-                                                        :y => Dict( g => stageDecision[:y][g] * ℓ for g in keys(stageDecision[:y])),
-                                                        :sur => Dict(g => Dict(k => stageDecision[:sur][g][k] * ℓ for k in keys(stageDecision[:sur][g])) for g in keys(stageDecision[:y])));
+        x_interior = setupCorePoint(core_point_strategy = core_point_strategy, paramOPF = paramOPF, stageDecision = stageDecision, ℓ = ℓ);
     elseif cutSelection == "LC"
         λ_value = λ; Output = 0; threshold = 1e-4; 
         levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e10, max_iter, Output, Output_Gap, f_star_value);
@@ -125,8 +162,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Any}} = x₀,
     if tightness
         if cutSelection == "ELC"
             # objective function
-            @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
-                                        paramOPF.intercept[g] * model[:y][g] +
+            @objective(model, Min,  sum(model[:h][g] +
                                             paramOPF.C_start[g] * model[:v][g] + 
                                                 paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
                                                     sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
@@ -149,8 +185,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Any}} = x₀,
                                         );
         elseif cutSelection == "LC"
             # objective function
-            @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
-                                        paramOPF.intercept[g] * model[:y][g] +
+            @objective(model, Min,  sum(model[:h][g] +
                                             paramOPF.C_start[g] * model[:v][g] + 
                                                 paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
                                                     sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) -
@@ -179,8 +214,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Any}} = x₀,
                                             );
         elseif cutSelection == "SMC"
             # objective function
-            @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
-                                    paramOPF.intercept[g] * model[:y][g] +
+            @objective(model, Min,  sum(model[:h][g] +
                                         paramOPF.C_start[g] * model[:v][g] + 
                                             paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
                                                 sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
@@ -205,8 +239,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Any}} = x₀,
     else
         if cutSelection == "ELC"
             # objective function
-            @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
-                                        paramOPF.intercept[g] * model[:y][g] +
+            @objective(model, Min,  sum(model[:h][g] +
                                             paramOPF.C_start[g] * model[:v][g] + 
                                                 paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
                                                     sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
@@ -230,8 +263,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Any}} = x₀,
                                         );
         elseif cutSelection == "LC"
             # objective function
-            @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
-                                        paramOPF.intercept[g] * model[:y][g] +
+            @objective(model, Min,  sum(model[:h][g] +
                                             paramOPF.C_start[g] * model[:v][g] + 
                                                 paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
                                                     sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) -
@@ -260,8 +292,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Any}} = x₀,
                                             );
         elseif cutSelection == "SMC"
             # objective function
-            @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] +
-                                    paramOPF.intercept[g] * model[:y][g] +
+            @objective(model, Min,  sum(model[:h][g] +
                                         paramOPF.C_start[g] * model[:v][g] + 
                                             paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
                                                 sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
@@ -312,8 +343,8 @@ function LevelSetMethod_optimization!(; model::Model = model,
                                         cutSelection::String = cutSelection,## "ELC", "LC", "ShrinkageLC" 
                                         stageDecision::Dict{Symbol, Dict{Int64, Any}} = stageDecision,
                                         x_interior::Union{Dict{Symbol, Dict{Int64, Any}}, Nothing} = nothing, 
-                                        x₀::Dict{Symbol, Dict{Int64, Any}} = x₀, tightness::Bool = false, mipGap::Float64 = 1e-3, timelimit::Int64 = 3,
-                                        indexSets::IndexSets = indexSets, paramDemand::ParamDemand = paramDemand, paramOPF::ParamOPF = paramOPF, ϵ::Float64 = 1e-4, δ::Float64 = 50.
+                                        x₀::Dict{Symbol, Dict{Int64, Any}} = x₀, tightness::Bool = false, 
+                                        indexSets::IndexSets = indexSets, paramDemand::ParamDemand = paramDemand, paramOPF::ParamOPF = paramOPF, ϵ::Float64 = 1e-4, δ::Float64 = 50., mipGap::Float64 = 1e-3, timelimit::Int64 = 3
                                         )
 
     ## ==================================================== auxiliary function for function information ==================================================== ##
@@ -355,8 +386,8 @@ function LevelSetMethod_optimization!(; model::Model = model,
 
 
     nxtModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-    "OutputFlag" => Output, 
-    "Threads" => 0)); 
+                                                    "OutputFlag" => Output, 
+                                                    "Threads" => 0)); 
     MOI.set(nxtModel, MOI.Silent(), true);
     set_optimizer_attribute(nxtModel, "MIPGap", mipGap);
     set_optimizer_attribute(nxtModel, "TimeLimit", timelimit);
