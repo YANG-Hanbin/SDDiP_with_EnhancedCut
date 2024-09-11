@@ -8,7 +8,7 @@ using JLD2, FileIO
 using StatsPlots, PlotThemes
 
 project_root = @__DIR__;
-include(joinpath(project_root, "src", "UnitCommitment", "SDDiP", "def.jl"))
+include(joinpath(project_root, "src", "UnitCommitment_case30", "SDDiP", "def.jl"))
 
 
 
@@ -18,7 +18,7 @@ T = 6; num = 5;
 theme(:default)
 ## ================================================================ the same algorithm with different cuts ================================================================ ##
 # LB vs Iter: 
-lbiter = @df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddipResult-SMC-$tightness-5.jld2")["sddipResult"][:solHistory] plot(:Iter, :LB, 
+lbiter = @df load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddipResult-SMC-$tightness-5.jld2")["sddipResult"][:solHistory] plot(:Iter, :LB, 
                                                 label="SMC", 
                                                 title = "Lower Bounds vs. Iteration", 
                                                 xlab = "Iteration", 
@@ -36,12 +36,12 @@ lbiter = @df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/
                                                 yformatter=y->string(Int(y)),
                                                 tickfont=font("Computer Modern"),
                                                 legendfont=font("Times New Roman"), legend=:right) # :right, :left, :top, :bottom, :inside, :best, :legend, :topright, :topleft, :bottomleft, :bottomright
-@df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddipResult-LC-$tightness-5.jld2")["sddipResult"][:solHistory] plot!(:Iter, :LB, marker=(:star, 3, 1.), label="LC")
-@df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddpResult-$ℓ-$tightness.jld2")["sddpResult"][:solHistory] plot!(:Iter, :LB, marker=(:hexagon, 3, 1.), label="ELC")
+@df load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddipResult-LC-$tightness-5.jld2")["sddipResult"][:solHistory] plot!(:Iter, :LB, marker=(:star, 3, 1.), label="LC")
+@df load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddipResult-$ℓ-$tightness.jld2")["sddpResult"][:solHistory] plot!(:Iter, :LB, marker=(:hexagon, 3, 1.), label="ELC")
 lbiter |> save("/Users/aaron/Downloads/figures/sddipResult-cut_comparsion.pdf")
 
 
-lbiter = @df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddpResult-SMC-$tightness.jld2")["sddpResult"][:solHistory] plot(:Iter, :LB, 
+lbiter = @df load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddpResult-SMC-$tightness.jld2")["sddpResult"][:solHistory] plot(:Iter, :LB, 
                                                 label="SMC", 
                                                 title = "Lower Bounds vs. Iteration", 
                                                 xlab = "Iteration", 
@@ -59,11 +59,11 @@ lbiter = @df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/
                                                 yformatter=y->string(Int(y)),
                                                 tickfont=font("Computer Modern"),
                                                 legendfont=font("Times New Roman"), legend=:right) # :right, :left, :top, :bottom, :inside, :best, :legend, :topright, :topleft, :bottomleft, :bottomright
-@df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddpResult-LC-$tightness.jld2")["sddpResult"][:solHistory] plot!(:Iter, :LB, marker=(:star, 3, 1.), label="LC")
-@df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddpResult-$ℓ-$tightness.jld2")["sddpResult"][:solHistory] plot!(:Iter, :LB, marker=(:hexagon, 3, 1.), label="ELC")
+@df load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddpResult-LC-$tightness.jld2")["sddpResult"][:solHistory] plot!(:Iter, :LB, marker=(:star, 3, 1.), label="LC")
+@df load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddpResult-$ℓ-$tightness.jld2")["sddpResult"][:solHistory] plot!(:Iter, :LB, marker=(:hexagon, 3, 1.), label="ELC")
 lbiter |> save("/Users/aaron/Downloads/figures/sddpResult-cut_comparsion.pdf")
 
-lbiter = @df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddlpResult-SMC-$tightness.jld2")["sddlpResult"][:solHistory] plot(:Iter, :LB, 
+lbiter = @df load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddlpResult-SMC-$tightness.jld2")["sddlpResult"][:solHistory] plot(:Iter, :LB, 
                                                 label="SMC", 
                                                 title = "Lower Bounds vs. Iteration", 
                                                 xlab = "Iteration", 
@@ -81,14 +81,14 @@ lbiter = @df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/
                                                 yformatter=y->string(Int(y)),
                                                 tickfont=font("Computer Modern"),
                                                 legendfont=font("Times New Roman"), legend=:right) # :right, :left, :top, :bottom, :inside, :best, :legend, :topright, :topleft, :bottomleft, :bottomright
-@df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddlpResult-LC-$tightness.jld2")["sddlpResult"][:solHistory] plot!(:Iter, :LB, marker=(:star, 3, 1.), label="LC")
+@df load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddlpResult-LC-$tightness.jld2")["sddlpResult"][:solHistory] plot!(:Iter, :LB, marker=(:star, 3, 1.), label="LC")
 
-@df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddlpResult-$ℓ-$tightness.jld2")["sddlpResult"][:solHistory] plot!(:Iter, :LB, marker=(:hexagon, 3, 1.), label="ELC")
+@df load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddlpResult-$ℓ-$tightness.jld2")["sddlpResult"][:solHistory] plot!(:Iter, :LB, marker=(:hexagon, 3, 1.), label="ELC")
 lbiter |> save("/Users/aaron/Downloads/figures/sddlp-cut_comparsion.pdf")
 
 
 # LB vs Time: the same algorithm with different cuts
-lbtime = @df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddlpResult-SMC-$tightness.jld2")["sddlpResult"][:solHistory] plot(:Time, :LB, 
+lbtime = @df load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddlpResult-SMC-$tightness.jld2")["sddlpResult"][:solHistory] plot(:Time, :LB, 
                                                 label="SMC", 
                                                 title = "Lower Bounds vs. Time", 
                                                 xlab = "Time (sec.)", 
@@ -107,18 +107,18 @@ lbtime = @df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/
                                     )
 
 
-@df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddlpResult-LC-$tightness.jld2")["sddlpResult"][:solHistory] plot!(:Time, :LB, label="LC")
+@df load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddlpResult-LC-$tightness.jld2")["sddlpResult"][:solHistory] plot!(:Time, :LB, label="LC")
 
-@df load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddlpResult-$ℓ-$tightness.jld2")["sddlpResult"][:solHistory] plot!(:Time, :LB, label="ELC")
+@df load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddlpResult-$ℓ-$tightness.jld2")["sddlpResult"][:solHistory] plot!(:Time, :LB, label="ELC")
 
 
 
 ## ================================================================ different algorithms with the same cuts ================================================================ ##
 # LB vs Iter: 
 cutSelection = "SMC"; 
-isddlpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddpResult-$cutSelection-$tightness.jld2")["sddpResult"][:solHistory]
-sddlpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddlpResult-$cutSelection-$tightness.jld2")["sddlpResult"][:solHistory]
-sddpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/isddlpResult-$cutSelection-$tightness.jld2")["sddlpResult"][:solHistory]
+isddlpResult = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddpResult-$cutSelection-$tightness.jld2")["sddpResult"][:solHistory]
+sddlpResult = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddlpResult-$cutSelection-$tightness.jld2")["sddlpResult"][:solHistory]
+sddpResult = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/isddlpResult-$cutSelection-$tightness.jld2")["sddlpResult"][:solHistory]
 lbiter = @df sddpResult plot(:Iter, :LB, label="SDDP", 
                                                 title = "Lower bounds vs. Iteration", 
                                                 xlab = "Iteration", 
@@ -167,13 +167,13 @@ lbtime |> save("/Users/aaron/Downloads/figures/SMC-alg_comparsion_time.pdf")
 
 ## ================================================================ accuracy of binarization ================================================================ ##
 coef = 10; T = 6; num = 5;
-sddipResult5 = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddipResult-$cutSelection-$tightness-5.jld2")["sddipResult"][:solHistory]
-sddipResult6 = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddipResult-$cutSelection-$tightness-6.jld2")["sddipResult"][:solHistory]
-sddipResult7 = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddipResult-$cutSelection-$tightness-7.jld2")["sddipResult"][:solHistory]
-sddipResult8 = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddipResult-$cutSelection-$tightness-8.jld2")["sddipResult"][:solHistory]
-sddipResult9 = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddipResult-$cutSelection-$tightness-9.jld2")["sddipResult"][:solHistory]
-sddipResult10 = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddipResult-$cutSelection-$tightness-10.jld2")["sddipResult"][:solHistory]
-# isddlpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/isddlpResult-$cutSelection-$tightness.jld2")["sddlpResult"][:solHistory]
+sddipResult5 = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddipResult-$cutSelection-$tightness-5.jld2")["sddipResult"][:solHistory]
+sddipResult6 = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddipResult-$cutSelection-$tightness-6.jld2")["sddipResult"][:solHistory]
+sddipResult7 = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddipResult-$cutSelection-$tightness-7.jld2")["sddipResult"][:solHistory]
+sddipResult8 = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddipResult-$cutSelection-$tightness-8.jld2")["sddipResult"][:solHistory]
+sddipResult9 = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddipResult-$cutSelection-$tightness-9.jld2")["sddipResult"][:solHistory]
+sddipResult10 = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddipResult-$cutSelection-$tightness-10.jld2")["sddipResult"][:solHistory]
+# isddlpResult = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/isddlpResult-$cutSelection-$tightness.jld2")["sddlpResult"][:solHistory]
 
 lbiter = @df sddipResult6 plot(:Iter, [:LB, :UB], label="1/64", 
                                                 title = "Lower bounds vs. Iteration", 
@@ -271,12 +271,12 @@ lbtime |> save("/Users/aaron/Downloads/figures/SMC-sddip_binarization_comparsion
 
 ## ================================================================ Cut difference ================================================================ ##
 T = 6; num = 5; tightness = true; cutSelection = "SMC";
-sddlpResultLC = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddlpResult-LC-$tightness.jld2")["sddlpResult"][:solHistory]
-sddlpResultSMC = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddlpResult-SMC-$tightness.jld2")["sddlpResult"][:solHistory]
-sddlpResultELC = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddlpResult-0.0-$tightness.jld2")["sddlpResult"][:solHistory]
-sddpResultSMC = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddpResult-SMC-$tightness.jld2")["sddpResult"][:solHistory]
-sddpResultLC = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddpResult-LC-$tightness.jld2")["sddpResult"][:solHistory]
-isddlpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/isddlpResult-SMC-$tightness.jld2")["sddlpResult"][:solHistory]
+sddlpResultLC = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddlpResult-LC-$tightness.jld2")["sddlpResult"][:solHistory]
+sddlpResultSMC = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddlpResult-SMC-$tightness.jld2")["sddlpResult"][:solHistory]
+sddlpResultELC = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddlpResult-0.0-$tightness.jld2")["sddlpResult"][:solHistory]
+sddpResultSMC = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddpResult-SMC-$tightness.jld2")["sddpResult"][:solHistory]
+sddpResultLC = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddpResult-LC-$tightness.jld2")["sddpResult"][:solHistory]
+isddlpResult = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/isddlpResult-SMC-$tightness.jld2")["sddlpResult"][:solHistory]
 
 timeiter = @df sddlpResultLC plot(:Iter, :time, label="SDDℓP-LC", 
                                                 title = "Iteration time (sec.) vs. Iteration", 
@@ -308,9 +308,9 @@ timeiter |> save("/Users/aaron/Downloads/figures/cut_iteration_time.pdf")
 
 ## ================================================================ ELC Exploration ================================================================ ##
 T = 6; num = 3; tightness = true; cutSelection = "SMC";
-sddlpResultELC0 = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddlpResult-0.0-$tightness.jld2")["sddlpResult"][:solHistory]
-sddlpResultELC5 = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddlpResult-0.5-$tightness.jld2")["sddlpResult"][:solHistory]
-sddlpResultELC9 = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddlpResult-0.9-$tightness.jld2")["sddlpResult"][:solHistory]
+sddlpResultELC0 = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddlpResult-0.0-$tightness.jld2")["sddlpResult"][:solHistory]
+sddlpResultELC5 = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddlpResult-0.5-$tightness.jld2")["sddlpResult"][:solHistory]
+sddlpResultELC9 = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddlpResult-0.9-$tightness.jld2")["sddlpResult"][:solHistory]
 
 lbiter = @df sddlpResultELC0[3:100,:] plot(:Iter, :LB, label="ELC-0.0", 
                                                 title = "Lower bounds vs. Iteration", 

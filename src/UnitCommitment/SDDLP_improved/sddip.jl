@@ -94,14 +94,14 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         end
         @printf("%4d | %12.2f     | %12.2f     | %9.2f%%     | %9.2f s     | %6d     | %10.2f s     \n", 
                 i, LB, UB, gap, iter_time, LM_iter, total_Time); LM_iter = 0;
-        if total_Time > TimeLimit || i ≥ MaxIter 
+        if total_Time > TimeLimit || i ≥ MaxIter || UB-LB ≤ 1e-3 * UB  
             return Dict(:solHistory => sddipResult, 
                             :solution => solCollection[i, 1, 1].stageSolution, 
                                 :gapHistory => gapList) 
         end
 
         ####################################################### Backward Steps ###########################################################
-        if i ≥ 50 && (UB-LB)/UB ≤ 1e-2                                      ## the first rule:: for branching: current convex envelope is good enough
+        if i ≥ 30                                      ## the first rule:: for branching: current convex envelope is good enough
             for t in reverse(1:indexSets.T-1) 
                 for ω in  [1]#keys(Ξ̃)
                     dev = Dict()

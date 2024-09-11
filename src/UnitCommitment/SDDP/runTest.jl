@@ -42,7 +42,7 @@ for cut in ["LC", "ELC", "SMC"]
             end
             
             # Ξ = load("src/UnitCommitment/experiment_$case/stage($T)real($num)/Ξ.jld2")["Ξ"]
-            # @time extResult = extensive_form(indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF, scenarioTree = scenarioTree, Ξ = Ξ, initialStageDecision = initialStageDecision); OPT = extResult.OPT;
+            # @time extResult = extensive_form(indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF, scenarioTree = scenarioTree, Ξ = Ξ, silent = false, initialStageDecision = initialStageDecision); OPT = extResult.OPT;
             sddpResult = SDDP_algorithm(scenarioTree = scenarioTree, 
                                 indexSets = indexSets, 
                                     paramDemand = paramDemand, 
@@ -56,5 +56,5 @@ end
 
 
 # Load the results
-@everywhere begin T = 6; num = 3; cutSelection = "LC"; end
+@everywhere begin T = 6; num = 5; cutSelection = "SMC"; end
 sddpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddpResult-$cutSelection-$tightness.jld2")["sddpResult"][:solHistory]

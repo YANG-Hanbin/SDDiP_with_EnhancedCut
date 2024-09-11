@@ -69,21 +69,34 @@ function prepareIndexSets(  ; T::Int64 = 10,
         M[g] = round(network_data["gen"][i]["ramp_30"], digits = 6)
         cg[g] = wsample([5000, 100000, 250000], [0.2, .75, 0.05], 1)[1] 
         
+        # if network_data["gen"][i]["model"] == 1
+        #     cost = network_data["gen"][i]["cost"]; O = length(cost)/2; slope[g] = Dict{Int64, Float64}(); intercept[g] = Dict{Int64, Float64}();
+        #     for o in 1:Int(O-1)
+        #         slope[g][o] = (cost[2*o+2] - cost[2*o])/(cost[2*o+1] - cost[2*o-1])
+        #         intercept[g][o] = cost[2*o] - slope[g][o] * cost[2*o-1]
+        #     end
+        # elseif network_data["gen"][i]["model"] == 2
+        #     cost = network_data["gen"][i]["cost"]; 
+        #     x_vals = [network_data["gen"][i]["pmin"], (network_data["gen"][i]["pmin"] + network_data["gen"][i]["pmax"]) * .5, network_data["gen"][i]["pmax"]] 
+        #     slope_vec, intercept_vec = piecewise_linear_coefficients(cost, x_vals)
+        #     O = length(slope_vec); slope[g] = Dict{Int64, Float64}(); intercept[g] = Dict{Int64, Float64}();
+        #     for o in 1:O
+        #         slope[g][o] = slope_vec[o]
+        #         intercept[g][o] = intercept_vec[o]
+        #     end
+        # end
+
         if network_data["gen"][i]["model"] == 1
-            cost = network_data["gen"][i]["cost"]; O = length(cost)/2; slope[g] = Dict{Int64, Float64}(); intercept[g] = Dict{Int64, Float64}();
-            for o in 1:Int(O-1)
-                slope[g][o] = (cost[2*o+2] - cost[2*o])/(cost[2*o+1] - cost[2*o-1])
-                intercept[g][o] = cost[2*o] - slope[g][o] * cost[2*o-1]
-            end
-        elseif network_data["gen"][i]["model"] == 2
             cost = network_data["gen"][i]["cost"]; 
-            x_vals = [network_data["gen"][i]["pmin"], (network_data["gen"][i]["pmin"] + network_data["gen"][i]["pmax"]) * .25, (network_data["gen"][i]["pmin"] + network_data["gen"][i]["pmax"]) * .75, network_data["gen"][i]["pmax"]] 
-            slope_vec, intercept_vec = piecewise_linear_coefficients(cost, x_vals)
-            O = length(slope_vec); slope[g] = Dict{Int64, Float64}(); intercept[g] = Dict{Int64, Float64}();
-            for o in 1:O
-                slope[g][o] = slope_vec[o]
-                intercept[g][o] = intercept_vec[o]
-            end
+        elseif network_data["gen"][i]["model"] == 2
+            # x_vals = [network_data["gen"][i]["pmin"], (network_data["gen"][i]["pmin"] + network_data["gen"][i]["pmax"]) * .25, (network_data["gen"][i]["pmin"] + network_data["gen"][i]["pmax"]) * .75, network_data["gen"][i]["pmax"]];
+            x_vals = [network_data["gen"][i]["pmin"], network_data["gen"][i]["pmax"]];
+            cost = [round(x, digits=2) for tup in [(x, poly_cost(network_data["gen"][i]["cost"], x)) for x in x_vals] for x in tup];
+        end
+        O = length(cost)/2; slope[g] = Dict{Int64, Float64}(); intercept[g] = Dict{Int64, Float64}();
+        for o in 1:Int(O-1)
+            slope[g][o] = (cost[2*o+2] - cost[2*o])/(cost[2*o+1] - cost[2*o-1])
+            intercept[g][o] = cost[2*o] - slope[g][o] * cost[2*o-1]
         end
 
         C_start[g] = round(network_data["gen"][i]["startup"], digits = 6)
