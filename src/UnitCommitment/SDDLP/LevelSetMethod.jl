@@ -544,14 +544,8 @@ function LevelSetMethod_optimization!(; model::Model = model,
         end
 
         ## stop rules
-        if cutSelection == "LC"
-            if Δ ≤ .5 || (iter > max_iter)
-                return (cutInfo = cutInfo, iter = iter)
-            end
-        else
-            if Δ ≤ threshold * f_star_value || iter > max_iter
-                return (cutInfo = cutInfo, iter = iter)
-            end
+        if Δ ≤ threshold * f_star_value || iter > max_iter
+            return (cutInfo = cutInfo, iter = iter)
         end
         ## ==================================================== end ============================================== ##
         ## save the trajectory

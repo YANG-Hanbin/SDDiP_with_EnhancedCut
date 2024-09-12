@@ -50,7 +50,7 @@ function prepareIndexSets(  ; T::Int64 = 10,
     for i in keys(network_data["load"])
         d = network_data["load"][i]["index"]
         b = network_data["load"][i]["load_bus"]
-        w[d] = wsample([500, 1000, 1500, 2000, 2500, 3000, 5000, 6000, 7000, 10000], [8, 8, 10, 8, 2, 3, 1, 1, 1, .5], 1)[1];                                ## priority level of load d
+        w[d] = wsample([10000, 15000, 20000, 25000], [1,1,1,1], 1)[1];                                ## priority level of load d
 
         push!(Dᵢ[b], d)
         push!(D, d)
@@ -67,7 +67,7 @@ function prepareIndexSets(  ; T::Int64 = 10,
         smax[g] = round(network_data["gen"][i]["pmax"], digits = 6)
         smin[g] = round(network_data["gen"][i]["pmin"], digits = 6)
         M[g] = round(network_data["gen"][i]["ramp_30"], digits = 6)
-        cg[g] = wsample([5000, 100000, 250000], [0.2, .75, 0.05], 1)[1] 
+        cg[g] = wsample([8000, 9000, 15000], [0.2, .75, 0.05], 1)[1] 
         
         # if network_data["gen"][i]["model"] == 1
         #     cost = network_data["gen"][i]["cost"]; O = length(cost)/2; slope[g] = Dict{Int64, Float64}(); intercept[g] = Dict{Int64, Float64}();
@@ -89,9 +89,13 @@ function prepareIndexSets(  ; T::Int64 = 10,
         if network_data["gen"][i]["model"] == 1
             cost = network_data["gen"][i]["cost"]; 
         elseif network_data["gen"][i]["model"] == 2
-            # x_vals = [network_data["gen"][i]["pmin"], (network_data["gen"][i]["pmin"] + network_data["gen"][i]["pmax"]) * .25, (network_data["gen"][i]["pmin"] + network_data["gen"][i]["pmax"]) * .75, network_data["gen"][i]["pmax"]];
-            x_vals = [network_data["gen"][i]["pmin"], network_data["gen"][i]["pmax"]];
-            cost = [round(x, digits=2) for tup in [(x, poly_cost(network_data["gen"][i]["cost"], x)) for x in x_vals] for x in tup];
+            if network_data["gen"][i]["pmin"] == network_data["gen"][i]["pmax"]
+                cost = []
+            else 
+                # x_vals = [network_data["gen"][i]["pmin"], (network_data["gen"][i]["pmin"] + network_data["gen"][i]["pmax"]) * .25, (network_data["gen"][i]["pmin"] + network_data["gen"][i]["pmax"]) * .75, network_data["gen"][i]["pmax"]];
+                x_vals = [network_data["gen"][i]["pmin"], network_data["gen"][i]["pmax"]];
+                cost = [round(x, digits=2) for tup in [(x, poly_cost(network_data["gen"][i]["cost"], x)) for x in x_vals] for x in tup];
+            end
         end
         O = length(cost)/2; slope[g] = Dict{Int64, Float64}(); intercept[g] = Dict{Int64, Float64}();
         for o in 1:Int(O-1)

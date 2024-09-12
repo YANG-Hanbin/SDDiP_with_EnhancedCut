@@ -10,12 +10,9 @@ project_root = @__DIR__;
 include(joinpath(project_root, "src", "UnitCommitment", "data", "def.jl"))
 include(joinpath(project_root, "src", "UnitCommitment", "data", "readin.jl"))
 
-case = "case_RTS_GMLC" # "case_RTS_GMLC", "case30"
+case = "case30"; # "case_RTS_GMLC", "case30", "case30pwl", "case24_ieee_rts"
 network_data = PowerModels.parse_file("src/UnitCommitment/data/$case/$case.m");
 branchInfo = CSV.read("src/UnitCommitment/data/case_RTS_GMLC/branch.csv", DataFrame);
-T = 2; numRealization = 3;
-
-cost = network_data["gen"]["3"]["cost"]
 
 for T in [6, 8, 12]
     for numRealization in [3, 5, 10]
