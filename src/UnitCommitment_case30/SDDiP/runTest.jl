@@ -11,13 +11,13 @@ using Distributed; addprocs(5);
     const GRB_ENV = Gurobi.Env()
 
     project_root = @__DIR__;
-    include(joinpath(project_root, "src", "UnitCommitment_case30_case30", "SDDiP", "def.jl"))
+    include(joinpath(project_root, "src", "UnitCommitment_case30", "SDDiP", "def.jl"))
     include(joinpath(project_root, "src", "UnitCommitment_case30", "SDDiP", "backwardModel.jl"))
     include(joinpath(project_root, "src", "UnitCommitment_case30", "SDDiP", "forwardModel.jl"))
     include(joinpath(project_root, "src", "UnitCommitment_case30", "SDDiP", "LevelSetMethod.jl"))
     include(joinpath(project_root, "src", "UnitCommitment_case30", "SDDiP", "sddip.jl"))
 
-    Output_Gap = false; max_iter = 150; MaxIter = 100; cutSelection = "ELC"; δ = 1.; numScenarios = 100; tightness = true; case = "case30"; # "RTS_GMLC", "case30"
+    Output_Gap = false; max_iter = 150; MaxIter = 200; cutSelection = "SMC"; δ = .1; numScenarios = 100; tightness = true; case = "case30"; # "RTS_GMLC", "case30"
     T = 6; num = 5; TimeLimit = 60 * 60 * 2.; OPT = Inf; coef = 10; ε = 1/2^(coef); ℓ = .0; 
 end
 # extForm_path = joinpath(project_root, "src", "UnitCommitment_case30", "extForm.jl")
@@ -59,6 +59,11 @@ for cutSelection in ["LC", "ELC", "SMC"]
     end
 end
 @everywhere begin T = 6; num = 10; coef = 10; ε = 1/2^(coef); end
+
+
+T = 12; num = 3; coef = 10; ε = 1/2^(coef);
+sddipResult = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddipResult-$cutSelection-$tightness-$coef.jld2")["sddipResult"][:solHistory]
+
 sddipResult = SDDiP_algorithm(scenarioTree = scenarioTree, 
                                 indexSets = indexSets, 
                                     paramDemand = paramDemand, 

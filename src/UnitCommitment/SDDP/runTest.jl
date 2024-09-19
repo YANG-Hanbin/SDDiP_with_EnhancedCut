@@ -20,7 +20,7 @@ using Distributed; addprocs(5);
     include(joinpath(project_root, "src", "UnitCommitment", "SDDP", "sddp.jl"))
 
 
-    Output_Gap = false; max_iter = 150; MaxIter = 200; cutSelection = "SMC"; δ = .1; numScenarios = 100; tightness = true; case = "case_RTS_GMLC"; # "case_RTS_GMLC", "case30", "case30pwl", "case24_ieee_rts"
+    Output_Gap = false; max_iter = 150; MaxIter = 200; cutSelection = "SMC"; δ = .1; numScenarios = 100; tightness = true; case = "case30pwl"; # "case_RTS_GMLC", "case30", "case30pwl", "case24_ieee_rts"
     T = 6; num = 5; TimeLimit = 60 * 60 * 2.; OPT = Inf; 
 end
 
@@ -56,5 +56,5 @@ end
 
 
 # Load the results
-@everywhere begin T = 6; num = 5; cutSelection = "ELC"; end
+@everywhere begin T = 6; num = 5; cutSelection = "SMC"; end
 sddpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddpResult-$cutSelection-$tightness.jld2")["sddpResult"][:solHistory]

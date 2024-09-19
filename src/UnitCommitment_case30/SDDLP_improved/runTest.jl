@@ -18,8 +18,8 @@ using Distributed; addprocs(5);
     include(joinpath(project_root, "src", "UnitCommitment_case30", "SDDLP_improved", "sddip.jl"))
 
 
-    Output_Gap = false; max_iter = 150; MaxIter = 100; δ = 1.; numScenarios = 100; tightness = true;  TimeLimit = 60 * 60 * 2.; OPT = Inf; case = "case30"; # "RTS_GMLC", "case30"
-    T = 12; num = 3; cutSelection = "SMC"; # "LC", "ELC", "SMC"
+    Output_Gap = false; max_iter = 150; MaxIter = 200; δ = .1; numScenarios = 100; tightness = true;  TimeLimit = 60 * 60 * 2.; OPT = Inf; case = "case30"; # "RTS_GMLC", "case30"
+    T = 6; num = 5; cutSelection = "SMC"; # "LC", "ELC", "SMC"
     ℓ = .0; core_point_strategy = "Eps"; # "Mid", "In-Out", "Eps", "Relint", "Conv"
 end
 # extForm_path = joinpath(project_root, "src", "UnitCommitment_case30", "extForm.jl")
@@ -66,7 +66,10 @@ for cut in ["LC", "ELC", "SMC"]
     end
 end
 
-T = 6; num = 3; cutSelection = "SMC"; ℓ = 0.0;
+T = 6; num = 5; cutSelection = "SMC"; ℓ = 0.0;
+sddlpResult = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/isddlpResult-$cutSelection-$tightness.jld2")["sddlpResult"][:solHistory]
+
+
 if cutSelection == "ELC" 
     sddlpResult = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/MagnantiWong/isddlpResult-$ℓ-$tightness.jld2")["sddlpResult"][:solHistory]
 else

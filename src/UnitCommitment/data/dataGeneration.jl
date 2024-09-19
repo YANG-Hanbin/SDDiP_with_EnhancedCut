@@ -10,7 +10,7 @@ project_root = @__DIR__;
 include(joinpath(project_root, "src", "UnitCommitment", "data", "def.jl"))
 include(joinpath(project_root, "src", "UnitCommitment", "data", "readin.jl"))
 
-case = "case30"; # "case_RTS_GMLC", "case30", "case30pwl", "case24_ieee_rts"
+case = "case30pwl"; # "case_RTS_GMLC", "case30", "case30pwl", "case24_ieee_rts"
 network_data = PowerModels.parse_file("src/UnitCommitment/data/$case/$case.m");
 branchInfo = CSV.read("src/UnitCommitment/data/case_RTS_GMLC/branch.csv", DataFrame);
 

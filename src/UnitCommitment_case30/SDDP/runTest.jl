@@ -9,9 +9,7 @@ using Distributed; addprocs(5);
     using JLD2, FileIO
 
     const GRB_ENV = Gurobi.Env()
-
-
-
+    
     project_root = @__DIR__;
     include(joinpath(project_root, "src", "UnitCommitment_case30", "SDDP", "def.jl"))
     include(joinpath(project_root, "src", "UnitCommitment_case30", "SDDP", "backwardModel.jl"))
@@ -19,7 +17,7 @@ using Distributed; addprocs(5);
     include(joinpath(project_root, "src", "UnitCommitment_case30", "SDDP", "LevelSetMethod.jl"))
     include(joinpath(project_root, "src", "UnitCommitment_case30", "SDDP", "sddp.jl"))
 
-    Output_Gap = false; max_iter = 150; MaxIter = 100; cutSelection = "ELC"; δ = .1; numScenarios = 100; tightness = true; case = "case30"; # "RTS_GMLC", "case30"
+    Output_Gap = false; max_iter = 150; MaxIter = 200; cutSelection = "SMC"; δ = .1; numScenarios = 100; tightness = true; case = "case30"; # "RTS_GMLC", "case30"
     T = 6; num = 5; TimeLimit = 60 * 60 * 2.; OPT = Inf; ℓ = 0.0;
 end
 # extForm_path = joinpath(project_root, "src", "UnitCommitment_case30", "extForm.jl")
@@ -54,5 +52,5 @@ end
 
 
 # Load the results
-T = 12; num = 10; cutSelection = "SMC";
+T = 6; num = 10; cutSelection = "LC";
 sddpResult = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddpResult-$cutSelection-$tightness.jld2")["sddpResult"][:solHistory]

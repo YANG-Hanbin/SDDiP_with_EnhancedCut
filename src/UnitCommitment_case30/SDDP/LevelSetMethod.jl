@@ -67,16 +67,16 @@ function setupLevelSetMethod(; stageDecision::Dict{Symbol, Dict{Int64, Float64}}
                                         Output_Gap::Bool = false, max_iter::Int64 =100, ℓ::Real = .0, λ::Union{Real, Nothing} = .1
                             )
     if cutSelection == "SMC" 
-        λ_value = λ; Output = 0; threshold = 1e-3;
+        λ_value = λ; Output = 0; threshold = 1e-4;
         levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, max_iter, Output, Output_Gap, f_star_value);
         x_interior = nothing;
     elseif cutSelection == "ELC"
-        λ_value = λ; Output = 0; threshold = 1e-3;
+        λ_value = λ; Output = 0; threshold = 1e-4;
         levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, max_iter, Output, Output_Gap, f_star_value);
         x_interior = Dict{Symbol, Dict{Int64, Float64}}(:s => Dict( g => stageDecision[:s][g] * ℓ  .+ (1 - ℓ)/2 for g in keys(stageDecision[:y])), 
                                                         :y => Dict( g => stageDecision[:y][g] * ℓ  .+ (1 - ℓ)/2 for g in keys(stageDecision[:s])));
     elseif cutSelection == "LC"
-        λ_value = λ; Output = 0; threshold = 1e-3;
+        λ_value = λ; Output = 0; threshold = 1e-4;
         levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, max_iter, Output, Output_Gap, f_star_value);
         x_interior = nothing;
     end
@@ -478,14 +478,8 @@ function LevelSetMethod_optimization!(; model::Model = model,
         end
 
         ## stop rule: gap ≤ .07 * function-value && constraint ≤ 0.05 * LagrangianFunction
-        if cutSelection == "LC"
-            if Δ ≤ .5 || (iter > max_iter)
-                return (cutInfo = cutInfo, iter = iter)
-            end
-        else
-            if Δ ≤ threshold * f_star_value || iter > max_iter
-                return (cutInfo = cutInfo, iter = iter)
-            end
+        if Δ ≤ threshold * f_star_value || iter > max_iter
+            return (cutInfo = cutInfo, iter = iter)
         end
         
         ## ==================================================== end ============================================== ##
