@@ -14,7 +14,7 @@ include(joinpath(project_root, "src", "UnitCommitment_case30", "SDDiP", "def.jl"
 
 
 case = "case30"; tightness = true; 
-T = 6; num = 5;
+T = 6; num = 5;ℓ = 0.0;
 theme(:default)
 ## ================================================================ the same algorithm with different cuts ================================================================ ##
 # LB vs Iter: 
@@ -77,13 +77,13 @@ lbiter = @df load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Re
                                                 ytickfontsize=13, 
                                                 legendfontsize=11, 
                                                 size=(400,300),
-                                                marker=(:circle, 3, 1.),
+                                                marker=(:star, 3, 1.),
                                                 yformatter=y->string(Int(y)),
                                                 tickfont=font("Computer Modern"),
                                                 legendfont=font("Times New Roman"), legend=:right) # :right, :left, :top, :bottom, :inside, :best, :legend, :topright, :topleft, :bottomleft, :bottomright
-@df load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddlpResult-LC-$tightness.jld2")["sddlpResult"][:solHistory] plot!(:Iter, :LB, marker=(:star, 3, 1.), label="LC")
+@df load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddlpResult-LC-$tightness.jld2")["sddlpResult"][:solHistory] plot!(:Iter, :LB, marker=(:hexagon, 3, 1.), label="LC")
 
-@df load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddlpResult-$ℓ-$tightness.jld2")["sddlpResult"][:solHistory] plot!(:Iter, :LB, marker=(:hexagon, 3, 1.), label="ELC")
+@df load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddlpResult-$ℓ-$tightness.jld2")["sddlpResult"][:solHistory] plot!(:Iter, :LB, marker=(:circle, 3, 1.), label="PLC")
 lbiter |> save("/Users/aaron/Downloads/figures/sddlp-cut_comparsion.pdf")
 
 
@@ -377,3 +377,107 @@ timeiter = @df sddlpResultELC0[1:100,:] plot(:Iter, :time, label="ELC-0.0",
 timeiter |> save("/Users/aaron/Downloads/figures/ELC_iteration_time.pdf")
 
 
+
+
+
+## ================================================================ Overall Performance ================================================================ ##
+T = 6; num = 5; tightness = true; cutSelection = "SMC";
+sddlpResultLC = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddlpResult-LC-$tightness.jld2")["sddlpResult"][:solHistory]
+sddlpResultELC = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddlpResult-0.0-$tightness.jld2")["sddlpResult"][:solHistory]
+sddlpResultSMC = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddlpResult-SMC-$tightness.jld2")["sddlpResult"][:solHistory]
+
+sddpResultLC = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddpResult-LC-$tightness.jld2")["sddpResult"][:solHistory]
+sddpResultELC = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddpResult-0.0-$tightness.jld2")["sddpResult"][:solHistory]
+sddpResultSMC = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddpResult-SMC-$tightness.jld2")["sddpResult"][:solHistory]
+
+sddipResultLC = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddipResult-LC-$tightness-7.jld2")["sddipResult"][:solHistory][1:157,:]
+sddipResultELC = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddipResult-$ℓ-$tightness-7.jld2")["sddipResult"][:solHistory]
+sddipResultSMC = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddipResult-SMC-$tightness-7.jld2")["sddipResult"][:solHistory]
+
+timeiter = @df sddlpResultLC plot(:Iter, :time, label="SDDℓP-LC", 
+                                                title = "Iteration time (sec.) vs. Iteration", 
+                                                xlab = "Iteration", 
+                                                # ylab = "Iteration time",
+                                                ylim = [-10,350],
+                                                xlim = [0,100],
+                                                titlefont = font(15,"Times New Roman"), 
+                                                xguidefont=font(15,"Times New Roman"), 
+                                                yguidefont=font(15,"Times New Roman"), 
+                                                xtickfontsize=13, 
+                                                ytickfontsize=13, 
+                                                legendfontsize=11, 
+                                                size=(700,430),
+                                                marker=(:circle, 1, 1.), 
+                                                yformatter=y->string(Int(y)),
+                                                tickfont=font("Computer Modern"),
+                                                legendfont=font("Times New Roman"), legend=:outerright)
+@df sddlpResultELC plot!(:Iter, :time, marker=(:hexagon, 1, 1.), label="SDDℓP-PLC")
+@df sddlpResultSMC plot!(:Iter, :time, marker=(:star, 1, 1.), label="SDDℓP-SMC")
+@df sddpResultLC plot!(:Iter, :time, marker=(:circle, 1, 1.), label="SDDP-LC")
+@df sddpResultELC plot!(:Iter, :time, marker=(:hexagon, 1, 1.), label="SDDP-PLC")
+@df sddpResultSMC plot!(:Iter, :time, marker=(:star, 1, 1.), label="SDDP-SMC")
+@df sddipResultLC plot!(:Iter, :time, marker=(:circle, 1, 1.), label="SDDiP-LC")
+@df sddipResultELC plot!(:Iter, :time, marker=(:hexagon, 1, 1.), label="SDDiP-PLC")
+@df sddipResultSMC plot!(:Iter, :time, marker=(:star, 1, 1.), label="SDDiP-SMC")
+timeiter |> save("/Users/aaron/Downloads/cut_iteration_time.pdf")
+
+
+
+lbtime = @df sddlpResultLC plot(:Iter, :LB, label="SDDℓP-LC", 
+                                                title = "Lower bounds vs. Time", 
+                                                xlab = "Time", 
+                                                # ylab = "Iteration time",
+                                                # ylim = [20000,23000],
+                                                xlim = [0,100],
+                                                titlefont = font(15,"Times New Roman"), 
+                                                xguidefont=font(15,"Times New Roman"), 
+                                                yguidefont=font(15,"Times New Roman"), 
+                                                xtickfontsize=13, 
+                                                ytickfontsize=13, 
+                                                legendfontsize=11, 
+                                                size=(700,430),
+                                                marker=(:circle, 1, 1.), 
+                                                yformatter=y->string(Int(y)),
+                                                tickfont=font("Computer Modern"),
+                                                legendfont=font("Times New Roman"), legend=:right)
+@df sddlpResultELC plot!(:Iter, :LB, marker=(:hexagon, 1, 1.), label="SDDℓP-PLC")
+@df sddlpResultSMC plot!(:Iter, :LB, marker=(:star, 1, 1.), label="SDDℓP-SMC")
+@df sddpResultLC plot!(:Iter, :LB, marker=(:circle, 1, 1.), label="SDDP-LC")
+@df sddpResultELC plot!(:Iter, :LB, marker=(:hexagon, 1, 1.), label="SDDP-PLC")
+@df sddpResultSMC plot!(:Iter, :LB, marker=(:star, 1, 1.), label="SDDP-SMC")
+
+# plot!(legend=false)
+
+
+
+lbiter = @df sddipResult6 plot(:Iter, :LB, label="1/64", 
+                                                title = "Upper and lower bounds vs. Iteration", 
+                                                xlab = "Iteration", 
+                                                titlefont = font(15,"Times New Roman"), 
+                                                xguidefont=font(15,"Times New Roman"), 
+                                                yguidefont=font(15,"Times New Roman"), 
+                                                xtickfontsize=13, 
+                                                ytickfontsize=13, 
+                                                legendfontsize=10, 
+                                                # size=(400,300),
+                                                yformatter=y->string(Int(y)),
+                                                tickfont=font("Computer Modern"),
+                                                legendfont=font("Times New Roman"), 
+                                                marker=(:circle, 2, 1.), 
+                                                linewidth=1,
+                                                legend=:bottomright,
+                                                color=:blue)  # Use blue color for 1/64
+@df sddipResult6 plot!(:Iter, :UB, label="", linewidth=1, marker=(:circle, 2, 1.), color=:blue)  # Plot UB for 1/64, no label
+
+# Plot for 1/128 (LB and UB with the same color)
+@df sddipResult7 plot!(:Iter, :LB, label="1/128", linewidth=1, marker=(:star, 2, 1.), color=:red)  # Use red color for 1/128
+@df sddipResult7 plot!(:Iter, :UB, label="", linewidth=1, marker=(:star, 2, 1.), color=:red)  # Plot UB for 1/128, no label
+
+@df sddipResult8 plot!(:Iter, :LB, linewidth=1, marker=(:hexagon, 2, 1.), label="1/256", color=:orange)
+@df sddipResult8 plot!(:Iter, :UB, linewidth=1, marker=(:hexagon, 2, 1.), label="", color=:orange)
+
+@df sddipResult9 plot!(:Iter, :LB, linewidth=1, marker=(:star, 2, 1.), label="1/512", color=:green)
+@df sddipResult9 plot!(:Iter, :UB, linewidth=1, marker=(:hexagon, 2, 1.), label="", color=:green)
+
+@df sddipResult10 plot!(:Iter, :LB, linewidth=1, marker=(:circle, 2, 1.), label="1/1024", color=:purple)
+@df sddipResult10 plot!(:Iter, :UB, linewidth=1, marker=(:hexagon, 2, 1.), label="", color=:purple)

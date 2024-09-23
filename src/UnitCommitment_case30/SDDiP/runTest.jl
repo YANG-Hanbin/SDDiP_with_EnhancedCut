@@ -18,7 +18,7 @@ using Distributed; addprocs(5);
     include(joinpath(project_root, "src", "UnitCommitment_case30", "SDDiP", "sddip.jl"))
 
     Output_Gap = false; max_iter = 150; MaxIter = 200; cutSelection = "SMC"; δ = .1; numScenarios = 100; tightness = true; case = "case30"; # "RTS_GMLC", "case30"
-    T = 6; num = 5; TimeLimit = 60 * 60 * 2.; OPT = Inf; coef = 10; ε = 1/2^(coef); ℓ = .0; 
+    T = 6; num = 5; TimeLimit = 60 * 60 * 2.; OPT = Inf; coef = 7; ε = 1/2^(coef); ℓ = .0; 
 end
 # extForm_path = joinpath(project_root, "src", "UnitCommitment_case30", "extForm.jl")
 # include(extForm_path)  
@@ -62,14 +62,4 @@ end
 
 
 T = 12; num = 3; coef = 10; ε = 1/2^(coef);
-sddipResult = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddipResult-$cutSelection-$tightness-$coef.jld2")["sddipResult"][:solHistory]
-
-sddipResult = SDDiP_algorithm(scenarioTree = scenarioTree, 
-                                indexSets = indexSets, 
-                                    paramDemand = paramDemand, 
-                                        paramOPF = paramOPF, MaxIter = MaxIter, ℓ = ℓ,
-                                            initialStageDecision = initialStageDecision, numScenarios = numScenarios, TimeLimit = TimeLimit, OPT = OPT,
-                                            Output_Gap = Output_Gap, max_iter = max_iter, ε = ε, δ = δ, cutSelection = cutSelection)
-save("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddipResult-$cutSelection-$tightness-$coef.jld2", "sddipResult", sddipResult)
-
 sddipResult = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/sddipResult-$cutSelection-$tightness-$coef.jld2")["sddipResult"][:solHistory]

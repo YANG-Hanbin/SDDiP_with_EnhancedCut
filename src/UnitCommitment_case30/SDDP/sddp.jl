@@ -85,7 +85,7 @@ function SDDP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         end
         @printf("%4d | %12.2f     | %12.2f     | %9.2f%%     | %9.2f s     | %6d     | %10.2f s     \n", 
                 i, LB, UB, gap, iter_time, LM_iter, total_Time); LM_iter = 0;
-        if total_Time > TimeLimit || i > MaxIter || UB-LB ≤ 1e-3 * UB  
+        if total_Time > TimeLimit || i > MaxIter 
             return Dict(:solHistory => sddpResult, 
                             :solution => solCollection[i, 1, 1].stageSolution, 
                                 :gapHistory => gapList) 

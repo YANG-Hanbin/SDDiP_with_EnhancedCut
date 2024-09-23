@@ -50,7 +50,7 @@ function prepareIndexSets(  ; T::Int64 = 10,
     for i in keys(network_data["load"])
         d = network_data["load"][i]["index"]
         b = network_data["load"][i]["load_bus"]
-        w[d] = wsample([500, 1000, 1500, 2000, 2500, 3000, 5000, 6000, 7000, 10000], [8, 8, 10, 8, 2, 3, 1, 1, 1, .5], 1)[1];                                ## priority level of load d
+        w[d] = wsample([500, 1000, 1500, 2000, 2500], [10, 8, 5, 5, 2], 1)[1];                                ## priority level of load d
 
         push!(Dᵢ[b], d)
         push!(D, d)
