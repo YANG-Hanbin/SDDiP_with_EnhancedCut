@@ -56,5 +56,5 @@ end
 
 
 # Load the results
-@everywhere begin T = 6; num = 5; cutSelection = "SMC"; end
+@everywhere begin T = 6; num = 5; cutSelection = "LC"; end
 sddpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddpResult-$cutSelection-$tightness.jld2")["sddpResult"][:solHistory]

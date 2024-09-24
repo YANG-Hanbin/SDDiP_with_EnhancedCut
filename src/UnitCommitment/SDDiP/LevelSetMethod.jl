@@ -118,7 +118,7 @@ function function_info(; x₀::Dict = x₀,
         @objective(model, Min,  sum(model[:h][g] +
                                         paramOPF.C_start[g] * model[:v][g] + 
                                             paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
-                                                sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
+                                                sum(paramDemand.w[d] * (model[:surplus][d] + model[:shortage][d]) for d in indexSets.D) + sum(model[:θ]) +
                                                     sum(sum(x₀[:λ][g][i] * (stageDecision[:λ][g][i] - model[:λ_copy][g, i]) for i in 1:κ[g]) + x₀[:y][g] * (stageDecision[:y][g] - model[:y_copy][g]) for g in indexSets.G) 
                     );
         ## ==================================================== solve the model and display the result ==================================================== ##
@@ -138,7 +138,7 @@ function function_info(; x₀::Dict = x₀,
         @objective(model, Min,  sum(model[:h][g] +
                                         paramOPF.C_start[g] * model[:v][g] + 
                                             paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
-                                                sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) -
+                                                sum(paramDemand.w[d] * (model[:surplus][d] + model[:shortage][d]) for d in indexSets.D) + sum(model[:θ]) -
                                                     sum(sum(x₀[:λ][g][i] * model[:λ_copy][g, i] for i in 1:κ[g]) + x₀[:y][g] * model[:y_copy][g] for g in indexSets.G) 
                     );
         ## ==================================================== solve the model and display the result ==================================================== ##
@@ -157,7 +157,7 @@ function function_info(; x₀::Dict = x₀,
         @objective(model, Min,  sum(model[:h][g] +
                                         paramOPF.C_start[g] * model[:v][g] + 
                                             paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
-                                                sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
+                                                sum(paramDemand.w[d] * (model[:surplus][d] + model[:shortage][d]) for d in indexSets.D) + sum(model[:θ]) +
                                                     sum(sum(x₀[:λ][g][i] * (stageDecision[:λ][g][i] - model[:λ_copy][g, i]) for i in 1:κ[g]) + x₀[:y][g] * (stageDecision[:y][g] - model[:y_copy][g]) for g in indexSets.G) 
                     );
         ## ==================================================== solve the model and display the result ==================================================== ##

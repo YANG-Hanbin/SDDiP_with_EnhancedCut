@@ -101,7 +101,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         end
 
         ####################################################### Backward Steps ###########################################################
-        if i ≥ 30                                      ## the first rule:: for branching: current convex envelope is good enough
+        if i ≥ 10                                      ## the first rule:: for branching: current convex envelope is good enough
             for t in reverse(1:indexSets.T-1) 
                 for ω in  [1]#keys(Ξ̃)
                     dev = Dict()
@@ -120,7 +120,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                             # find the active leaf node 
                             keys_with_value_1 = maximum([k for (k, v) in solCollection[i, t, ω].stageSolution[:sur][g] if v > 0.5]); ## find the active leaf node: maximum(values(solCollection[i, t, ω].stageSolution[:sur][g]))
                             # find the lb and ub of this leaf node 
-                            (lb, ub) = StateVarList[t].sur[g][keys_with_value_1][:lb], StateVarList[t].sur[g][keys_with_value_1][:ub]; med = solCollection[i, t, ω].stageSolution[:s][g]; # solCollection[i, t, ω].stageSolution[:s][g];# (lb + ub)/2; #round(solCollection[i, t, ω].stageSolution[:s][g], digits = 3); 
+                            (lb, ub) = StateVarList[t].sur[g][keys_with_value_1][:lb], StateVarList[t].sur[g][keys_with_value_1][:ub]; med = (lb + ub)/2; # solCollection[i, t, ω].stageSolution[:s][g];# (lb + ub)/2; #round(solCollection[i, t, ω].stageSolution[:s][g], digits = 3); 
                             # create two new leaf nodes, and update their info (lb, ub)
                             left = length(StateVarList[t].sur[g]) + 1; right = length(StateVarList[t].sur[g]) + 2; 
                             forwardInfoList[t][:sur][g, left] = @variable(forwardInfoList[t], base_name = "sur[$g, $left]", binary = true); 

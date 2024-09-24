@@ -45,7 +45,8 @@ function extensive_form(; indexSets::IndexSets = indexSets,
     @variable(model, θ_angle[B, 1:T, ω in 1:W])                ## phase angle of the bus i
     @variable(model, P[L, 1:T, ω in 1:W])                      ## real power flow on line l; elements in L is Tuple (i, j)
     @variable(model, s[G, 1:T, ω in 1:W])                      ## real power generation at generator g
-    @variable(model, 0 ≤ x[D, 1:T, ω in 1:W] ≤ 1)              ## load shedding
+    @variable(model, surplus[D, 1:T, ω in 1:W] ≥ 0 )           ## load surplus/reserve
+    @variable(model, shortage[D, 1:T, ω in 1:W] ≥ 0 )          ## load shedding
 
     @variable(model, h[G, 1:T, ω in 1:W] ≥ 0);                 ## production cost at generator g
 
@@ -71,7 +72,7 @@ function extensive_form(; indexSets::IndexSets = indexSets,
     @constraint(model, [t in 1:T, ω in 1:W, i in B], sum(s[g, t, ω] for g in Gᵢ[i]) -
                                                 sum(P[(i, j), t, ω] for j in out_L[i]) + 
                                                     sum(P[(j, i), t, ω] for j in in_L[i]) 
-                                                        .== sum(paramDemand.demand[d] * scenarioTree.tree[t].nodes[Ξ[ω][:path][t]].deviation[d] * x[d, t, ω] for d in Dᵢ[i]) )
+                                                        .== sum(paramDemand.demand[d] * scenarioTree.tree[t].nodes[Ξ[ω][:path][t]].deviation[d] + surplus[d, t, ω] - shortage[d, t, ω] for d in Dᵢ[i]) )
 
     # on/off status with startup and shutdown decision
     ## t = 1
@@ -87,7 +88,7 @@ function extensive_form(; indexSets::IndexSets = indexSets,
     @constraint(model, production[t in 1:T, ω in 1:W, g in indexSets.G, o in keys(paramOPF.slope[g])], h[g, t, ω] ≥ paramOPF.slope[g][o] * s[g, t, ω] + paramOPF.intercept[g][o] * y[g, t, ω])
 
     # objective function
-    @objective(model, Min, sum(Ξ[ω][:prob] * sum(sum(h[g, t, ω] + paramOPF.C_start[g] * v[g, t, ω] + paramOPF.C_down[g] * w[g, t, ω] for g in G) + sum(paramDemand.w[d] * (1 - x[d, t, ω]) for d in D) for t in 1:T) for ω in 1:W));
+    @objective(model, Min, sum(Ξ[ω][:prob] * sum(sum(h[g, t, ω] + paramOPF.C_start[g] * v[g, t, ω] + paramOPF.C_down[g] * w[g, t, ω] for g in G) + sum(paramDemand.w[d] * (shortage[d, t, ω] + surplus[d, t, ω]) for d in D) for t in 1:T) for ω in 1:W));
     
     # nonanticipativity constraints
     nonanticipativity(model = model, scenarioList = keys(Ξ), t = 1)

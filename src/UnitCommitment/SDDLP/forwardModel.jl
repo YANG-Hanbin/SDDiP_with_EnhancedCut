@@ -38,7 +38,8 @@ function forwardModel!(; indexSets::IndexSets = indexSets,
     @variable(model, θ_angle[B])                                                ## phase angle of the bus i
     @variable(model, P[L])                                                      ## real power flow on line l; elements in L is Tuple (i, j)
     @variable(model, 0 ≤ s[g in G] ≤ paramOPF.smax[g])                          ## real power generation at generator g
-    @variable(model, 0 ≤ x[D] ≤ 1)                                              ## load shedding
+    @variable(model, surplus[D] ≥ 0 )                                           ## load surplus/reserve
+    @variable(model, shortage[D] ≥ 0 )                                          ## load shedding
 
     @variable(model, y[G], Bin)                                                 ## binary variable for generator commitment status
     @variable(model, v[G], Bin)                                                 ## binary variable for generator startup decision
@@ -48,7 +49,7 @@ function forwardModel!(; indexSets::IndexSets = indexSets,
 
     @variable(model, θ[N] ≥ θ_bound)                                            ## auxiliary variable for approximation of the value function
 
-    # @variable(model, sur[G, 1:1], Bin)                                        ## sur[g, k] is the kth surrogate variable of s[g]
+    # @variable(model, sur[G, 1:1], Bin)                                    ## sur[g, k] is the kth surrogate variable of s[g]
     sur = Dict(
         (g, i) => @variable(model, base_name = "sur[$g, $i]", binary = true)
         for g in G for i in 1:1
@@ -79,7 +80,7 @@ function forwardModel!(; indexSets::IndexSets = indexSets,
     @constraint(model, PowerBalance[i in B], sum(s[g] for g in Gᵢ[i]) -
                                                 sum(P[(i, j)] for j in out_L[i]) + 
                                                     sum(P[(j, i)] for j in in_L[i]) 
-                                                        .== sum(paramDemand.demand[d] * x[d] for d in Dᵢ[i]) )
+                                                        .== sum(paramDemand.demand[d] + surplus[d] - shortage[d] for d in Dᵢ[i]) )
     
     # on/off status with startup and shutdown decision
     @constraint(model, ShutUpDown[g in G], v[g] - w[g] == y[g])
@@ -90,8 +91,8 @@ function forwardModel!(; indexSets::IndexSets = indexSets,
     @constraint(model, production[g in indexSets.G, o in keys(paramOPF.slope[g])], h[g] ≥ paramOPF.slope[g][o] * s[g] + paramOPF.intercept[g][o] * y[g])
 
     # objective function
-    @objective(model, Min, sum(h[g] + paramOPF.C_start[g] * v[g] + paramOPF.C_down[g] * w[g] for g in G) + sum(paramDemand.w[d] * (1 - x[d]) for d in D) + sum(θ)
-                    )
+    @objective(model, Min, sum(h[g] + paramOPF.C_start[g] * v[g] + paramOPF.C_down[g] * w[g] for g in G) + sum(paramDemand.w[d] * (surplus[d] + shortage[d]) for d in D) + sum(θ)
+                )
     return model
 end
 
@@ -137,7 +138,7 @@ function forwardModification!(; model::Model = model,
     @constraint(model, PowerBalance[i in indexSets.B], sum(model[:s][g] for g in indexSets.Gᵢ[i]) -
                                                             sum(model[:P][(i, j)] for j in indexSets.out_L[i]) + 
                                                                 sum(model[:P][(j, i)] for j in indexSets.in_L[i]) 
-                                                                    .== sum(paramDemand.demand[d] * randomVariables.deviation[d] * model[:x][d] for d in indexSets.Dᵢ[i]) )
+                                                                    .== sum(paramDemand.demand[d] * randomVariables.deviation[d] + model[:surplus][d] - model[:shortage][d] for d in indexSets.Dᵢ[i]) )
 end
 
 """

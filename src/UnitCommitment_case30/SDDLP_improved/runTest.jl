@@ -66,7 +66,7 @@ for cut in ["LC", "ELC", "SMC"]
     end
 end
 
-T = 6; num = 5; cutSelection = "SMC"; ℓ = 0.0;
+T = 6; num = 3; cutSelection = "SMC"; ℓ = 0.0;
 sddlpResult = load("src/UnitCommitment_case30/numericalResults-$case/Periods$T-Real$num/isddlpResult-$cutSelection-$tightness.jld2")["sddlpResult"][:solHistory]
 
 

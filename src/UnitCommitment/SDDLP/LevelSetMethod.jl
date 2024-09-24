@@ -165,7 +165,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Any}} = x₀,
             @objective(model, Min,  sum(model[:h][g] +
                                             paramOPF.C_start[g] * model[:v][g] + 
                                                 paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
-                                                    sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
+                                                    sum(paramDemand.w[d] * (model[:surplus][d] + model[:shortage][d]) for d in indexSets.D) + sum(model[:θ]) +
                                                         sum(x₀[:s][g] * (stageDecision[:s][g] - model[:s_copy][g]) + x₀[:y][g] * (stageDecision[:y][g] - model[:y_copy][g]) + sum(x₀[:sur][g][k] * (stageDecision[:sur][g][k] - model[:sur_copy][g, k]) for k in keys(stageDecision[:sur][g])) for g in indexSets.G) 
                         );
             ## ==================================================== solve the model and display the result ==================================================== ##
@@ -188,7 +188,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Any}} = x₀,
             @objective(model, Min,  sum(model[:h][g] +
                                             paramOPF.C_start[g] * model[:v][g] + 
                                                 paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
-                                                    sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) -
+                                                    sum(paramDemand.w[d] * (model[:surplus][d] + model[:shortage][d]) for d in indexSets.D) + sum(model[:θ]) -
                                                         sum(x₀[:s][g] * model[:s_copy][g] + x₀[:y][g] * model[:y_copy][g] + sum(x₀[:sur][g][k] * model[:sur_copy][g, k] for k in keys(stageDecision[:sur][g])) for g in indexSets.G)
                                                         );
             ## ==================================================== solve the model and display the result ==================================================== ##
@@ -217,7 +217,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Any}} = x₀,
             @objective(model, Min,  sum(model[:h][g] +
                                         paramOPF.C_start[g] * model[:v][g] + 
                                             paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
-                                                sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
+                                                sum(paramDemand.w[d] * (model[:surplus][d] + model[:shortage][d]) for d in indexSets.D) + sum(model[:θ]) +
                                                     sum(x₀[:s][g] * (stageDecision[:s][g] - model[:s_copy][g]) + x₀[:y][g] * (stageDecision[:y][g] - model[:y_copy][g]) + sum(x₀[:sur][g][k] * (stageDecision[:sur][g][k] - model[:sur_copy][g, k]) for k in keys(stageDecision[:sur][g])) for g in indexSets.G) 
                     );
                         
@@ -242,7 +242,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Any}} = x₀,
             @objective(model, Min,  sum(model[:h][g] +
                                             paramOPF.C_start[g] * model[:v][g] + 
                                                 paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
-                                                    sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
+                                                    sum(paramDemand.w[d] * (model[:surplus][d] + model[:shortage][d]) for d in indexSets.D) + sum(model[:θ]) +
                                                         sum(x₀[:s][g] * (stageDecision[:s][g] - model[:s_copy][g]) + x₀[:y][g] * (stageDecision[:y][g] - model[:y_copy][g]) + sum(x₀[:sur][g][k] * (stageDecision[:sur][g][k] - model[:sur_copy][g, k]) for k in keys(stageDecision[:sur][g])) for g in indexSets.G) 
                         );
             ## ==================================================== solve the model and display the result ==================================================== ##
@@ -266,7 +266,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Any}} = x₀,
             @objective(model, Min,  sum(model[:h][g] +
                                             paramOPF.C_start[g] * model[:v][g] + 
                                                 paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
-                                                    sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) -
+                                                    sum(paramDemand.w[d] * (model[:surplus][d] + model[:shortage][d]) for d in indexSets.D) + sum(model[:θ]) -
                                                         sum(x₀[:s][g] * model[:s_copy][g] + x₀[:y][g] * model[:y_copy][g] + sum(x₀[:sur][g][k] * model[:sur_copy][g, k] for k in keys(stageDecision[:sur][g])) for g in indexSets.G)
                                                         );
             ## ==================================================== solve the model and display the result ==================================================== ##
@@ -295,7 +295,7 @@ function function_info(; x₀::Dict{Symbol, Dict{Int64, Any}} = x₀,
             @objective(model, Min,  sum(model[:h][g] +
                                         paramOPF.C_start[g] * model[:v][g] + 
                                             paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
-                                                sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) +
+                                                sum(paramDemand.w[d] * (model[:surplus][d] + model[:shortage][d]) for d in indexSets.D) + sum(model[:θ]) +
                                                     sum(x₀[:s][g] * (stageDecision[:s][g] - model[:s_copy][g]) + x₀[:y][g] * (stageDecision[:y][g] - model[:y_copy][g]) + sum(x₀[:sur][g][k] * (stageDecision[:sur][g][k] - model[:sur_copy][g, k]) for k in keys(stageDecision[:sur][g])) for g in indexSets.G) 
                     );
                         
