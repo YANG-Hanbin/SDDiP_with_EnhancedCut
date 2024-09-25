@@ -37,14 +37,13 @@ function backwardModel!(; tightness::Bool = true, indexSets::IndexSets = indexSe
     @variable(model, θ_angle[B])                                    ## phase angle of the bus i
     @variable(model, P[L])                                          ## real power flow on line l; elements in L is Tuple (i, j)
     @variable(model, 0 ≤ s[g in G] ≤ paramOPF.smax[g])              ## real power generation at generator g
-    @variable(model, surplus[D] ≥ 0 )                               ## load surplus/reserve
-    @variable(model, shortage[D] ≥ 0 )                              ## load shedding
-
-    @variable(model, h[G] ≥ 0);                                     ## production cost at generator g
+    @variable(model, 0 ≤ x[D] ≤ 1)                                  ## load shedding
 
     @variable(model, y[G], Bin)                                     ## binary variable for generator commitment status
     @variable(model, v[G], Bin)                                     ## binary variable for generator startup decision
     @variable(model, w[G], Bin)                                     ## binary variable for generator shutdowm decision
+
+    @variable(model, h[G] ≥ 0);                                     ## production cost at generator g
 
     @variable(model, θ[N] ≥ θ_bound)                                ## auxiliary variable for approximation of the value function
     # @variable(model, sur[G, 1:max_sur], Bin)                        
@@ -97,7 +96,7 @@ function backwardModel!(; tightness::Bool = true, indexSets::IndexSets = indexSe
     @constraint(model, PowerBalance[i in B], sum(s[g] for g in Gᵢ[i]) -
                                                 sum(P[(i, j)] for j in out_L[i]) + 
                                                     sum(P[(j, i)] for j in in_L[i]) 
-                                                        .== sum(paramDemand.demand[d] + surplus[d] - shortage[d] for d in Dᵢ[i]) )
+                                                        .== sum(paramDemand.demand[d] * x[d] for d in Dᵢ[i]) )
     
     # on/off status with startup and shutdown decision
     @constraint(model, ShutUpDown[g in G], v[g] - w[g] == y[g] - y_copy[g])
@@ -137,7 +136,7 @@ function backwardModification!(; model::Model = model,
     @constraint(model, PowerBalance[i in indexSets.B], sum(model[:s][g] for g in indexSets.Gᵢ[i]) -
                                                             sum(model[:P][(i, j)] for j in indexSets.out_L[i]) + 
                                                                 sum(model[:P][(j, i)] for j in indexSets.in_L[i]) 
-                                                                    .== sum(paramDemand.demand[d] * randomVariables.deviation[d] + model[:surplus][d] - model[:shortage][d] for d in indexSets.Dᵢ[i]) )
+                                                                    .== sum(paramDemand.demand[d] * randomVariables.deviation[d] * model[:x][d] for d in indexSets.Dᵢ[i]) )
 end
 """
 getValueFunctionLB(; model::Model = model, 
@@ -167,7 +166,7 @@ function getValueFunctionLB(; model::Model = model,
     @objective(model, Min,  sum(paramOPF.slope[g] * model[:s][g] + paramOPF.intercept[g] * model[:y][g] +
                                                                         paramOPF.C_start[g] * model[:v][g] + 
                                                                             paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
-                                                                                sum(paramDemand.w[d] * (model[:surplus][d] + model[:shortage][d]) for d in indexSets.D) + sum(model[:θ]));
+                                                                                sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]));
     optimize!(model); f_star_value = JuMP.objective_value(model);
     for g in indexSets.G
         for k in keys(stageDecision[:sur][g])

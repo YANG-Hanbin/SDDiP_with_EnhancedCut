@@ -35,14 +35,14 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                                                         paramOPF = paramOPF, 
                                                             stageRealization = scenarioTree.tree[t], 
                                                                     outputFlag = 0, κ = κ, ε = ε, 
-                                                                            mipGap = 1e-4, θ_bound = 0.0, timelimit = 20
+                                                                            mipGap = 1e-2, θ_bound = 0.0, timelimit = 20
                                                     );
             backwardInfoList[t] = backwardModel!(indexSets = indexSets, 
                                                     paramDemand = paramDemand, 
                                                         paramOPF = paramOPF, 
                                                             stageRealization = scenarioTree.tree[t], 
                                                                     outputFlag = 0, κ = κ, ε = ε, 
-                                                                            mipGap = 1e-4, tightness = tightness, θ_bound = 0.0, timelimit = 5
+                                                                            mipGap = 1e-2, tightness = tightness, θ_bound = 0.0, timelimit = 20
                                                     );
         end 
         stageDecision = Dict{Symbol, Dict{Int64, Float64}}(); stageDecision[:s] = Dict{Int64, Float64}(); stageDecision[:y] = Dict{Int64, Float64}(); stageDecision[:λ] = Dict{Int64, Dict{Int64, Float64}}();
@@ -68,7 +68,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         end
         @everywhere solCollection = $solCollection;
         ####################################################### To Record Info ###########################################################
-        LB = solCollection[i, 1, 1].OPT;
+        LB = maximum([solCollection[i, 1, 1].OPT, LB]);
         μ̄ = mean(values(u));
         σ̂² = Statistics.var(values(u));
         UB = μ̄ + 1.96 * sqrt(σ̂²/numScenarios); # minimum([μ̄ + 1.96 * sqrt(σ̂²/numScenarios), UB]);

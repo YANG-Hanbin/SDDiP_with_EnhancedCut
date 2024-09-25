@@ -50,7 +50,7 @@ function prepareIndexSets(  ; T::Int64 = 10,
     for i in keys(network_data["load"])
         d = network_data["load"][i]["index"]
         b = network_data["load"][i]["load_bus"]
-        w[d] =  wsample([2000, 4000, 6000], [6,3,1], 1)[1];                                                        ## wsample([3000, 15000, 20000], [1,1,1], 1)[1];    priority level of load d
+        w[d] =  wsample([3000, 5000, 7000], [6,3,1], 1)[1];                                                        ## wsample([3000, 15000, 20000], [1,1,1], 1)[1];    priority level of load d
 
         push!(Dᵢ[b], d)
         push!(D, d)
@@ -92,8 +92,8 @@ function prepareIndexSets(  ; T::Int64 = 10,
             if network_data["gen"][i]["pmin"] == network_data["gen"][i]["pmax"]
                 cost = []
             else 
-                x_vals = [network_data["gen"][i]["pmin"], (network_data["gen"][i]["pmin"] + network_data["gen"][i]["pmax"]) * .25, (network_data["gen"][i]["pmin"] + network_data["gen"][i]["pmax"]) * .75, network_data["gen"][i]["pmax"]];
-                # x_vals = [network_data["gen"][i]["pmin"], network_data["gen"][i]["pmax"]];
+                # x_vals = [network_data["gen"][i]["pmin"], (network_data["gen"][i]["pmin"] + network_data["gen"][i]["pmax"]) * .25, (network_data["gen"][i]["pmin"] + network_data["gen"][i]["pmax"]) * .75, network_data["gen"][i]["pmax"]];
+                x_vals = [network_data["gen"][i]["pmin"], network_data["gen"][i]["pmax"]];
                 cost = [round(x, digits=2) for tup in [(x, poly_cost(network_data["gen"][i]["cost"], x)) for x in x_vals] for x in tup];
             end
         end
@@ -195,7 +195,7 @@ function scenario_tree_generation(; T::Int64 = 10, numRealization::Int64 = 3, in
         for n in 1:numRealization
             deviation = Dict{Int64, Float64}()
             for d in indexSets.D
-                deviation[d] = rand(Uniform(0.8, 1.4))
+                deviation[d] = rand(Uniform(0.8, 1.6))
             end
             nodes[n] = RandomVariables(deviation)
         end

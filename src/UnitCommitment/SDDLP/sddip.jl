@@ -42,7 +42,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                                                         paramOPF = paramOPF, 
                                                             stageRealization = scenarioTree.tree[t], 
                                                                     outputFlag = 0, timelimit = 20,
-                                                                            mipGap = 1e-3, θ_bound = 0.0);
+                                                                            mipGap = 1e-2, θ_bound = 0.0);
             var = Dict{Symbol, Dict{Int, VariableRef}}(:s => Dict(g => forwardInfoList[t][:s][g] for g in indexSets.G), :y => Dict(g => forwardInfoList[t][:y][g] for g in indexSets.G)); 
             sur = Dict{Int, Dict{Int, Dict{Symbol, Any}}}(g => Dict(1 => Dict(:lb => 0., :ub => paramOPF.smax[g], :var =>forwardInfoList[t][:sur][g, 1])) for g in indexSets.G); 
             leaf = Dict{Int, Vector{Int64}}(g => [1] for g in indexSets.G);
@@ -53,7 +53,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                                                         paramOPF = paramOPF, 
                                                             stageRealization = scenarioTree.tree[t], 
                                                                     outputFlag = 0, timelimit = 20,
-                                                                            mipGap = 1e-3, tightness = tightness, θ_bound = 0.0);
+                                                                            mipGap = 1e-2, tightness = tightness, θ_bound = 0.0);
             # var = Dict{Symbol, Dict{Int, VariableRef}}(:s => Dict(g => backwardInfoList[t][:s][g] for g in indexSets.G), :y => Dict(g => backwardInfoList[t][:y][g] for g in indexSets.G)); 
             # sur = Dict{Int, Dict{Int, Dict{Symbol, Any}}}(g => Dict(1 => Dict(:lb => 0., :ub => paramOPF.smax[g], :var =>backwardInfoList[t][:sur][g, 1])) for g in indexSets.G); 
             # backwardStateVarList[t] = StateVar(var, sur, leaf);
@@ -82,7 +82,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         end
         @everywhere solCollection = $solCollection;
         ####################################################### To Record Info ###########################################################
-        LB = solCollection[i, 1, 1].OPT;
+        LB = maximum([solCollection[i, 1, 1].OPT, LB]);
         μ̄ = mean(values(u));
         σ̂² = Statistics.var(values(u));
         UB = μ̄ + 1.96 * sqrt(σ̂²/numScenarios); # minimum([μ̄ + 1.96 * sqrt(σ̂²/numScenarios), UB]);

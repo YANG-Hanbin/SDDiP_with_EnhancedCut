@@ -19,7 +19,7 @@ using Distributed; addprocs(5);
     include(joinpath(project_root, "src", "UnitCommitment", "SDDiP", "sddip.jl"))
 
     Output_Gap = false; max_iter = 150; MaxIter = 200; cutSelection = "SMC"; δ = 1.; numScenarios = 100; tightness = true; case = "case_RTS_GMLC"; # "case_RTS_GMLC", "case30"
-    T = 6; num = 5; TimeLimit = 60 * 60 * 2.; OPT = Inf; coef = 7; ε = 1/2^(coef); ℓ = .0; 
+    T = 6; num = 5; TimeLimit = 60 * 60 * 2.; OPT = Inf; coef = 10; ε = 1/2^(coef); ℓ = .7; 
 end
 # extForm_path = joinpath(project_root, "src", "UnitCommitment", "extForm.jl")
 # include(extForm_path)  
@@ -60,7 +60,7 @@ for cutSelection in ["LC", "ELC", "SMC"]
         end
     end
 end
-@everywhere begin T = 6; num = 5; coef = 7; ε = 1/2^(coef); ℓ = .0;  end
+@everywhere begin T = 6; num = 10; coef = 10; ε = 1/2^(coef); end
 sddipResult = SDDiP_algorithm(scenarioTree = scenarioTree, 
                                 indexSets = indexSets, 
                                     paramDemand = paramDemand, 
