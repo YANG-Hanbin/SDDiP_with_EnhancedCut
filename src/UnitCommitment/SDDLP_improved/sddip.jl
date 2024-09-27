@@ -84,7 +84,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         μ̄ = mean(values(u));
         σ̂² = Statistics.var(values(u));
         UB = μ̄ + 1.96 * sqrt(σ̂²/para.numScenarios); # minimum([μ̄ + 1.96 * sqrt(σ̂²/numScenarios), UB]);
-        gap = round((UB-LB)/UB * 100 ,digits = 2); gapString = string(gap,"%"); push!(sddipResult, [i, LB, para.OPT, UB, gapString, iter_time, LM_iter, total_Time, branchDecision]); push!(gapList, gap); 
+        gap = round((UB-LB)/UB * 100 ,digits = 2); gapString = string(gap,"%"); push!(sddipResult, [i, LB, para.OPT, UB, gapString, iter_time, LM_iter, total_Time, branchDecision]); push!(gapList, gap); branchDecision = false;
         if i == 1
             println("----------------------------------------- Iteration Info ------------------------------------------------")
             println("Iter |        LB        |        UB        |       Gap      |      i-time     |    #LM     |     T-Time")
@@ -92,7 +92,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         end
         @printf("%4d | %12.2f     | %12.2f     | %9.2f%%     | %9.2f s     | %6d     | %10.2f s     \n", 
                 i, LB, UB, gap, iter_time, LM_iter, total_Time); LM_iter = 0;
-        if total_Time > para.TimeLimit || i ≥ para.MaxIter || UB-LB ≤ 1e-3 * UB  
+        if total_Time > para.TimeLimit || i ≥ para.MaxIter || UB-LB ≤ para.terminate_threshold * UB  
             return Dict(:solHistory => sddipResult, 
                             :solution => solCollection[i, 1, 1].stageSolution, 
                                 :gapHistory => gapList) 
@@ -111,14 +111,19 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                         end
                     end
                     g = [g for (g, v) in dev if v == maximum(values(dev))][1]
-                    if dev[g] ≥ 1e-3                                        ## the second rule: current point is far from being an extreme point
+                    if dev[g] ≥ para.branch_threshold                                        ## the second rule: current point is far from being an extreme point
                         branchDecision = true;
                         @everywhere begin
                             t = $t; ω = $ω; g = $g; i = $i; 
                             # find the active leaf node 
                             keys_with_value_1 = maximum([k for (k, v) in solCollection[i, t, ω].stageSolution[:sur][g] if v > 0.5]); ## find the active leaf node: maximum(values(solCollection[i, t, ω].stageSolution[:sur][g]))
                             # find the lb and ub of this leaf node 
-                            (lb, ub) = StateVarList[t].sur[g][keys_with_value_1][:lb], StateVarList[t].sur[g][keys_with_value_1][:ub]; med = (lb + ub)/2; # solCollection[i, t, ω].stageSolution[:s][g];# (lb + ub)/2; #round(solCollection[i, t, ω].stageSolution[:s][g], digits = 3); 
+                            (lb, ub) = StateVarList[t].sur[g][keys_with_value_1][:lb], StateVarList[t].sur[g][keys_with_value_1][:ub]; 
+                            if para.med_method == "interval_mid"
+                                med = (lb + ub)/2; 
+                            elseif para.med_method == "exact_point"
+                                med = solCollection[i, t, ω].stageSolution[:s][g]; # round(solCollection[i, t, ω].stageSolution[:s][g], digits = 3); 
+                            end
                             # create two new leaf nodes, and update their info (lb, ub)
                             left = length(StateVarList[t].sur[g]) + 1; right = length(StateVarList[t].sur[g]) + 2; 
                             forwardInfoList[t][:sur][g, left] = @variable(forwardInfoList[t], base_name = "sur[$g, $left]", binary = true); 
@@ -183,8 +188,6 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                                                         OPT = solCollection[i, t, ω].OPT
                                                     );
                         end
-                    else 
-                        branchDecision = false;
                     end            
                 end
             end

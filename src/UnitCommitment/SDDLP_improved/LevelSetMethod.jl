@@ -1,12 +1,12 @@
 """
     This function is to constraint the model for solving gap and alpha
 """
-function Δ_model_formulation(functionHistory::FunctionHistory, f_star::Float64, iter::Int64; Output::Int64 = 0, mipGap::Float64 = 1e-3, timelimit::Int64 = 3)
+function Δ_model_formulation(functionHistory::FunctionHistory, f_star::Float64, iter::Int64; Output::Int64 = 0, mipGap::Float64 = 1e-3, timelimit::Int64 = 3, silent::Bool = true)
     
     alphaModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                                                     "OutputFlag" => Output, 
                                                     "Threads" => 0)); 
-    MOI.set(alphaModel, MOI.Silent(), true);
+    MOI.set(alphaModel, MOI.Silent(), silent);
     set_optimizer_attribute(alphaModel, "MIPGap", mipGap);
     set_optimizer_attribute(alphaModel, "TimeLimit", timelimit);
 

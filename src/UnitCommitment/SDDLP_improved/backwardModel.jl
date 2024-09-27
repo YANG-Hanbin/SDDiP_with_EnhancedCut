@@ -21,7 +21,7 @@ function backwardModel!(; tightness::Bool = true, indexSets::IndexSets = indexSe
                             paramDemand::ParamDemand = paramDemand, 
                                 paramOPF::ParamOPF = paramOPF, 
                                     stageRealization::StageRealization = stageRealization,
-                                            θ_bound::Real = 0.0, outputFlag::Int64 = 0, timelimit::Real = 5, mipGap::Float64 = 1e-4 
+                                            θ_bound::Real = 0.0, outputFlag::Int64 = 0, timelimit::Real = 5, mipGap::Float64 = 1e-4, silent::Bool = true
                             )
     (D, G, L, B) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T) 
     (Dᵢ, Gᵢ, in_L, out_L) = (indexSets.Dᵢ, indexSets.Gᵢ, indexSets.in_L, indexSets.out_L) 
@@ -30,7 +30,7 @@ function backwardModel!(; tightness::Bool = true, indexSets::IndexSets = indexSe
     model = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                                                     "OutputFlag" => outputFlag, 
                                                     "Threads" => 0)); 
-    MOI.set(model, MOI.Silent(), true);
+    MOI.set(model, MOI.Silent(), silent);
     set_optimizer_attribute(model, "MIPGap", mipGap);
     set_optimizer_attribute(model, "TimeLimit", timelimit);
     

@@ -18,13 +18,14 @@ using Distributed; addprocs(3);
     include(joinpath(project_root, "src", "UnitCommitment", "SDDLP_improved", "LevelSetMethod.jl"))
     include(joinpath(project_root, "src", "UnitCommitment", "SDDLP_improved", "sddip.jl"))
 
-    Output_Gap = false; max_iter = 150; MaxIter = 200; δ = .1; numScenarios = 100; tightness = true; TimeLimit = 60 * 60 * 2.; OPT = Inf; 
-    forwardMipGap = 1e-3; backwardMipGap = 1e-3; forwardTimeLimit = 10; backwardTimeLimit = 10;
+    Output_Gap = false; max_iter = 150; MaxIter = 200; δ = .1; numScenarios = 20; tightness = true; TimeLimit = 60 * 60 * 2.; OPT = Inf; 
+    forwardMipGap = 1e-3; backwardMipGap = 1e-3; forwardTimeLimit = 10; backwardTimeLimit = 10; terminate_threshold = 1e-3; branch_threshold = 1e-6; 
+    med_method = "interval_mid"; 
     cutSelection = "SMC"; # "SMC"; "LC"; "ELC";
     ℓ = .0; core_point_strategy = "Eps"; # "Mid", "In-Out", "Eps", "Relint", "Conv"
     para = (forwardMipGap = forwardMipGap, backwardMipGap = backwardMipGap, forwardTimeLimit = forwardTimeLimit, backwardTimeLimit = backwardTimeLimit, 
-            Output_Gap = Output_Gap, max_iter = max_iter, MaxIter = MaxIter, cutSelection = cutSelection, δ = δ, numScenarios = numScenarios, tightness = tightness, TimeLimit = TimeLimit, OPT = OPT, ℓ = ℓ, core_point_strategy = core_point_strategy)
-    T = 8; num = 5; case = "case30pwl"; # "case_RTS_GMLC", "case30", "case30pwl", "case24_ieee_rts"
+            Output_Gap = Output_Gap, max_iter = max_iter, MaxIter = MaxIter, terminate_threshold = terminate_threshold, branch_threshold = branch_threshold, med_method = med_method, cutSelection = cutSelection, δ = δ, numScenarios = numScenarios, tightness = tightness, TimeLimit = TimeLimit, OPT = OPT, ℓ = ℓ, core_point_strategy = core_point_strategy)
+    T = 6; num = 5; case = "case30pwl"; # "case_RTS_GMLC", "case30", "case30pwl", "case24_ieee_rts"
 end
 # include(joinpath(project_root, "src", "UnitCommitment", "extForm.jl"))  
 
@@ -76,4 +77,6 @@ else
     sddlpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/isddlpResult-$cutSelection-$tightness.jld2")["sddlpResult"][:solHistory]
 end
 
+
+sddlpResult = load("src/UnitCommitment/numericalResults-case30pwl2/Periods6-Real3/isddlpResult-SMC-true.jld2")["sddlpResult"][:solHistory]
 
