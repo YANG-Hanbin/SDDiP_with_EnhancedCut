@@ -185,19 +185,20 @@ function for backward pass in parallel computing
 """
 function backwardPass(backwardNodeInfo::Tuple; 
                             indexSets::IndexSets = indexSets, 
-                            paramDemand::ParamDemand = paramDemand, 
-                            paramOPF::ParamOPF = paramOPF, max_iter::Int64 = max_iter, Output_Gap::Bool = Output_Gap, tightness::Bool = tightness, δ::Float64 = δ, ℓ::Float64 = ℓ,
-                            backwardInfoList::Dict{Int64, Model} = backwardInfoList, scenarioTree::ScenarioTree = scenarioTree, solCollection::Dict{Any, Any} = solCollection
-                            )
+                                paramDemand::ParamDemand = paramDemand, 
+                                    paramOPF::ParamOPF = paramOPF,
+                                        backwardInfoList::Dict{Int64, Model} = backwardInfoList, 
+                                            scenarioTree::ScenarioTree = scenarioTree, 
+                                                solCollection::Dict{Any, Any} = solCollection, para::NamedTuple = para)
     (i, t, n, ω, cutSelection, core_point_strategy) = backwardNodeInfo; 
     backwardModification!(model = backwardInfoList[t], randomVariables = scenarioTree.tree[t].nodes[n], paramOPF = paramOPF, indexSets = indexSets, paramDemand = paramDemand); 
 
-    (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(stageDecision = solCollection[i, t-1, ω].stageSolution, f_star_value = solCollection[i, t, ω].OPT, cutSelection = "LC", max_iter = max_iter, paramOPF = paramOPF,
-                                                            Output_Gap = Output_Gap, ℓ = ℓ, λ = .1, core_point_strategy = core_point_strategy); 
+    (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(stageDecision = solCollection[i, t-1, ω].stageSolution, f_star_value = solCollection[i, t, ω].OPT, cutSelection = "LC", max_iter = para.max_iter, paramOPF = paramOPF,
+                                                            Output_Gap = para.Output_Gap, ℓ = para.ℓ, λ = .1, core_point_strategy = core_point_strategy); 
 
     ((λ₀, λ₁), LMiter) = LevelSetMethod_optimization!(levelSetMethodParam = levelSetMethodParam, model = backwardInfoList[t], cutSelection = "LC", indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF,
                                             stageDecision = solCollection[i, t-1, ω].stageSolution, 
-                                                    x_interior = nothing, x₀ = x₀, tightness = tightness, δ = δ);
+                                                    x_interior = nothing, x₀ = x₀, tightness = para.tightness, δ = para.δ);
 
                                                     
     f_star_value = λ₀ + sum(λ₁[:s][g] * solCollection[i, t-1, ω].stageSolution[:s][g] + 
@@ -211,11 +212,11 @@ function backwardPass(backwardNodeInfo::Tuple;
         else
             ℓ = rand([.0, .5, .8])
         end
-        (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(stageDecision = solCollection[i, t-1, ω].stageSolution, f_star_value = f_star_value, cutSelection = cutSelection, max_iter = max_iter, paramOPF = paramOPF,
-                                                                    Output_Gap = Output_Gap, ℓ = ℓ, λ = .3);
+        (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(stageDecision = solCollection[i, t-1, ω].stageSolution, f_star_value = f_star_value, cutSelection = cutSelection, max_iter = para.max_iter, paramOPF = paramOPF,
+                                                                    Output_Gap = para.Output_Gap, ℓ = para.ℓ, λ = .3);
         ((λ₀, λ₁), LMiter) = LevelSetMethod_optimization!(levelSetMethodParam = levelSetMethodParam, model = backwardInfoList[t], cutSelection = cutSelection, indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF,
                                                     stageDecision = solCollection[i, t-1, ω].stageSolution, 
-                                                            x_interior = x_interior, x₀ = x₀, tightness = tightness, δ = δ);
+                                                            x_interior = x_interior, x₀ = x₀, tightness = para.tightness, δ = para.δ);
 
     end
 
