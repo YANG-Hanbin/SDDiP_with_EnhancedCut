@@ -20,7 +20,7 @@ using Distributed; addprocs(5);
     include(joinpath(project_root, "src", "UnitCommitment", "SDDP", "sddp.jl"))
 
 
-    Output_Gap = false; max_iter = 150; MaxIter = 200; cutSelection = "SMC"; δ = .1; numScenarios = 100; tightness = true; TimeLimit = 60 * 60 * 2.; OPT = Inf; 
+    Output_Gap = false; max_iter = 150; MaxIter = 200; cutSelection = "ELC"; δ = .1; numScenarios = 100; tightness = true; TimeLimit = 60 * 60 * 2.; OPT = Inf; 
     forwardMipGap = 1e-3; backwardMipGap = 1e-3; forwardTimeLimit = 10; backwardTimeLimit = 10;
     case = "case30pwl"; # "case_RTS_GMLC", "case30", "case30pwl", "case24_ieee_rts"
     T = 6; num = 5; 
