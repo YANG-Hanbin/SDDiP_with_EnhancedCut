@@ -22,9 +22,10 @@ using Distributed; addprocs(5);
 
     Output_Gap = false; max_iter = 150; MaxIter = 200; cutSelection = "ELC"; δ = .1; numScenarios = 100; tightness = true; TimeLimit = 60 * 60 * 2.; OPT = Inf; 
     forwardMipGap = 1e-3; backwardMipGap = 1e-3; forwardTimeLimit = 10; backwardTimeLimit = 10;
+    ℓ = 0.0;
     case = "case30pwl"; # "case_RTS_GMLC", "case30", "case30pwl", "case24_ieee_rts"
-    T = 6; num = 5; 
-    para = (forwardMipGap = forwardMipGap, backwardMipGap = backwardMipGap, forwardTimeLimit = forwardTimeLimit, backwardTimeLimit = backwardTimeLimit,
+    T = 12; num = 3; 
+    para = (forwardMipGap = forwardMipGap, backwardMipGap = backwardMipGap, forwardTimeLimit = forwardTimeLimit, backwardTimeLimit = backwardTimeLimit, ℓ = ℓ,
             Output_Gap = Output_Gap, max_iter = max_iter, MaxIter = MaxIter, cutSelection = cutSelection, δ = δ, numScenarios = numScenarios, tightness = tightness, TimeLimit = TimeLimit, OPT = OPT)
 end
 # extForm_path = joinpath(project_root, "src", "UnitCommitment", "extForm.jl")
@@ -60,3 +61,5 @@ end
 # Load the results
 @everywhere begin T = 6; num = 5; cutSelection = "SMC"; end
 sddpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddpResult-$cutSelection-$tightness.jld2")["sddpResult"][:solHistory]
+
+sddpResult = load("/Users/aaron/SDDiP_with_EnhancedCut/src/UnitCommitment/numericalResults-case30pwl/Periods6-Real10/MagnantiWong/sddpResult-0.0-true.jld2")["sddpResult"][:solHistory]

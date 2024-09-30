@@ -25,7 +25,7 @@ using Distributed; addprocs(3);
     ℓ = .0; core_point_strategy = "Eps"; # "Mid", "In-Out", "Eps", "Relint", "Conv"
     para = (forwardMipGap = forwardMipGap, backwardMipGap = backwardMipGap, forwardTimeLimit = forwardTimeLimit, backwardTimeLimit = backwardTimeLimit, 
             Output_Gap = Output_Gap, max_iter = max_iter, MaxIter = MaxIter, terminate_threshold = terminate_threshold, branch_threshold = branch_threshold, med_method = med_method, cutSelection = cutSelection, δ = δ, numScenarios = numScenarios, tightness = tightness, TimeLimit = TimeLimit, OPT = OPT, ℓ = ℓ, core_point_strategy = core_point_strategy)
-    T = 6; num = 5; case = "case30pwl"; # "case_RTS_GMLC", "case30", "case30pwl", "case24_ieee_rts"
+    T = 6; num = 10; case = "case30pwl"; # "case_RTS_GMLC", "case30", "case30pwl", "case24_ieee_rts"
 end
 # include(joinpath(project_root, "src", "UnitCommitment", "extForm.jl"))  
 

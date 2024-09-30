@@ -16,25 +16,25 @@ include(joinpath(project_root, "src", "UnitCommitment", "SDDiP", "def.jl"))
 case = "case30pwl"; tightness = true; cutSelection = "SMC";
 theme(:default)
 ## ================================================================ gap vs. Time ================================================================ ##
-isddlpResult63 = load("src/UnitCommitment/numericalResults-$case/Periods6-Real3/isddlpResult-SMC-true.jld2")["sddlpResult"][:solHistory]
-isddlpResult65 = load("src/UnitCommitment/numericalResults-$case/Periods6-Real5/isddlpResult-SMC-true.jld2")["sddlpResult"][:solHistory]
-isddlpResult610 = load("src/UnitCommitment/numericalResults-$case/Periods6-Real10/isddlpResult-SMC-true.jld2")["sddlpResult"][:solHistory]
-isddlpResult83 = load("src/UnitCommitment/numericalResults-$case/Periods8-Real3/isddlpResult-SMC-true.jld2")["sddlpResult"][:solHistory]
-isddlpResult85 = load("src/UnitCommitment/numericalResults-$case/Periods8-Real5/isddlpResult-SMC-true.jld2")["sddlpResult"][:solHistory]
-isddlpResult810 = load("src/UnitCommitment/numericalResults-$case/Periods8-Real10/isddlpResult-SMC-true.jld2")["sddlpResult"][:solHistory]
-isddlpResult123 = load("src/UnitCommitment/numericalResults-$case/Periods12-Real3/isddlpResult-SMC-true.jld2")["sddlpResult"][:solHistory]
-isddlpResult125 = load("src/UnitCommitment/numericalResults-$case/Periods12-Real5/isddlpResult-SMC-true.jld2")["sddlpResult"][:solHistory]
-isddlpResult1210 = load("src/UnitCommitment/numericalResults-$case/Periods12-Real10/isddlpResult-SMC-true.jld2")["sddlpResult"][:solHistory]
+isddlpResult63 = load("src/UnitCommitment/numericalResults-$case/Periods6-Real3/isddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
+isddlpResult65 = load("src/UnitCommitment/numericalResults-$case/Periods6-Real5/isddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
+isddlpResult610 = load("src/UnitCommitment/numericalResults-$case/Periods6-Real10/isddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
+isddlpResult83 = load("src/UnitCommitment/numericalResults-$case/Periods8-Real3/isddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
+isddlpResult85 = load("src/UnitCommitment/numericalResults-$case/Periods8-Real5/isddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
+isddlpResult810 = load("src/UnitCommitment/numericalResults-$case/Periods8-Real10/isddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
+isddlpResult123 = load("src/UnitCommitment/numericalResults-$case/Periods12-Real3/isddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
+isddlpResult125 = load("src/UnitCommitment/numericalResults-$case/Periods12-Real5/isddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
+isddlpResult1210 = load("src/UnitCommitment/numericalResults-$case/Periods12-Real10/isddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
 
-sddpResult63 = load("src/UnitCommitment/numericalResults-$case/Periods6-Real3/sddpResult-SMC-true.jld2")["sddpResult"][:solHistory]
-sddpResult65 = load("src/UnitCommitment/numericalResults-$case/Periods6-Real5/sddpResult-SMC-true.jld2")["sddpResult"][:solHistory]
-sddpResult610 = load("src/UnitCommitment/numericalResults-$case/Periods6-Real10/sddpResult-SMC-true.jld2")["sddpResult"][:solHistory]
-sddpResult83 = load("src/UnitCommitment/numericalResults-$case/Periods8-Real3/sddpResult-SMC-true.jld2")["sddpResult"][:solHistory]
-sddpResult85 = load("src/UnitCommitment/numericalResults-$case/Periods8-Real5/sddpResult-SMC-true.jld2")["sddpResult"][:solHistory]
-sddpResult810 = load("src/UnitCommitment/numericalResults-$case/Periods8-Real10/sddpResult-SMC-true.jld2")["sddpResult"][:solHistory]
-sddpResult123 = load("src/UnitCommitment/numericalResults-$case/Periods12-Real3/sddpResult-SMC-true.jld2")["sddpResult"][:solHistory]
-sddpResult125 = load("src/UnitCommitment/numericalResults-$case/Periods12-Real5/sddpResult-SMC-true.jld2")["sddpResult"][:solHistory]
-sddpResult1210 = load("src/UnitCommitment/numericalResults-$case/Periods12-Real10/sddpResult-SMC-true.jld2")["sddpResult"][:solHistory]
+sddpResult63 = load("src/UnitCommitment/numericalResults-$case/Periods6-Real3/sddpResult-$cutSelection-true.jld2")["sddpResult"][:solHistory]
+sddpResult65 = load("src/UnitCommitment/numericalResults-$case/Periods6-Real5/sddpResult-$cutSelection-true.jld2")["sddpResult"][:solHistory]
+sddpResult610 = load("src/UnitCommitment/numericalResults-$case/Periods6-Real10/sddpResult-$cutSelection-true.jld2")["sddpResult"][:solHistory]
+sddpResult83 = load("src/UnitCommitment/numericalResults-$case/Periods8-Real3/sddpResult-$cutSelection-true.jld2")["sddpResult"][:solHistory]
+sddpResult85 = load("src/UnitCommitment/numericalResults-$case/Periods8-Real5/sddpResult-$cutSelection-true.jld2")["sddpResult"][:solHistory]
+sddpResult810 = load("src/UnitCommitment/numericalResults-$case/Periods8-Real10/sddpResult-$cutSelection-true.jld2")["sddpResult"][:solHistory]
+sddpResult123 = load("src/UnitCommitment/numericalResults-$case/Periods12-Real3/sddpResult-$cutSelection-true.jld2")["sddpResult"][:solHistory]
+sddpResult125 = load("src/UnitCommitment/numericalResults-$case/Periods12-Real5/sddpResult-$cutSelection-true.jld2")["sddpResult"][:solHistory]
+sddpResult1210 = load("src/UnitCommitment/numericalResults-$case/Periods12-Real10/sddpResult-$cutSelection-true.jld2")["sddpResult"][:solHistory]
 
 
 isddlpResult63[!, :gap] = parse.(Float64, replace.(isddlpResult63.gap, r"%" => ""))

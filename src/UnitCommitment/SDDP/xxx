@@ -77,14 +77,26 @@ for cut in ["LC", "ELC", "SMC"]
                     end
                     @printf("%4d | %12.2f     | %12.2f     | %9.2f%%     | %9.2f s     | %6d     | %10.2f s     \n", 
                             i, LB, UB, gap, iter_time, LM_iter, total_Time); LM_iter = 0;
-                    save("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddpResult-$cutSelection-$tightness.jld2", "sddpResult", Dict(:solHistory => sddpResult, 
-                    :solution => solCollection[i, 1, 1].stageSolution, 
-                        :gapHistory => gapList))
+
+                    if cutSelection == "ELC" 
+                        save("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddpResult-$ℓ-$tightness.jld2", "sddpResult", Dict(:solHistory => sddpResult, 
+                        :solution => solCollection[i, 1, 1].stageSolution, 
+                            :gapHistory => gapList))
+                    else
+                        save("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddpResult-$cutSelection-$tightness.jld2", "sddpResult", Dict(:solHistory => sddpResult, 
+                        :solution => solCollection[i, 1, 1].stageSolution, 
+                            :gapHistory => gapList))
+                    end
+
                     if total_Time > para.TimeLimit || i > para.MaxIter || UB-LB ≤ 1e-3 * UB  
                         sddpResult = Dict(:solHistory => sddpResult, 
                                         :solution => solCollection[i, 1, 1].stageSolution, 
                                             :gapHistory => gapList) 
-                        save("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddpResult-$cutSelection-$tightness.jld2", "sddpResult", sddpResult)
+                        if cutSelection == "ELC" 
+                            save("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddpResult-$ℓ-$tightness.jld2", "sddpResult", sddpResult)
+                        else
+                            save("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddpResult-$cutSelection-$tightness.jld2", "sddpResult", sddpResult)
+                        end
                         break;
                     end
             

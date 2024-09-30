@@ -128,7 +128,7 @@ function for backward pass in parallel computing
 function backwardPass(backwardNodeInfo::Tuple; 
                             indexSets::IndexSets = indexSets, 
                             paramDemand::ParamDemand = paramDemand, 
-                            paramOPF::ParamOPF = paramOPF, max_iter::Int64 = max_iter, Output_Gap::Bool = Output_Gap, tightness::Bool = tightness, δ::Float64 = δ,
+                            paramOPF::ParamOPF = paramOPF, para::NamedTuple = para,
                             backwardInfoList::Dict{Int64, Model} = backwardInfoList, forwardInfoList::Dict{Int64, Model} = forwardInfoList, scenarioTree::ScenarioTree = scenarioTree, solCollection::Dict{Any, Any} = solCollection
                             )
     (i, t, n, ω, cutSelection) = backwardNodeInfo; 
@@ -140,13 +140,13 @@ function backwardPass(backwardNodeInfo::Tuple;
 
     (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(stageDecision = solCollection[i, t-1, ω].stageSolution, 
                                                         f_star_value = solCollection[i, t, ω].OPT, 
-                                                            cutSelection = "LC", max_iter = max_iter,
-                                                                Output_Gap = Output_Gap, ℓ = .0, λ = .3);
+                                                            cutSelection = "LC", max_iter = para.max_iter,
+                                                                Output_Gap = para.Output_Gap, ℓ = para.ℓ, λ = .3);
     # model = backwardInfoList[t]; stageDecision = solCollection[i, t-1, ω].stageSolution;
     ((λ₀, λ₁), LMiter) = LevelSetMethod_optimization!(levelSetMethodParam = levelSetMethodParam, model = backwardInfoList[t],
                                             cutSelection = "LC",
-                                                stageDecision = solCollection[i, t-1, ω].stageSolution, tightness = tightness,
-                                                        x_interior = x_interior, x₀ = x₀, indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF, δ = δ);
+                                                stageDecision = solCollection[i, t-1, ω].stageSolution, tightness = para.tightness,
+                                                        x_interior = x_interior, x₀ = x₀, indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF, δ = para.δ);
 
     
     if cutSelection != "LC"  # && gap ≥ 5e-2
@@ -154,13 +154,13 @@ function backwardPass(backwardNodeInfo::Tuple;
                                 λ₁[:y][g] * solCollection[i, t-1, ω].stageSolution[:y][g] for g in indexSets.G );
         (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(stageDecision = solCollection[i, t-1, ω].stageSolution, 
                                                                     f_star_value = f_star_value, 
-                                                                    cutSelection = cutSelection, max_iter = max_iter,
-                                                                    Output_Gap = Output_Gap, ℓ = .0, λ = .1 );
+                                                                    cutSelection = cutSelection, max_iter = para.max_iter,
+                                                                    Output_Gap = para.Output_Gap, ℓ = para.ℓ, λ = .1 );
         # model = backwardInfoList[t]; stageDecision = solCollection[i, t-1, ω].stageSolution;
         ((λ₀, λ₁), LMiter) = LevelSetMethod_optimization!(levelSetMethodParam = levelSetMethodParam, model = backwardInfoList[t],
                                             cutSelection = cutSelection,
-                                                stageDecision = solCollection[i, t-1, ω].stageSolution, tightness = tightness,
-                                                        x_interior = x_interior, x₀ = x₀, indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF, δ = δ);
+                                                stageDecision = solCollection[i, t-1, ω].stageSolution, tightness = para.tightness,
+                                                        x_interior = x_interior, x₀ = x₀, indexSets = indexSets, paramDemand = paramDemand, paramOPF = paramOPF, δ = para.δ);
     end
 
     return ((λ₀, λ₁), LMiter)  
