@@ -18,7 +18,7 @@ using Distributed; addprocs(5);
     include(joinpath(project_root, "src", "UnitCommitment", "SDDiP", "LevelSetMethod.jl"))
     include(joinpath(project_root, "src", "UnitCommitment", "SDDiP", "sddip.jl"))
 
-    Output_Gap = false; max_iter = 150; MaxIter = 200; cutSelection = "SMC"; δ = 1.; numScenarios = 100; tightness = true; case = "case_RTS_GMLC"; # "case_RTS_GMLC", "case30"
+    Output_Gap = false; max_iter = 150; MaxIter = 200; cutSelection = "SMC"; δ = 1.; numScenarios = 100; tightness = true; case = "case30pwl"; # "case_RTS_GMLC", "case30"
     T = 6; num = 5; TimeLimit = 60 * 60 * 2.; OPT = Inf; coef = 10; ε = 1/2^(coef); ℓ = .7; 
 end
 # extForm_path = joinpath(project_root, "src", "UnitCommitment", "extForm.jl")
