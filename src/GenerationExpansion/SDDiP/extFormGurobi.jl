@@ -53,13 +53,13 @@ function gurobiOptimize!(Ω::Dict{Int64,Dict{Int64,RandomVariables}},
     T = length(Ω); num_Ω = length(Ω[1]);
     W = num_Ω^(T-1) # number of scenarios
 
-
-    model = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
+    model = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                                                 "OutputFlag" => outputFlag, 
-                                                "Threads" => 1,
-                                                "MIPGap" => mipGap, 
-                                                "TimeLimit" => timeLimit) 
-                                                )
+                                                "Threads" => 0)); 
+    MOI.set(model, MOI.Silent(), true);
+    set_optimizer_attribute(model, "MIPGap", mipGap);
+    set_optimizer_attribute(model, "TimeLimit", timeLimit);
+
     @variable(model, x[i = 1:d, t = 1:T, ω in 1:W] ≥ 0, Int)   ## for current state, x is the number of generators will be built in this stage
     @variable(model, y[i = 1:d, t = 1:T, ω in 1:W] ≥ 0)        ## amount of electricity
     @variable(model, slack[t = 1:T, ω in 1:W] ≥ 0 )

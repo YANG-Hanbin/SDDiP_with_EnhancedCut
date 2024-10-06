@@ -8,12 +8,12 @@ This function is to constraint the model for solving gap and alpha
 
 function Δ_model_formulation(functionHistory::FunctionHistory, f_star::Float64, iter::Int64; Output::Int64 = 0)
     
-    alphaModel = Model(
-        optimizer_with_attributes(
-            ()->Gurobi.Optimizer(GRB_ENV),
-            "OutputFlag" => Output, 
-            "Threads" => 0)
-            )
+    alphaModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
+                                                "OutputFlag" => Output, 
+                                                "Threads" => 0)); 
+    MOI.set(alphaModel, MOI.Silent(), true);
+    set_optimizer_attribute(alphaModel, "MIPGap", 1e-3);
+    set_optimizer_attribute(alphaModel, "TimeLimit", 5);
 
     @variable(alphaModel, z)
     @variable(alphaModel, 0 ≤ α ≤ 1)
@@ -162,13 +162,12 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
                                             );
 
     ## model for oracle
-    oracleModel = Model(
-        optimizer_with_attributes(
-            ()->Gurobi.Optimizer(GRB_ENV), 
-            "OutputFlag" => Output, 
-            "Threads" => 0, 
-            "TimeLimit" => 5)
-            );
+    oracleModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
+                                        "OutputFlag" => Output, 
+                                        "Threads" => 0)); 
+    MOI.set(oracleModel, MOI.Silent(), true);
+    set_optimizer_attribute(oracleModel, "MIPGap", 1e-3);
+    set_optimizer_attribute(oracleModel, "TimeLimit", 5);
 
     para_oracle_bound = abs(currentInfo.f);
     z_rhs = 10 * 10^(ceil(log10(para_oracle_bound)));
@@ -179,12 +178,12 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
     @objective(oracleModel, Min, z);
     oracleInfo = ModelInfo(oracleModel, x, y, z);
 
-    nxtModel = Model(
-        optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-        "OutputFlag" => Output, 
-        "Threads" => 0, 
-        "TimeLimit" => 5)
-        );
+    nxtModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
+                                                "OutputFlag" => Output, 
+                                                "Threads" => 0)); 
+    MOI.set(nxtModel, MOI.Silent(), true);
+    set_optimizer_attribute(nxtModel, "MIPGap", 1e-3);
+    set_optimizer_attribute(nxtModel, "TimeLimit", 5);
 
     @variable(nxtModel, x1[i = 1:n]);
     @variable(nxtModel, z1 );
@@ -213,13 +212,12 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
         if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
             f_star = JuMP.objective_value(oracleModel)
         else
-            oracleModel = Model(
-            optimizer_with_attributes(
-                ()->Gurobi.Optimizer(GRB_ENV), 
-                "OutputFlag" => Output, 
-                "Threads" => 0, 
-                "TimeLimit" => 5)
-                );
+            oracleModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
+                                                "OutputFlag" => Output, 
+                                                "Threads" => 0)); 
+            MOI.set(oracleModel, MOI.Silent(), true);
+            set_optimizer_attribute(oracleModel, "MIPGap", 1e-3);
+            set_optimizer_attribute(oracleModel, "TimeLimit", 5);
 
             para_oracle_bound = abs(currentInfo.f);
             z_rhs = 10 * 10^(ceil(log10(para_oracle_bound)));
@@ -318,12 +316,12 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
             end
         elseif st == MOI.NUMERICAL_ERROR 
             # @info "Numerical Error occures! -- Build a new nxtModel"
-            nxtModel = Model(
-                optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-                "OutputFlag" => Output, 
-                "Threads" => 0, 
-                "TimeLimit" => 5)
-                );
+            nxtModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
+                        "OutputFlag" => Output, 
+                        "Threads" => 0)); 
+            MOI.set(nxtModel, MOI.Silent(), true);
+            set_optimizer_attribute(nxtModel, "MIPGap", 1e-3);
+            set_optimizer_attribute(nxtModel, "TimeLimit", 5);
         
             @variable(nxtModel, x1[i = 1:n]);
             @variable(nxtModel, z1 );

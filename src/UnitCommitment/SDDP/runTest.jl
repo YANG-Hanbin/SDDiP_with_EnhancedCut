@@ -20,11 +20,11 @@ using Distributed; addprocs(5);
     include(joinpath(project_root, "src", "UnitCommitment", "SDDP", "sddp.jl"))
 
 
-    Output_Gap = false; max_iter = 150; MaxIter = 200; cutSelection = "LC"; δ = .1; numScenarios = 100; tightness = true; TimeLimit = 60 * 60 * 2.; OPT = Inf; 
+    Output_Gap = false; max_iter = 150; MaxIter = 200; cutSelection = "SMC"; δ = .1; numScenarios = 100; tightness = true; TimeLimit = 60 * 60 * 2.; OPT = Inf; 
     forwardMipGap = 1e-3; backwardMipGap = 1e-3; forwardTimeLimit = 10; backwardTimeLimit = 10;
     ℓ = 0.0;
     case = "case30pwl"; # "case_RTS_GMLC", "case30", "case30pwl", "case24_ieee_rts"
-    T = 12; num = 10; 
+    T = 6; num = 5; 
     para = (forwardMipGap = forwardMipGap, backwardMipGap = backwardMipGap, forwardTimeLimit = forwardTimeLimit, backwardTimeLimit = backwardTimeLimit, ℓ = ℓ,
             Output_Gap = Output_Gap, max_iter = max_iter, MaxIter = MaxIter, cutSelection = cutSelection, δ = δ, numScenarios = numScenarios, tightness = tightness, TimeLimit = TimeLimit, OPT = OPT)
 end
@@ -59,7 +59,10 @@ end
 
 
 # Load the results
-@everywhere begin T = 6; num = 5; cutSelection = "SMC"; end
-sddpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddpResult-$cutSelection-$tightness.jld2")["sddpResult"][:solHistory]
-
-sddpResult = load("/Users/aaron/SDDiP_with_EnhancedCut/src/UnitCommitment/numericalResults-case30pwl/Periods8-Real5/MagnantiWong/sddpResult-0.0-true.jld2")["sddpResult"][:solHistory]
+@everywhere begin T = 12; num = 10; cutSelection = "ELC"; end
+sddpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddpResult-$ℓ-$tightness.jld2")["sddpResult"][:solHistory]; sddpResult = sddpResult[1:minimum([100, size(sddpResult)[1]]), :]
+# sddpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddpResult-$cutSelection-$tightness.jld2")["sddpResult"][:solHistory]; sddpResult = sddpResult[1:minimum([100, size(sddpResult)[1]]), :]
+round(sddpResult.LB[minimum([100, size(sddpResult)[1]])], digits = 1)
+round(sddpResult.UB[minimum([100, size(sddpResult)[1]])], digits = 1)
+q025 = quantile(sddpResult.time, 0.025)
+q975 = quantile(sddpResult.time, 0.975)

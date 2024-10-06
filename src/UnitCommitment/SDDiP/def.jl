@@ -26,7 +26,7 @@ mutable struct ParamDemand
 end
 
 
-struct ParamOPF  ## included in a period dict
+mutable struct ParamOPF  ## included in a period dict
     b           :: Dict{Tuple{Int64, Int64}, Float64}       ## :l ∈ L  total line charging susceptance
     θmax        :: Float64                                  ## angle difference
     θmin        :: Float64

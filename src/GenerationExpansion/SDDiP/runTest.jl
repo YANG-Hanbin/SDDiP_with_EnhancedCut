@@ -27,7 +27,7 @@ include("src/GenerationExpansion/SDDiP/SDDiP.jl")
 ####################################    main function   #####################################
 #############################################################################################
 max_iter = 100; ϵ = 1e-4; M = 30; Output_Gap = false; tightness = false; 
-cutSelection = "ELC"; # "LC", "ShrinkageLC", "ELC"
+cutSelection = "ShrinkageLC"; # "LC", "ShrinkageLC", "ELC"
 T = 5; # 3, 5
 num = 10; # 5, 10
 for cutSelection in ["ELC", "ShrinkageLC" ,"LC"]

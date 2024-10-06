@@ -16,12 +16,13 @@ function forwardModel!(stageData::StageData;
                                 timelimit::Int64 = 10, mipGap::Real = 1e-4 )
                             
     ## construct forward problem (3.1)
-    Q = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-                                          "OutputFlag" => 0, 
-                                          "Threads" => 0,
-                                          "MIPGap" => mipGap, 
-                                          "TimeLimit" => timelimit) 
-                                          )
+    Q = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
+                                                "OutputFlag" => 0, 
+                                                "Threads" => 0)); 
+    MOI.set(Q, MOI.Silent(), true);
+    set_optimizer_attribute(Q, "MIPGap", mipGap);
+    set_optimizer_attribute(Q, "TimeLimit", timelimit);
+    
     @variable(Q, x[i = 1:binaryInfo.d] ≥ 0, Int)        ## for current state, x is the number of generators will be built in this stage
     @variable(Q, y[i = 1:binaryInfo.d] ≥ 0)             ## amount of electricity
     @variable(Q, St[i = 1:binaryInfo.d] ≥ 0, Int)       ## stage variable, A * Lt is total number of generators built after this stage

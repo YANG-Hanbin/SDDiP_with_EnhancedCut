@@ -10,8 +10,10 @@ using Test, Dates, Printf
 using CSV, DataFrames
 using JLD2, FileIO
 
-include("src/GenerationExpansion/binaryState/def.jl")
-include("src/GenerationExpansion/binaryState/setting.jl")
+
+project_root = @__DIR__;
+include(joinpath(project_root, "src", "GenerationExpansion", "data", "def.jl"))
+include(joinpath(project_root, "src", "GenerationExpansion", "data", "setting.jl"))
 
 # Constants
 r = 0.08  # Annualized interest rate
@@ -62,17 +64,20 @@ initial_demand = 5.685e8
 
 T = 3; # 3; 5; 8;
 num_Ω = 10; # 5; 10;
+for T in [3, 5, 8]
+    for num_Ω in [5, 10]
+        (probList, stageDataList, Ω, binaryInfo) = dataGeneration(; T = T , initial_demand = initial_demand, seed = 1234, num_Ω = num_Ω);
 
-(probList, stageDataList, Ω, binaryInfo) = dataGeneration(; T = T , initial_demand = initial_demand, seed = 1234, num_Ω = num_Ω);
+        scenario_sequence = Dict{Int64, Dict{Int64, Any}}();  ## the first index is for scenario index, the second one is for stage
+        pathList = Vector{Int64}();
+        push!(pathList, 1); P = 1.0;
+        recursion_scenario_tree(pathList, P, scenario_sequence, 2, T = T, prob = probList);
+        scenario_tree = scenario_sequence;
 
-scenario_sequence = Dict{Int64, Dict{Int64, Any}}();  ## the first index is for scenario index, the second one is for stage
-pathList = Vector{Int64}();
-push!(pathList, 1); P = 1.0;
-recursion_scenario_tree(pathList, P, scenario_sequence, 2, T = T, prob = probList);
-scenario_tree = scenario_sequence;
-
-save("src/GenerationExpansion/numerical_data/testData_stage($T)_real($num_Ω)/stageDataList.jld2", "stageDataList", stageDataList)
-save("src/GenerationExpansion/numerical_data/testData_stage($T)_real($num_Ω)/Ω.jld2", "Ω", Ω)
-save("src/GenerationExpansion/numerical_data/testData_stage($T)_real($num_Ω)/binaryInfo.jld2", "binaryInfo", binaryInfo)
-save("src/GenerationExpansion/numerical_data/testData_stage($T)_real($num_Ω)/scenario_sequence.jld2", "scenario_sequence", scenario_sequence)
-save("src/GenerationExpansion/numerical_data/testData_stage($T)_real($num_Ω)/probList.jld2", "probList", probList)
+        save("src/GenerationExpansion/numerical_data/testData_stage($T)_real($num_Ω)/stageDataList.jld2", "stageDataList", stageDataList)
+        save("src/GenerationExpansion/numerical_data/testData_stage($T)_real($num_Ω)/Ω.jld2", "Ω", Ω)
+        save("src/GenerationExpansion/numerical_data/testData_stage($T)_real($num_Ω)/binaryInfo.jld2", "binaryInfo", binaryInfo)
+        save("src/GenerationExpansion/numerical_data/testData_stage($T)_real($num_Ω)/scenario_sequence.jld2", "scenario_sequence", scenario_sequence)
+        save("src/GenerationExpansion/numerical_data/testData_stage($T)_real($num_Ω)/probList.jld2", "probList", probList)
+    end
+end

@@ -66,7 +66,7 @@ function prepareIndexSets(  ; T::Int64 = 10,
 
         smax[g] = round(network_data["gen"][i]["pmax"], digits = 6)
         smin[g] = round(network_data["gen"][i]["pmin"], digits = 6)
-        M[g] = round(network_data["gen"][i]["ramp_30"], digits = 6)
+        M[g] = maximum([network_data["gen"][i]["ramp_30"] * 2, network_data["gen"][i]["ramp_10"] * 6])
         cg[g] = wsample([8000, 9000, 15000], [0.2, .75, 0.05], 1)[1] 
         
         # if network_data["gen"][i]["model"] == 1

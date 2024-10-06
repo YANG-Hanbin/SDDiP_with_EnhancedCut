@@ -26,7 +26,7 @@ include("src/GenerationExpansion/SDDP/SDDiP.jl")
 #############################################################################################
 max_iter = 100; ϵ = 1e-4; cutSelection = "ShrinkageLC"; M = 30; Output_Gap = false; tightness = false; TimeLimit = 60*60*2; MaxIter = 100;
 T = 3; num = 5;
-cutSelection = "ELC"; # "LC", "ShrinkageLC", "ELC"
+cutSelection = "ShrinkageLC"; # "LC", "ShrinkageLC", "ELC"
 for cutSelection in ["LC", "ELC", "ShrinkageLC"]
     for T in [3, 5]
         for num in [5, 10]
