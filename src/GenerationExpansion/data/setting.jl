@@ -113,10 +113,10 @@ function dataGeneration(;   T::Int64 = 2, num_Ω::Int64 = num_Ω, seed::Int64 = 
     binaryInfo = intergerBinarization(ū)
 
     # Compute c1 (investment cost per MW)
-    c1 = [[c[i] * mg[i] / (1 + r)^j for i in 1:6] for j in 1:T]./1e5 # 1e5 is used to scale the cost to a reasonable range, similar for penalty, for c2 term, the scaling is done in MIP formulation
+    c1 = [[c[i] * mg[i] / (1 + r)^j for i in 1:6] for j in 1:T]./1e5                                                            # 1e5 is used to scale the cost to a reasonable range
 
     # Compute c2 (generation cost per MWh)
-    c2 = [[(fuel_price[i] * heat_rate[i] * 1e-3 / eff[i]) * (1.02)^j + om_cost[i] * (1.03)^j for i in 1:6] for j in 1:T]
+    c2 = [[(fuel_price[i] * heat_rate[i] * 1e-3 / eff[i]) * (1.02)^j + om_cost[i] * (1.03)^j for i in 1:6] for j in 1:T]./1e5
 
     stageDataList = Dict{Int64,StageData}()
     for t in 1:T 
@@ -140,7 +140,7 @@ function dataGeneration(;   T::Int64 = 2, num_Ω::Int64 = num_Ω, seed::Int64 = 
             if t == 1
                 Ω[t][i]= RandomVariables([initial_demand])
             else
-                Ω[t][i]= RandomVariables( rand(Uniform(1, 1.2))*Ω[t-1][i].d )
+                Ω[t][i]= RandomVariables( rand(Uniform(1.3, 1.6))*Ω[t-1][i].d )
             end
         end
     end

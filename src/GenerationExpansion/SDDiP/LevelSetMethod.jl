@@ -71,7 +71,7 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
                                                             ϵ::Float64 = ϵ )
 
     if cutSelection == "ELC"
-        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y/1e5 + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
+        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
                                                             x₀' * ( L̂ .- backwardInfo.Lc) );
         optimize!(backwardInfo.model);
         F_solution = ( F = JuMP.objective_value(backwardInfo.model), 
@@ -85,7 +85,7 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
                                     F_solution.F
                                     )                                        
     elseif cutSelection == "LC"
-        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y/1e5 + backwardInfo.θ + stageData.penalty * backwardInfo.slack - 
+        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack - 
                                                             x₀' * backwardInfo.Lc );
         optimize!(backwardInfo.model);
         F_solution = (F = JuMP.objective_value(backwardInfo.model), 
@@ -99,7 +99,7 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
                                     F_solution.F
                                     );
     elseif cutSelection == "ELCwithoutConstraint"
-        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y/1e5 + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
+        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
                                                             x₀' * ( L̂ .- backwardInfo.Lc) );
         optimize!(backwardInfo.model);
         F_solution = ( F = JuMP.objective_value(backwardInfo.model), 
@@ -113,7 +113,7 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
                                     F_solution.F
                                     ) 
     elseif cutSelection == "ShrinkageLC"
-        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y/1e5 + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
+        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
                                                             x₀' * ( L̂ .- backwardInfo.Lc) );
         optimize!(backwardInfo.model);
         F_solution = ( F = JuMP.objective_value(backwardInfo.model), 

@@ -63,12 +63,12 @@ function gurobiOptimize!(Ω::Dict{Int64,Dict{Int64,RandomVariables}},
     W = num_Ω^(T-1) # number of scenarios
 
 
-    model = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
+    model = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                                                 "OutputFlag" => outputFlag, 
-                                                "Threads" => 0,
-                                                "MIPGap" => mipGap, 
-                                                "TimeLimit" => timeLimit) 
-                                                )
+                                                "Threads" => 0)); 
+    MOI.set(model, MOI.Silent(), true);
+    set_optimizer_attribute(model, "MIPGap", mipGap);
+    set_optimizer_attribute(model, "TimeLimit", timeLimit);
     @variable(model, x[i = 1:d, t = 1:T, ω in 1:W] ≥ 0, Int)   ## for current state, x is the number of generators will be built in this stage
     @variable(model, y[i = 1:d, t = 1:T, ω in 1:W] ≥ 0)        ## amount of electricity
     @variable(model, slack[t = 1:T, ω in 1:W] ≥ 0 )
@@ -91,7 +91,7 @@ function gurobiOptimize!(Ω::Dict{Int64,Dict{Int64,RandomVariables}},
     #############################################################################################################################
     @constraint(model, [t in 1:T, ω in 1:W], sum(y[i, t, ω] for i in 1:d) + slack[t, ω] ≥ Ω[t][scenario_tree[ω][1][t]].d[1] );
 
-    @objective(model, Min, sum( sum( scenario_tree[ω][2] * (stageDataList[t].c1' * x[:, t, ω] + stageDataList[t].c2' * y[:, t, ω]/1e5 + stageDataList[t].penalty * slack[t, ω]) for t in 1:T ) for ω in 1:W) );
+    @objective(model, Min, sum( sum( scenario_tree[ω][2] * (stageDataList[t].c1' * x[:, t, ω] + stageDataList[t].c2' * y[:, t, ω] + stageDataList[t].penalty * slack[t, ω]) for t in 1:T ) for ω in 1:W) );
     optimize!(model)
     ####################################################### solve the model and display the result ###########################################################
 

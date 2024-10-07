@@ -10,13 +10,12 @@ function backwardModel!(             stageData::StageData;
                                             binaryInfo::BinaryInfo = binaryInfo, 
                                             timelimit::Int64 = 3, mipGap::Real = 1e-4, tightness::Bool = false)
 
-    F = Model(
-        optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-                                    "OutputFlag" => 0,
-                                    "Threads" => 0,
-                                    "MIPGap" => mipGap, 
-                                    "TimeLimit" => timelimit )
-            )
+    F = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
+                                                "OutputFlag" => 0, 
+                                                "Threads" => 0)); 
+    MOI.set(F, MOI.Silent(), true);
+    set_optimizer_attribute(F, "MIPGap", mipGap);
+    set_optimizer_attribute(F, "TimeLimit", timelimit);
 
     @variable(F, x[g = 1:binaryInfo.d] ≥ 0, Int)                   # the number of generators will be built in this stage
     @variable(F, y[g = 1:binaryInfo.d] ≥ 0)

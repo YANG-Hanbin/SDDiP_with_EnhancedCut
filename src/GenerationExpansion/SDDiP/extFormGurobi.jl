@@ -82,7 +82,7 @@ function gurobiOptimize!(Ω::Dict{Int64,Dict{Int64,RandomVariables}},
     #############################################################################################################################
     @constraint(model, [t in 1:T, ω in 1:W], sum(y[i, t, ω] for i in 1:d) + slack[t, ω] ≥ Ω[t][scenario_tree[ω][1][t]].d[1] );
 
-    @objective(model, Min, sum( sum( scenario_tree[ω][2] * (stageDataList[t].c1' * x[:, t, ω] + stageDataList[t].c2' * y[:, t, ω]/1e5 + stageDataList[t].penalty * slack[t, ω]) for t in 1:T ) for ω in 1:W) );
+    @objective(model, Min, sum( sum( scenario_tree[ω][2] * (stageDataList[t].c1' * x[:, t, ω] + stageDataList[t].c2' * y[:, t, ω] + stageDataList[t].penalty * slack[t, ω]) for t in 1:T ) for ω in 1:W) );
     optimize!(model)
     ####################################################### solve the model and display the result ###########################################################
     gurobiResult = (OPT = JuMP.objective_value(model), 

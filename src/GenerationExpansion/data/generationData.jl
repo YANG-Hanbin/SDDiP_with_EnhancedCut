@@ -1,7 +1,7 @@
 """
     The data is provided by Jin2011.
-
 """
+
 using Pkg
 Pkg.activate(".")
 using JuMP, Gurobi, ParallelDataTransfer
@@ -30,7 +30,7 @@ N = [
 ]
 
 # Cost per MW to build generator type g (Table 4)
-c = [1.445, 0.795, 0.575, 1.613, 1.650, 1.671] .* 1e6
+c = [1.446, 0.795, 0.575, 1.613, 1.650, 1.671] .* 1e6
 
 # Installed capacity (Table 6)
 mg = [1200, 400, 400, 1200, 500, 600]
@@ -42,7 +42,7 @@ eff = [0.4, 0.56, 0.4, 0.45, 1, 0.48]
 om_cost = [4.7, 2.11, 3.66, 0.51, 5.00, 2.98]
 
 # Initial number of generators (s0), assuming all start at 0
-s₀ = [0,0, 0,0,0,0]   
+s₀ = [0, 0, 0, 0, 0, 0]   
 
 # Construction limits for each type of generator (ū from Table 7)
 ū = [4., 10, 10, 1, 45, 4]
@@ -61,11 +61,13 @@ initial_demand = 5.685e8
 # d0 = 5.685e8 / 8760  # Average hourly demand for 2008
 # dt = λt .* d0
 
+## data modification due to the large gap between generation capability and demand
+initial_demand = 1e6;
+s₀ = [1, 0, 0, 0, 0, 0];
 
-T = 3; # 3; 5; 8;
-num_Ω = 10; # 5; 10;
-for T in [3, 5, 8]
-    for num_Ω in [5, 10]
+T = 5; num_Ω = 10; Ω = nothing;
+for T in [10, 12, 14]
+    for num_Ω in [3, 5]
         (probList, stageDataList, Ω, binaryInfo) = dataGeneration(; T = T , initial_demand = initial_demand, seed = 1234, num_Ω = num_Ω);
 
         scenario_sequence = Dict{Int64, Dict{Int64, Any}}();  ## the first index is for scenario index, the second one is for stage

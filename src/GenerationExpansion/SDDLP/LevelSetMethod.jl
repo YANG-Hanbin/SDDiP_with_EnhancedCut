@@ -8,12 +8,12 @@ This function is to constraint the model for solving gap and alpha
 
 function Δ_model_formulation(functionHistory::FunctionHistory, f_star::Float64, iter::Int64; Output::Int64 = 0)
     
-    alphaModel = Model(
-        optimizer_with_attributes(
-            ()->Gurobi.Optimizer(GRB_ENV),
-            "OutputFlag" => Output, 
-            "Threads" => 0)
-            )
+    alphaModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
+                                                "OutputFlag" => Output, 
+                                                "Threads" => 0)); 
+    MOI.set(alphaModel, MOI.Silent(), true);
+    set_optimizer_attribute(alphaModel, "MIPGap", 1e-3);
+    set_optimizer_attribute(alphaModel, "TimeLimit", 5);
 
     @variable(alphaModel, z)
     @variable(alphaModel, 0 ≤ α ≤ 1)
@@ -73,7 +73,7 @@ function FuncInfo_LevelSetMethod(x₀::Dict{Symbol, Any};
                                                             ϵ::Float64 = ϵ, binaryInfo::BinaryInfo = binaryInfo)
 
     if cutSelection == "ELC"
-        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y/1e5 + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
+        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
                                                             x₀[:St]' * ( Ŝ[:St] .- backwardInfo.Sc) + sum(sum(x₀[:sur][g][k] * (Ŝ[:sur][g][k] - backwardInfo.model[:sur_copy][g, k]) for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d) 
                                                             );
         optimize!(backwardInfo.model);
@@ -91,7 +91,7 @@ function FuncInfo_LevelSetMethod(x₀::Dict{Symbol, Any};
                                     F_solution.F
                                     )                                        
     elseif cutSelection == "LC"
-        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y/1e5 + backwardInfo.θ + stageData.penalty * backwardInfo.slack - 
+        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack - 
                                                             x₀[:St]' * backwardInfo.Sc - sum(sum(x₀[:sur][g][k] * backwardInfo.model[:sur_copy][g, k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d) 
                                                             );
         optimize!(backwardInfo.model);
@@ -111,7 +111,7 @@ function FuncInfo_LevelSetMethod(x₀::Dict{Symbol, Any};
                                     F_solution.F
                                     );
     elseif cutSelection == "ShrinkageLC"
-        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y/1e5 + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
+        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
                                                             x₀[:St]' * ( Ŝ[:St] .- backwardInfo.Sc) + sum(sum(x₀[:sur][g][k] * (Ŝ[:sur][g][k] - backwardInfo.model[:sur_copy][g, k]) for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d) 
                                                             );
         optimize!(backwardInfo.model);
@@ -229,12 +229,12 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Di
                                             );
 
     ## model for oracle
-    oracleModel = Model(
-        optimizer_with_attributes(
-            ()->Gurobi.Optimizer(GRB_ENV), 
-            "OutputFlag" => Output, 
-            "Threads" => 0)
-            );
+    oracleModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
+                                        "OutputFlag" => Output, 
+                                        "Threads" => 0)); 
+    MOI.set(oracleModel, MOI.Silent(), true);
+    set_optimizer_attribute(oracleModel, "MIPGap", 1e-3);
+    set_optimizer_attribute(oracleModel, "TimeLimit", 5);
 
     para_oracle_bound = abs(currentInfo.f);
     z_rhs = 10 * 10^(ceil(log10(para_oracle_bound)));
@@ -246,11 +246,12 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Di
     @objective(oracleModel, Min, z);
     oracleInfo = ModelInfo(oracleModel, x, x_sur, y, z);
 
-    nxtModel = Model(
-        optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-        "OutputFlag" => Output, 
-        "Threads" => 0)
-        );
+    nxtModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
+                                                "OutputFlag" => Output, 
+                                                "Threads" => 0)); 
+    MOI.set(nxtModel, MOI.Silent(), true);
+    set_optimizer_attribute(nxtModel, "MIPGap", 1e-3);
+    set_optimizer_attribute(nxtModel, "TimeLimit", 5);
 
     @variable(nxtModel, x1[i = 1:d]);
     @variable(nxtModel, x_sur1[g in 1:d, k in keys(x₀[:sur][g])]);
@@ -282,13 +283,12 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Di
         if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
             f_star = JuMP.objective_value(oracleModel)
         else
-            @info "oracle is infeasible, new start!"
-            oracleModel = Model(
-                optimizer_with_attributes(
-                    ()->Gurobi.Optimizer(GRB_ENV), 
-                    "OutputFlag" => Output, 
-                    "Threads" => 0)
-                    );
+            oracleModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
+                                                "OutputFlag" => Output, 
+                                                "Threads" => 0)); 
+            MOI.set(oracleModel, MOI.Silent(), true);
+            set_optimizer_attribute(oracleModel, "MIPGap", 1e-3);
+            set_optimizer_attribute(oracleModel, "TimeLimit", 5);
 
             para_oracle_bound = abs(currentInfo.f);
             z_rhs = 10 * 10^(ceil(log10(para_oracle_bound)));
@@ -392,11 +392,12 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Di
             end
         elseif st == MOI.NUMERICAL_ERROR 
             # @info "Numerical Error occures! -- Build a new nxtModel"
-            nxtModel = Model(
-                optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-                "OutputFlag" => Output, 
-                "Threads" => 0)
-                );
+            nxtModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
+                        "OutputFlag" => Output, 
+                        "Threads" => 0)); 
+            MOI.set(nxtModel, MOI.Silent(), true);
+            set_optimizer_attribute(nxtModel, "MIPGap", 1e-3);
+            set_optimizer_attribute(nxtModel, "TimeLimit", 5);
 
             @variable(nxtModel, x1[i = 1:d]);
             @variable(nxtModel, x_sur1[g in 1:d, k in keys(x₀[:sur][g])]);
