@@ -177,7 +177,13 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                         for k in StateVarList[t].leaf[g]
                             stageDecision[:sur][g][k] = 0.0
                         end
-                        stageDecision[:sur][g][left] = 1.0; 
+                        if solCollection[i, t, ω].stageSolution[:s][g] ≤ med
+                            stageDecision[:sur][g][left] = 1.0
+                            stageDecision[:sur][g][right] = 0.0
+                        else
+                            stageDecision[:sur][g][right] = 1.0
+                            stageDecision[:sur][g][left] = 0.0
+                        end
                         solCollection[i, t, ω] = ( stageSolution = deepcopy(stageDecision), 
                                                     stageValue = solCollection[i, t, ω].stageValue, 
                                                     OPT = solCollection[i, t, ω].OPT

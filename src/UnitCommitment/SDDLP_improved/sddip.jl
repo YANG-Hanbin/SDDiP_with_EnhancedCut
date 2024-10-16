@@ -42,7 +42,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                                                                     outputFlag = 0, timelimit = para.forwardTimeLimit,
                                                                             mipGap = para.forwardMipGap, θ_bound = 0.0);
             var = Dict{Symbol, Dict{Int, VariableRef}}(:s => Dict(g => forwardInfoList[t][:s][g] for g in indexSets.G), :y => Dict(g => forwardInfoList[t][:y][g] for g in indexSets.G)); 
-            sur = Dict{Int, Dict{Int, Dict{Symbol, Any}}}(g => Dict(1 => Dict(:lb => 0., :ub => paramOPF.smax[g], :var =>forwardInfoList[t][:sur][g, 1])) for g in indexSets.G); 
+            sur = Dict{Int, Dict{Int, Dict{Symbol, Any}}}(g => Dict(1 => Dict(:lb => 0., :ub => paramOPF.smax[g], :var =>forwardInfoList[t][:sur][g, 1], :sibling => nothing, :parent => nothing)) for g in indexSets.G); 
             leaf = Dict{Int, Vector{Int64}}(g => [1] for g in indexSets.G);
             StateVarList[t] = StateVar(var, sur, leaf);
 
@@ -69,7 +69,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         u = Dict{Int64, Float64}();  # to store the value of each scenario
         ####################################################### Forward Steps ###########################################################
 
-        forwarPassResult = pmap(forwardPass, values(Ξ̃))
+        forwarPassResult = pmap(forwardPass, values(Ξ̃));
 
         for j in 1:para.numScenarios
             ω = collect(keys(Ξ̃))[j]
@@ -101,7 +101,7 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
         ####################################################### Backward Steps ###########################################################
         if i ≥ indexSets.T * 2                                      ## the first rule:: for branching: current convex envelope is good enough
             for t in reverse(1:indexSets.T-1) 
-                for ω in  [1]#keys(Ξ̃)
+                for ω in [1]#keys(Ξ̃)
                     dev = Dict()
                     for g in indexSets.G 
                         if solCollection[i, t, ω].stageSolution[:y][g] > .5
@@ -110,8 +110,10 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                             dev[g] = round(minimum([(info[:ub] - solCollection[i, t, ω].stageSolution[:s][g])/(info[:ub] - info[:lb] + 1e-6), (solCollection[i, t, ω].stageSolution[:s][g] - info[:lb])/(info[:ub] - info[:lb] + 1e-6)]), digits = 5)
                         end
                     end
-                    g = [g for (g, v) in dev if v == maximum(values(dev))][1]
-                    if dev[g] ≥ para.branch_threshold                                        ## the second rule: current point is far from being an extreme point
+                    # g = [g for (g, v) in dev if v == maximum(values(dev))][1];
+                    large_dev = [g for (g, g_dev) in dev if g_dev ≥ para.branch_threshold]
+                    # if dev[g] ≥ para.branch_threshold                                        ## the second rule: current point is far from being an extreme point
+                    for g in large_dev
                         branchDecision = true;
                         @everywhere begin
                             t = $t; ω = $ω; g = $g; i = $i; 
@@ -128,8 +130,8 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                             left = length(StateVarList[t].sur[g]) + 1; right = length(StateVarList[t].sur[g]) + 2; 
                             forwardInfoList[t][:sur][g, left] = @variable(forwardInfoList[t], base_name = "sur[$g, $left]", binary = true); 
                             forwardInfoList[t][:sur][g, right] = @variable(forwardInfoList[t], base_name = "sur[$g, $right]", binary = true);
-                            StateVarList[t].sur[g][left] = Dict(:lb => lb, :ub => med, :var => forwardInfoList[t][:sur][g, left])
-                            StateVarList[t].sur[g][right] =  Dict(:lb => med, :ub => ub, :var => forwardInfoList[t][:sur][g, right])
+                            StateVarList[t].sur[g][left] = Dict(:lb => lb, :ub => med, :var => forwardInfoList[t][:sur][g, left], :sibling => right, :parent => keys_with_value_1)
+                            StateVarList[t].sur[g][right] =  Dict(:lb => med, :ub => ub, :var => forwardInfoList[t][:sur][g, right], :sibling => left, :parent => keys_with_value_1)
                             # pop and push new leaf nodes
                             deleteat!(StateVarList[t].leaf[g], findall(x -> x == keys_with_value_1, StateVarList[t].leaf[g])); push!(StateVarList[t].leaf[g], left); push!(StateVarList[t].leaf[g], right);
                             
@@ -179,10 +181,13 @@ function SDDiP_algorithm( ; scenarioTree::ScenarioTree = scenarioTree,
                             ## update the stageDecision
                             stageDecision = deepcopy(solCollection[i, t, ω].stageSolution);
                             stageDecision[:sur][g] = Dict{Int64, Float64}()
-                            for k in StateVarList[t].leaf[g]
-                                stageDecision[:sur][g][k] = 0.0
+                            if solCollection[i, t, ω].stageSolution[:s][g] ≤ med
+                                stageDecision[:sur][g][left] = 1.0
+                                # stageDecision[:sur][g][right] = 0.0
+                            else
+                                stageDecision[:sur][g][right] = 1.0
+                                # stageDecision[:sur][g][left] = 0.0
                             end
-                            stageDecision[:sur][g][left] = 1.0; 
                             solCollection[i, t, ω] = ( stageSolution = deepcopy(stageDecision), 
                                                         stageValue = solCollection[i, t, ω].stageValue, 
                                                         OPT = solCollection[i, t, ω].OPT

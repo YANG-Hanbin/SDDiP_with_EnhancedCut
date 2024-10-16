@@ -201,7 +201,10 @@ function forwardPass(ξ::Dict{Int64, RandomVariables};
         for g in indexSets.G 
             stageDecision[:sur][g] = Dict{Int64, Float64}()
             for k in StateVarList[t].leaf[g]
-                stageDecision[:sur][g][k] = round(JuMP.value(forwardInfoList[t][:sur][g, k]), digits = 6)
+                # stageDecision[:sur][g][k] = round(JuMP.value(forwardInfoList[t][:sur][g, k]), digits = 6);
+                if JuMP.value(forwardInfoList[t][:sur][g, k]) > .5
+                    stageDecision[:sur][g][k] = 1.;
+                end
             end
         end
         scenario_solution_collection[t] = ( stageSolution = deepcopy(stageDecision), 

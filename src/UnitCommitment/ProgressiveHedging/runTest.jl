@@ -1,6 +1,7 @@
 using Pkg
 Pkg.activate(".")
-using Distributed; addprocs(5); 
+include("src/UnitCommitment/ProgressiveHedging/RandomizedProgressiveHedging.jl")
+using Distributed; addprocs(3); 
 @everywhere begin
     using JuMP, Gurobi, PowerModels;
     using Statistics, StatsBase, Random, Dates, Distributions;
@@ -70,17 +71,18 @@ for cut in ["LC", "ELC", "SMC"]
     end
 end
 
-T = 6; num = 5; cutSelection = "SMC"; ℓ = 0.0;
-if cutSelection == "ELC" 
-    sddlpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/isddlpHCResult-$ℓ-$tightness.jld2")["sddlpResult"][:solHistory];
-else
-    sddlpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/isddlpResult-$cutSelection-$tightness.jld2")["sddlpResult"][:solHistory];
-end
-sddpResult = sddlpResult[1:minimum([100, size(sddlpResult)[1]]), :]
-round(sddpResult.LB[minimum([100, size(sddpResult)[1]])], digits = 1)
-round(sddpResult.UB[minimum([100, size(sddpResult)[1]])], digits = 1)
-q025 = quantile(sddpResult.time, 0.025)
-q975 = quantile(sddpResult.time, 0.975)
+# T = 6; num = 3; cutSelection = "SMC"; ℓ = 0.0;
+# if cutSelection == "ELC" 
+#     sddlpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/isddlpHCResult-$ℓ-$tightness.jld2")["sddlpResult"][:solHistory];
+# else
+#     sddlpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/isddlpResult-$cutSelection-$tightness.jld2")["sddlpResult"][:solHistory];
+# end
+# sddpResult = sddlpResult[1:minimum([100, size(sddlpResult)[1]]), :]
+# round(sddpResult.LB[minimum([100, size(sddpResult)[1]])], digits = 1)
+# round(sddpResult.UB[minimum([100, size(sddpResult)[1]])], digits = 1)
+# q025 = quantile(sddpResult.time, 0.025)
+# q975 = quantile(sddpResult.time, 0.975)
+
 
 
 
