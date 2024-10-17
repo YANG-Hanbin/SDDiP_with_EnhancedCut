@@ -16,15 +16,15 @@ include(joinpath(project_root, "src", "UnitCommitment", "SDDiP", "def.jl"))
 case = "case30pwl"; tightness = true; cutSelection = "SMC";
 theme(:default)
 ## ================================================================ gap vs. Time ================================================================ ##
-isddlpResult63 = load("src/UnitCommitment/numericalResults-$case/Periods6-Real3/isddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
-isddlpResult65 = load("src/UnitCommitment/numericalResults-$case/Periods6-Real5/isddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
-isddlpResult610 = load("src/UnitCommitment/numericalResults-$case/Periods6-Real10/isddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
-isddlpResult83 = load("src/UnitCommitment/numericalResults-$case/Periods8-Real3/isddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
-isddlpResult85 = load("src/UnitCommitment/numericalResults-$case/Periods8-Real5/isddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
-isddlpResult810 = load("src/UnitCommitment/numericalResults-$case/Periods8-Real10/isddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
-isddlpResult123 = load("src/UnitCommitment/numericalResults-$case/Periods12-Real3/isddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
-isddlpResult125 = load("src/UnitCommitment/numericalResults-$case/Periods12-Real5/isddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
-isddlpResult1210 = load("src/UnitCommitment/numericalResults-$case/Periods12-Real10/isddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
+sddlpResult63 = load("src/UnitCommitment/numericalResults-$case/Periods6-Real3/sddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
+sddlpResult65 = load("src/UnitCommitment/numericalResults-$case/Periods6-Real5/sddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
+sddlpResult610 = load("src/UnitCommitment/numericalResults-$case/Periods6-Real10/sddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
+sddlpResult83 = load("src/UnitCommitment/numericalResults-$case/Periods8-Real3/sddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
+sddlpResult85 = load("src/UnitCommitment/numericalResults-$case/Periods8-Real5/sddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
+sddlpResult810 = load("src/UnitCommitment/numericalResults-$case/Periods8-Real10/sddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
+sddlpResult123 = load("src/UnitCommitment/numericalResults-$case/Periods12-Real3/sddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
+sddlpResult125 = load("src/UnitCommitment/numericalResults-$case/Periods12-Real5/sddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
+sddlpResult1210 = load("src/UnitCommitment/numericalResults-$case/Periods12-Real10/sddlpResult-$cutSelection-true.jld2")["sddlpResult"][:solHistory]
 
 sddpResult63 = load("src/UnitCommitment/numericalResults-$case/Periods6-Real3/sddpResult-$cutSelection-true.jld2")["sddpResult"][:solHistory]
 sddpResult65 = load("src/UnitCommitment/numericalResults-$case/Periods6-Real5/sddpResult-$cutSelection-true.jld2")["sddpResult"][:solHistory]
@@ -37,15 +37,15 @@ sddpResult125 = load("src/UnitCommitment/numericalResults-$case/Periods12-Real5/
 sddpResult1210 = load("src/UnitCommitment/numericalResults-$case/Periods12-Real10/sddpResult-$cutSelection-true.jld2")["sddpResult"][:solHistory]
 
 
-isddlpResult63[!, :gap] = parse.(Float64, replace.(isddlpResult63.gap, r"%" => ""))
-isddlpResult65[!, :gap] = parse.(Float64, replace.(isddlpResult65.gap, r"%" => ""))
-isddlpResult610[!, :gap] = parse.(Float64, replace.(isddlpResult610.gap, r"%" => ""))
-isddlpResult83[!, :gap] = parse.(Float64, replace.(isddlpResult83.gap, r"%" => ""))
-isddlpResult85[!, :gap] = parse.(Float64, replace.(isddlpResult85.gap, r"%" => ""))
-isddlpResult810[!, :gap] = parse.(Float64, replace.(isddlpResult810.gap, r"%" => ""))
-isddlpResult123[!, :gap] = parse.(Float64, replace.(isddlpResult123.gap, r"%" => ""))
-isddlpResult125[!, :gap] = parse.(Float64, replace.(isddlpResult125.gap, r"%" => ""))
-isddlpResult1210[!, :gap] = parse.(Float64, replace.(isddlpResult1210.gap, r"%" => ""))
+sddlpResult63[!, :gap] = parse.(Float64, replace.(sddlpResult63.gap, r"%" => ""))
+sddlpResult65[!, :gap] = parse.(Float64, replace.(sddlpResult65.gap, r"%" => ""))
+sddlpResult610[!, :gap] = parse.(Float64, replace.(sddlpResult610.gap, r"%" => ""))
+sddlpResult83[!, :gap] = parse.(Float64, replace.(sddlpResult83.gap, r"%" => ""))
+sddlpResult85[!, :gap] = parse.(Float64, replace.(sddlpResult85.gap, r"%" => ""))
+sddlpResult810[!, :gap] = parse.(Float64, replace.(sddlpResult810.gap, r"%" => ""))
+sddlpResult123[!, :gap] = parse.(Float64, replace.(sddlpResult123.gap, r"%" => ""))
+sddlpResult125[!, :gap] = parse.(Float64, replace.(sddlpResult125.gap, r"%" => ""))
+sddlpResult1210[!, :gap] = parse.(Float64, replace.(sddlpResult1210.gap, r"%" => ""))
 
 sddpResult63[!, :gap] = parse.(Float64, replace.(sddpResult63.gap, r"%" => ""))
 sddpResult65[!, :gap] = parse.(Float64, replace.(sddpResult65.gap, r"%" => ""))
@@ -62,15 +62,15 @@ sddpResult1210[!, :gap] = parse.(Float64, replace.(sddpResult1210.gap, r"%" => "
 
 
 # 对每个 DataFrame 进行采样，只选择 Iter 为 5 的倍数的行
-isddlpResult63 = filter(row -> row.Iter % 5 == 1, isddlpResult63)
-isddlpResult65 = filter(row -> row.Iter % 5 == 1, isddlpResult65)
-isddlpResult610 = filter(row -> row.Iter % 5 == 1, isddlpResult610)
-isddlpResult83 = filter(row -> row.Iter % 5 == 1, isddlpResult83)
-isddlpResult85 = filter(row -> row.Iter % 5 == 1, isddlpResult85)
-isddlpResult810 = filter(row -> row.Iter % 5 == 1, isddlpResult810)
-isddlpResult123 = filter(row -> row.Iter % 5 == 1, isddlpResult123)
-isddlpResult125 = filter(row -> row.Iter % 5 == 1, isddlpResult125)
-isddlpResult1210 = filter(row -> row.Iter % 5 == 1, isddlpResult1210)
+sddlpResult63 = filter(row -> row.Iter % 5 == 1, sddlpResult63)
+sddlpResult65 = filter(row -> row.Iter % 5 == 1, sddlpResult65)
+sddlpResult610 = filter(row -> row.Iter % 5 == 1, sddlpResult610)
+sddlpResult83 = filter(row -> row.Iter % 5 == 1, sddlpResult83)
+sddlpResult85 = filter(row -> row.Iter % 5 == 1, sddlpResult85)
+sddlpResult810 = filter(row -> row.Iter % 5 == 1, sddlpResult810)
+sddlpResult123 = filter(row -> row.Iter % 5 == 1, sddlpResult123)
+sddlpResult125 = filter(row -> row.Iter % 5 == 1, sddlpResult125)
+sddlpResult1210 = filter(row -> row.Iter % 5 == 1, sddlpResult1210)
 
 sddpResult63 = filter(row -> row.Iter % 5 == 1, sddpResult63)
 sddpResult65 = filter(row -> row.Iter % 5 == 1, sddpResult65)
@@ -86,7 +86,7 @@ sddpResult1210 = filter(row -> row.Iter % 5 == 1, sddpResult1210)
 
 
 
-timegap = @df isddlpResult63 plot(:Time, :gap, label="SDDℓP-(6,3)", 
+timegap = @df sddlpResult63 plot(:Time, :gap, label="SDDℓP-(6,3)", 
                                                 title = "Gap vs. Iteration", 
                                                 xlab = "Iteration", 
                                                 xlim = [0,2000],
@@ -103,14 +103,14 @@ timegap = @df isddlpResult63 plot(:Time, :gap, label="SDDℓP-(6,3)",
                                                 legendfont=font("Times New Roman"), legend=:outerright,
                                                 linestyle=:solid)  # 实线
 
-@df isddlpResult65 plot!(:Time, :gap, marker=(:star, 2, 1.), label="SDDℓP-(6,5)", linestyle=:solid, color=:orange)
-# @df isddlpResult610 plot!(:Time, :gap, marker=(:hexagon, 2, 1.), label="SDDℓP-(6,10)", linestyle=:solid, color=:green)
-@df isddlpResult83 plot!(:Time, :gap, marker=(:plus, 2, 1.), label="SDDℓP-(8,3)", linestyle=:solid, color=:Crimson)
-@df isddlpResult85 plot!(:Time, :gap, marker=(:star, 2, 1.), label="SDDℓP-(8,5)", linestyle=:solid, color=:HotPink)
-# @df isddlpResult810 plot!(:Time, :gap, marker=(:hexagon, 2, 1.), label="SDDℓP-(8,10)", linestyle=:solid, color=:brown)
-@df isddlpResult123 plot!(:Time, :gap, marker=(:xcross, 2, 1.), label="SDDℓP-(12,3)", linestyle=:solid, color=:lightslategray)
-@df isddlpResult125 plot!(:Time, :gap, marker=(:square, 2, 1.), label="SDDℓP-(12,5)", linestyle=:solid, color=:cyan)
-# @df isddlpResult1210 plot!(:Time, :gap, marker=(:diamond, 2, 1.), label="SDDℓP-(12,10)", linestyle=:solid, color=:palevioletred)
+@df sddlpResult65 plot!(:Time, :gap, marker=(:star, 2, 1.), label="SDDℓP-(6,5)", linestyle=:solid, color=:orange)
+# @df sddlpResult610 plot!(:Time, :gap, marker=(:hexagon, 2, 1.), label="SDDℓP-(6,10)", linestyle=:solid, color=:green)
+@df sddlpResult83 plot!(:Time, :gap, marker=(:plus, 2, 1.), label="SDDℓP-(8,3)", linestyle=:solid, color=:Crimson)
+@df sddlpResult85 plot!(:Time, :gap, marker=(:star, 2, 1.), label="SDDℓP-(8,5)", linestyle=:solid, color=:HotPink)
+# @df sddlpResult810 plot!(:Time, :gap, marker=(:hexagon, 2, 1.), label="SDDℓP-(8,10)", linestyle=:solid, color=:brown)
+@df sddlpResult123 plot!(:Time, :gap, marker=(:xcross, 2, 1.), label="SDDℓP-(12,3)", linestyle=:solid, color=:lightslategray)
+@df sddlpResult125 plot!(:Time, :gap, marker=(:square, 2, 1.), label="SDDℓP-(12,5)", linestyle=:solid, color=:cyan)
+# @df sddlpResult1210 plot!(:Time, :gap, marker=(:diamond, 2, 1.), label="SDDℓP-(12,10)", linestyle=:solid, color=:palevioletred)
 
 # sddp 结果，虚线，颜色保持一致
 @df sddpResult63 plot!(:Time, :gap, marker=(:xcross, 2, 1.), label="SDDP-(6,3)", linestyle=:dot, color=:goldenrod)
@@ -127,7 +127,7 @@ timegap = @df isddlpResult63 plot(:Time, :gap, label="SDDℓP-(6,3)",
 
 
 
-itergap = @df isddlpResult65 plot(:Iter, :gap, label="SDDℓP-(6,5)", 
+itergap = @df sddlpResult65 plot(:Iter, :gap, label="SDDℓP-(6,5)", 
                                                 title = "Relative gaps vs. Iteration", 
                                                 xlab = "Iteration", 
                                                 # xlim = [0,150],
@@ -145,14 +145,14 @@ itergap = @df isddlpResult65 plot(:Iter, :gap, label="SDDℓP-(6,5)",
                                                 tickfont=font("Computer Modern"),
                                                 legendfont=font("Times New Roman"), legend=:outerright,
                                                 linestyle=:solid)  
-@df isddlpResult63 plot!(:Iter, :gap, marker=(:star, 2, 1.), label="SDDℓP-(6,3)", linestyle=:solid, color=:black)
-@df isddlpResult610 plot!(:Iter, :gap, marker=(:hexagon, 2, 1.), label="SDDℓP-(6,10)", linestyle=:solid, color=:purple)
-@df isddlpResult83 plot!(:Iter, :gap, marker=(:plus, 2, 1.), label="SDDℓP-(8,3)", linestyle=:solid, color=:ForestGreen)
-@df isddlpResult85 plot!(:Iter, :gap, marker=(:star, 2, 1.), label="SDDℓP-(8,5)", linestyle=:solid, color=:red)
-@df isddlpResult810 plot!(:Iter, :gap, marker=(:hexagon, 2, 1.), label="SDDℓP-(8,10)", linestyle=:solid, color=:Violet)
-@df isddlpResult123 plot!(:Iter, :gap, marker=(:xcross, 2, 1.), label="SDDℓP-(12,3)", linestyle=:solid, color=:lightslategray)
-@df isddlpResult125 plot!(:Iter, :gap, marker=(:square, 2, 1.), label="SDDℓP-(12,5)", linestyle=:solid, color=:LightCoral)
-@df isddlpResult1210 plot!(:Iter, :gap, marker=(:diamond, 2, 1.), label="SDDℓP-(12,10)", linestyle=:solid, color=:DodgerBlue)
+@df sddlpResult63 plot!(:Iter, :gap, marker=(:star, 2, 1.), label="SDDℓP-(6,3)", linestyle=:solid, color=:black)
+@df sddlpResult610 plot!(:Iter, :gap, marker=(:hexagon, 2, 1.), label="SDDℓP-(6,10)", linestyle=:solid, color=:purple)
+@df sddlpResult83 plot!(:Iter, :gap, marker=(:plus, 2, 1.), label="SDDℓP-(8,3)", linestyle=:solid, color=:ForestGreen)
+@df sddlpResult85 plot!(:Iter, :gap, marker=(:star, 2, 1.), label="SDDℓP-(8,5)", linestyle=:solid, color=:red)
+@df sddlpResult810 plot!(:Iter, :gap, marker=(:hexagon, 2, 1.), label="SDDℓP-(8,10)", linestyle=:solid, color=:Violet)
+@df sddlpResult123 plot!(:Iter, :gap, marker=(:xcross, 2, 1.), label="SDDℓP-(12,3)", linestyle=:solid, color=:lightslategray)
+@df sddlpResult125 plot!(:Iter, :gap, marker=(:square, 2, 1.), label="SDDℓP-(12,5)", linestyle=:solid, color=:LightCoral)
+@df sddlpResult1210 plot!(:Iter, :gap, marker=(:diamond, 2, 1.), label="SDDℓP-(12,10)", linestyle=:solid, color=:DodgerBlue)
 
 
 @df sddpResult63 plot!(:Iter, :gap, marker=(:star, 2, 1.), label="SDDP-(6,3)", linestyle=:dashdot, color=:black)
@@ -169,8 +169,8 @@ itergap |> save("/Users/aaron/Downloads/gap_iter.pdf")
 
 ## ================================================================ time vs. Iter ================================================================ ##
 T = 8; num = 5; tightness = true; cutSelection = "SMC";
-sddlpResultLC = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/isddlpResult-LC-$tightness.jld2")["sddlpResult"][:solHistory]
-sddlpResultSMC = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/isddlpResult-SMC-$tightness.jld2")["sddlpResult"][:solHistory]
+sddlpResultLC = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddlpResult-LC-$tightness.jld2")["sddlpResult"][:solHistory]
+sddlpResultSMC = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddlpResult-SMC-$tightness.jld2")["sddlpResult"][:solHistory]
 sddlpResultELC = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/isddlpHCResult-0.0-$tightness.jld2")["sddlpResult"][:solHistory]
 sddpResultSMC = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddpResult-SMC-$tightness.jld2")["sddpResult"][:solHistory]
 sddpResultLC = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddpResult-LC-$tightness.jld2")["sddpResult"][:solHistory]
