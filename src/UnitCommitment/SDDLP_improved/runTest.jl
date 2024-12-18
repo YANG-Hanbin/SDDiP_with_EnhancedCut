@@ -70,17 +70,17 @@ for cut in ["LC", "ELC", "SMC"]
     end
 end
 
-T = 6; num = 5; cutSelection = "SMC"; ℓ = 0.0;
+T = 12; num = 10; cutSelection = "LC"; ℓ = 0.0;
 if cutSelection == "ELC" 
-    sddlpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/isddlpHCResult-$ℓ-$tightness.jld2")["sddlpResult"][:solHistory];
+    sddlpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/MagnantiWong/sddlpHCResult-$ℓ-$tightness.jld2")["sddlpResult"][:solHistory];
 else
-    sddlpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/isddlpResult-$cutSelection-$tightness.jld2")["sddlpResult"][:solHistory];
+    sddlpResult = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddlpResult-$cutSelection-$tightness.jld2")["sddlpResult"][:solHistory];
 end
-sddpResult = sddlpResult[1:minimum([100, size(sddlpResult)[1]]), :]
-round(sddpResult.LB[minimum([100, size(sddpResult)[1]])], digits = 1)
-round(sddpResult.UB[minimum([100, size(sddpResult)[1]])], digits = 1)
-q025 = quantile(sddpResult.time, 0.025)
-q975 = quantile(sddpResult.time, 0.975)
+# sddpResult = sddlpResult[1:minimum([100, size(sddlpResult)[1]]), :]
+# round(sddpResult.LB[minimum([100, size(sddpResult)[1]])], digits = 1)
+# round(sddpResult.UB[minimum([100, size(sddpResult)[1]])], digits = 1)
+q025 = quantile(sddlpResult.time, 0.025)
+q975 = quantile(sddlpResult.time, 0.975)
 
 
 

@@ -92,7 +92,7 @@ for cut in ["LC", "ELC", "SMC"]
                         :solution => solCollection[i, 1, 1].stageSolution, 
                             :gapHistory => gapList))
                     else
-                        save("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/isddlpResult-$cutSelection-$tightness.jld2", "sddlpResult", Dict(:solHistory => sddipResult, 
+                        save("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/isddlpResult-$cutSelection-$tightness-5.jld2", "sddlpResult", Dict(:solHistory => sddipResult, 
                         :solution => solCollection[i, 1, 1].stageSolution, 
                             :gapHistory => gapList))
                     end
