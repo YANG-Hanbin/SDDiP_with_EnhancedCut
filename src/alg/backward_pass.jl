@@ -6,7 +6,7 @@ RemoveContVarNonAnticipative!(model::Model)
     1. `model::Model` : a nodal problem
   
 # Modification
-    1. Remove the Nonanticipativity constraints
+    1. Remove the Non-anticipativity constraints
 """
 function RemoveContVarNonAnticipative!(
     model::Model = model;
@@ -67,7 +67,7 @@ end
 """
 function backwardPass(
     backwardNodeInfo::Tuple; 
-    ModelList::Dict{Int64, SDDPLModel} = ModelList,
+    ModelList::Dict{Int64, SDDPModel} = ModelList,
     indexSets::IndexSets = indexSets, 
     paramDemand::ParamDemand = paramDemand, 
     paramOPF::ParamOPF = paramOPF,
@@ -89,17 +89,35 @@ function backwardPass(
         indexSets = indexSets
     );
 
-    PLCGeneration = ParetoLagrangianCutGeneration{Float64}(
-        core_point_strategy, 
-        setup_core_point(
-            stateInfoCollection[i, t-1, ω];
-            indexSets = indexSets,
-            paramOPF = paramOPF, 
-            param_PLC = param_PLC   
-        ), 
-        param_PLC.δ, 
-        stateInfoCollection[i, t, ω].StateValue
-    );
+    if cutSelection == :PLC
+        CutGenerationInfo = ParetoLagrangianCutGeneration{Float64}(
+            core_point_strategy, 
+            setup_core_point(
+                stateInfoCollection[i, t-1, ω];
+                indexSets = indexSets,
+                paramOPF = paramOPF, 
+                param_PLC = param_PLC   
+            ), 
+            param_PLC.δ, 
+            stateInfoCollection[i, t, ω].StateValue
+        );
+    elseif cutSelection == :LC
+        CutGenerationInfo = LagrangianCutGeneration{Float64}(
+            stateInfoCollection[i, t, ω].StateValue
+        );
+    elseif cutSelection == :SMC
+        CutGenerationInfo = SquareMinimizationCutGeneration{Float64}(
+            param_PLC.δ, 
+            stateInfoCollection[i, t, ω].StateValue
+        );
+    else
+        @warn "Invalid cutSelection value: $cutSelection. Defaulting to :SMC."
+        CutGenerationInfo = SquareMinimizationCutGeneration{Float64}(
+            param_PLC.δ, 
+            stateInfoCollection[i, t, ω].StateValue
+        )
+    end
+
     levelsetmethodOracleParam = SetupLevelSetMethodOracleParam(
         stateInfoCollection[i, t-1, ω];
         indexSets = indexSets,
@@ -110,7 +128,7 @@ function backwardPass(
         ModelList[t].model, 
         levelsetmethodOracleParam, 
         stateInfoCollection[i, t-1, ω],
-        PLCGeneration;
+        CutGenerationInfo;
         indexSets = indexSets, 
         paramDemand = paramDemand, 
         paramOPF = paramOPF, 

@@ -14,7 +14,7 @@
     4. `stageRealization::StageRealization` : realization of the stage
   
 # Returns
-    1. `SDDPLModel`
+    1. `SDDPModel`
 """
 function forwardModel!( 
     paramDemand::ParamDemand, 
@@ -22,7 +22,7 @@ function forwardModel!(
     stageRealization::StageRealization;
     indexSets::IndexSets = indexSets, 
     param::NamedTuple = param
-)::SDDPLModel
+)::SDDPModel
     ## build the forward model
     model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(GRB_ENV), 
                                                     "Threads" => 0)); 
@@ -147,7 +147,7 @@ function forwardModel!(
         primal_objective_expression
     );
     
-    return SDDPLModel(
+    return SDDPModel(
                 model, 
                 Dict{Any, Dict{Any, VariableRef}}(:y => Dict{Any, VariableRef}(g => y[g] for g in indexSets.G)), 
                 nothing, 
@@ -182,7 +182,7 @@ forwardPass(ξ): function for forward pass in parallel computing
 """
 function forwardPass(
     ξ::Dict{Int64, RandomVariables};
-    ModelList::Dict{Int, SDDPLModel} = ModelList,
+    ModelList::Dict{Int, SDDPModel} = ModelList,
     paramDemand::ParamDemand = paramDemand, 
     paramOPF::ParamOPF = paramOPF, 
     indexSets::IndexSets = indexSets, 

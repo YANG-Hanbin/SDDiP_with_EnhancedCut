@@ -240,7 +240,8 @@ function function_info(;
                 sum(model[:h][g] + 
                 paramOPF.C_start[g] * model[:v][g] + 
                 paramOPF.C_down[g] * model[:w][g] for g in indexSets.G) + 
-                sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + sum(model[:θ]) - 
+                sum(paramDemand.w[d] * (1 - model[:x][d]) for d in indexSets.D) + 
+                sum(model[:θ]) - 
                 sum(x₀[:s][g] * model[:s_copy][g] + x₀[:y][g] * model[:y_copy][g] + sum(x₀[:sur][g][k] * model[:sur_copy][g, k] for k in keys(stageDecision[:sur][g])) for g in indexSets.G)
             );
             ## ==================================================== solve the model and display the result ==================================================== ##
@@ -289,7 +290,7 @@ function function_info(;
             currentInfo = CurrentInfo( 
                 x₀, 
                 1/2 * sum(x₀[:s][g] * x₀[:s][g] for g in indexSets.G) + 1/2 * sum(x₀[:y][g] * x₀[:y][g] for g in indexSets.G) + 1/2 * sum(sum(x₀[:sur][g][k] * x₀[:sur][g][k] for k in keys(stageDecision[:sur][g])) for g in indexSets.G),                                        ## obj function value
-                Dict(1 => f_star_value - F - δ),                                                            ## constraint value
+                Dict(1 => f_star_value - F - δ),                                                                  ## constraint value
                 x₀,                                                                                               ## obj gradient
                 Dict(1 => negative_∇F )                                                                           ## constraint gradient
             );

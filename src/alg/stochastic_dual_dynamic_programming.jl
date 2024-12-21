@@ -29,7 +29,7 @@ function stochastic_dual_dynamic_programming_algorithm(
         param_PLC::NamedTuple = param_PLC, 
         param_levelsetmethod::NamedTuple = param_levelsetmethod, 
         param::NamedTuple = param
-)
+)::Dict
     ## d: x dim
     initial = now(); i = 1; LB = - Inf; UB = Inf; 
     iter_time = 0; total_Time = 0; t0 = 0.0; LMiter = 0; LM_iter = 0; gap = 100.0; gapString = "100%"; branchDecision = false;
@@ -41,7 +41,7 @@ function stochastic_dual_dynamic_programming_algorithm(
     gapList = [];
     
     @everywhere begin
-        ModelList = Dict{Int, SDDPLModel}();
+        ModelList = Dict{Int, SDDPModel}();
         for t in 1:indexSets.T 
             ModelList[t] = forwardModel!( 
                 paramDemand, 
@@ -95,7 +95,8 @@ function stochastic_dual_dynamic_programming_algorithm(
         end
 
         ####################################################### Update Partition Tree ###########################################################
-        if i ≥ param.LiftingIter                                                                  ## the first rule:: for branching: current convex envelope is good enough
+        ## the first rule:: for branching: current convex envelope is good enough
+        if i ≥ param.LiftingIter && param.algorithm == :SDDPL                                                                 
             for t in reverse(1:indexSets.T-1) 
                 for ω in [1]#keys(Ξ̃)
                     dev = Dict()

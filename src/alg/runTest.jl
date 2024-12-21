@@ -1,6 +1,6 @@
 using Pkg
 Pkg.activate(".")
-using Distributed; # addprocs(5); 
+using Distributed; addprocs(5); 
 @everywhere begin
     using JuMP, Gurobi, PowerModels;
     using Statistics, StatsBase, Random, Dates, Distributions;
@@ -15,6 +15,7 @@ using Distributed; # addprocs(5);
     include(joinpath(project_root, "src", "alg", "utils", "structs.jl"))
     include(joinpath(project_root, "src", "alg", "utils", "auxiliary.jl"))
     include(joinpath(project_root, "src", "alg", "utils", "bundle_method.jl"))
+    include(joinpath(project_root, "src", "alg", "utils", "cut_variants.jl"))
     include(joinpath(project_root, "src", "alg", "auxiliary.jl"))
     include(joinpath(project_root, "src", "alg", "forward_pass.jl"))
     include(joinpath(project_root, "src", "alg", "backward_pass.jl"))
@@ -31,11 +32,12 @@ using Distributed; # addprocs(5);
         OPT = 0.0,
         tightness = true,
         numScenarios = 3,
-        LiftingIter = 1,
+        LiftingIter = 10,
         branch_threshold = 1e-3,
         med_method = "interval_mid", # "interval_mid", "exact_point"
-        cutSelection = "LC",
-        )
+        cutSelection = :PLC, # :PLC, :SMC, :LC
+        algorithm = :SDDPL, # :SDDPL, :SDDP, :SDDiP
+    )
 
 
     param_levelsetmethod = (
@@ -45,23 +47,22 @@ using Distributed; # addprocs(5);
         nxt_bound     = 1e10,
         MaxIter       = 200,
         verbose       = false,
-        )
+    )
     
     param_PLC = (
         core_point_strategy = "Eps", # "Mid", "Eps"
         δ = 1e-3,
         ℓ = .0,
-        )
+    )
+
+    T = 6; num = 5; case = "case30pwl"; # "case_RTS_GMLC", "case30", "case30pwl", "case24_ieee_rts"
+    indexSets        = load(joinpath(project_root, "src", "alg", "experiment_$case", "stage($T)real($num)", "indexSets.jld2"))["indexSets"];
+    paramOPF         = load(joinpath(project_root, "src", "alg", "experiment_$case", "stage($T)real($num)", "paramOPF.jld2"))["paramOPF"];
+    paramDemand      = load(joinpath(project_root, "src", "alg", "experiment_$case", "stage($T)real($num)", "paramDemand.jld2"))["paramDemand"];
+    scenarioTree     = load(joinpath(project_root, "src", "alg", "experiment_$case", "stage($T)real($num)", "scenarioTree.jld2"))["scenarioTree"];
+    initialStateInfo = load(joinpath(project_root, "src", "alg", "experiment_$case", "initialStateInfo.jld2"))["initialStateInfo"];
+
 end
-
-T = 8; num = 5; case = "case30pwl"; # "case_RTS_GMLC", "case30", "case30pwl", "case24_ieee_rts"
-indexSets        = load(joinpath(project_root, "src", "alg", "experiment_$case", "stage($T)real($num)", "indexSets.jld2"))["indexSets"];
-paramOPF         = load(joinpath(project_root, "src", "alg", "experiment_$case", "stage($T)real($num)", "paramOPF.jld2"))["paramOPF"];
-paramDemand      = load(joinpath(project_root, "src", "alg", "experiment_$case", "stage($T)real($num)", "paramDemand.jld2"))["paramDemand"];
-scenarioTree     = load(joinpath(project_root, "src", "alg", "experiment_$case", "stage($T)real($num)", "scenarioTree.jld2"))["scenarioTree"];
-initialStateInfo = load(joinpath(project_root, "src", "alg", "experiment_$case", "initialStateInfo.jld2"))["initialStateInfo"];
-
-
 
 sddpResult = stochastic_dual_dynamic_programming_algorithm(
         scenarioTree,                   

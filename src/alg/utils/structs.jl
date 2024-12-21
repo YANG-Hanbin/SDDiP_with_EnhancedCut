@@ -113,7 +113,7 @@ abstract type SequentialModels end
 
 abstract type SolutionMethod end
 """
-    mutable struct SDDPLModel  <: ForwardModel 
+    mutable struct SDDPModel  <: ForwardModel 
         model           ::Model
         BinVar          ::Dict{Any, Dict{Any, VariableRef}}
         IntVar          ::Dict{Any, Dict{Any, Dict{Symbol, Any}}}
@@ -141,13 +141,20 @@ Fields
     the third `Any` is the leaf node index,
     `Symbol ∈ {:lb, :ub, :parent, :sibling, :var}` is the key to record the information.
 """
-mutable struct SDDPLModel  <: SequentialModels 
+mutable struct SDDPModel  <: SequentialModels 
     model           ::Model
     BinVar          ::Union{Nothing, Dict{Any, Dict{Any, VariableRef}}}
     IntVar          ::Union{Nothing, Dict{Any, Dict{Any, VariableRef}}}
     ContVar         ::Union{Nothing, Dict{Any, Dict{Any, VariableRef}}}
     IntVarLeaf      ::Union{Nothing, Dict{Any, Dict{Any, Dict{Any, Dict{Symbol, Any}}}}}
     ContVarLeaf     ::Union{Nothing, Dict{Any, Dict{Any, Dict{Any, Dict{Symbol, Any}}}}}
+end
+
+mutable struct SDDiPModel  <: SequentialModels 
+    model           ::Model
+    BinVar          ::Union{Nothing, Dict{Any, Dict{Any, VariableRef}}}
+    IntVar          ::Union{Nothing, Dict{Any, Dict{Any, VariableRef}}}
+    ContVar         ::Union{Nothing, Dict{Any, Dict{Any, VariableRef}}}
 end
 
 """
@@ -277,6 +284,15 @@ abstract type CutGeneration end
 mutable struct ParetoLagrangianCutGeneration{T} <: CutGeneration 
     core_point_strategy ::String
     core_point          ::Union{Nothing, StateInfo}
+    δ                   ::Float64
+    primal_bound        ::Union{Nothing, T}
+end
+
+mutable struct LagrangianCutGeneration{T} <: CutGeneration 
+    primal_bound        ::Union{Nothing, T}
+end
+
+mutable struct SquareMinimizationCutGeneration{T} <: CutGeneration 
     δ                   ::Float64
     primal_bound        ::Union{Nothing, T}
 end

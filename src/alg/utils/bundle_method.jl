@@ -143,87 +143,6 @@ function add_constraint(
     return                                                                              
 end
 
-
-"""
-    function solve_inner_minimization_problem(
-        PLCGeneration::ParetoLagrangianCutGeneration,
-        model::Model, 
-        x₀::StateInfo, 
-        stateInfo::StateInfo
-    )
-
-# Arguments
-
-    1. `PLCGeneration::ParetoLagrangianCutGeneration` : the information of the cut that will be generated information
-    2. `model::Model` : the backward model
-    3. `x₀::StateInfo` : the dual information
-    4. `stateInfo::StateInfo` : the last stage decision
-  
-# Returns
-    1. `currentInfo::CurrentInfo` : the current information
-  
-"""
-function solve_inner_minimization_problem(
-    PLCGeneration::ParetoLagrangianCutGeneration,
-    model::Model, 
-    x₀::StateInfo, 
-    stateInfo::StateInfo
-)
-    @objective(
-        model, 
-        Min,  
-        model[:primal_objective_expression] +
-        sum(
-            x₀.ContVar[:s][g] * (stateInfo.ContVar[:s][g] - model[:s_copy][g]) + 
-            x₀.BinVar[:y][g] * (stateInfo.BinVar[:y][g] - model[:y_copy][g]) + 
-            sum(x₀.ContAugState[:s][g][k] * (stateInfo.ContAugState[:s][g][k] - model[:augmentVar_copy][g, k]) for k in keys(stateInfo.ContAugState[:s][g])) 
-            for g in indexSets.G
-        )
-    );
-    ## ==================================================== solve the model and display the result ==================================================== ##
-    optimize!(model);
-    F  = JuMP.objective_value(model);
-    
-    negative_∇F = StateInfo(
-        Dict{Any, Dict{Any, Any}}(:y => Dict{Any, Any}(
-            g => JuMP.value(model[:y_copy][g]) - stateInfo.BinVar[:y][g] for g in indexSets.G)
-        ), 
-        nothing, 
-        Dict{Any, Dict{Any, Any}}(:s => Dict{Any, Any}(
-            g => JuMP.value(model[:s_copy][g]) - stateInfo.ContVar[:s][g] for g in indexSets.G)
-        ), 
-        nothing, 
-        nothing, 
-        nothing, 
-        nothing, 
-        nothing, 
-        Dict{Any, Dict{Any, Dict{Any, Any}}}(
-        :s => Dict{Any, Dict{Any, Any}}(
-            g => Dict{Any, Any}(
-                k => JuMP.value(model[:augmentVar_copy][g, k]) - stateInfo.ContAugState[:s][g][k] for k in keys(stateInfo.ContAugState[:s][g])
-            ) for g in indexSets.G)
-        )
-    );
-    currentInfo = CurrentInfo(  
-        x₀, 
-        - F - sum(x₀.ContVar[:s][g] * (PLCGeneration.core_point.ContVar[:s][g] .- stateInfo.ContVar[:s][g]) + x₀.BinVar[:y][g] * (PLCGeneration.core_point.BinVar[:y][g] - stateInfo.BinVar[:y][g]) + 
-            sum(x₀.ContAugState[:s][g][k] * (PLCGeneration.core_point.ContAugState[:s][g][k] - stateInfo.ContAugState[:s][g][k]) for k in keys(stateInfo.ContAugState[:s][g]); init = 0.0) 
-                for g in indexSets.G
-        ),                                                                                                                                                              ## obj function value
-        Dict(
-            1 => PLCGeneration.primal_bound - F - PLCGeneration.δ
-        ),                                                                                                                                                              ## constraint value
-        Dict{Symbol, Dict{Int64, Any}}(
-            :s => Dict(g => negative_∇F.ContVar[:s][g] + stateInfo.ContVar[:s][g] - PLCGeneration.core_point.ContVar[:s][g] for g in indexSets.G),
-            :y => Dict(g => negative_∇F.BinVar[:y][g] + stateInfo.BinVar[:y][g] - PLCGeneration.core_point.BinVar[:y][g] for g in indexSets.G), 
-            :sur => Dict(g => Dict(k => negative_∇F.ContAugState[:s][g][k] + stateInfo.ContAugState[:s][g][k] - PLCGeneration.core_point.ContAugState[:s][g][k] for k in keys(stateInfo.ContAugState[:s][g])) for g in indexSets.G)
-        ),                                                                                                                                                              ## obj gradient
-        Dict(1 => negative_∇F )                                                                                                                                         ## constraint gradient
-    );
-    return (currentInfo = currentInfo, currentInfo_f = F)
-end    
-
-
 """
 LevelSetMethod_optimization!(; stageDecision::Dict{Symbol, Dict{Int64, Float64}} = stageDecision,
                                     f_star_value::Float64 = f_star_value,
@@ -247,35 +166,21 @@ function LevelSetMethod_optimization!(
     model::Model, 
     levelsetmethodOracleParam::LevelSetMethodOracleParam, 
     stateInfo::StateInfo,
-    PLCGeneration::ParetoLagrangianCutGeneration;
+    CutGenerationInfo::CutGeneration;
     indexSets::IndexSets = indexSets, 
     paramDemand::ParamDemand = paramDemand, 
     paramOPF::ParamOPF = paramOPF, 
     param::NamedTuple = param, param_levelsetmethod::NamedTuple = param_levelsetmethod
-)
-
-    ## ==================================================== auxiliary function for function information ==================================================== ##
-    # μ larger is better
-    # (μ, λ, threshold, nxt_bound, max_iter, verbose, x₀) = (
-    #     levelsetmethodOracleParam.μ, 
-    #     levelsetmethodOracleParam.λ, 
-    #     levelsetmethodOracleParam.threshold, 
-    #     levelsetmethodOracleParam.nxt_bound, 
-    #     levelsetmethodOracleParam.MaxIter, 
-    #     levelsetmethodOracleParam.verbose, 
-    #     levelsetmethodOracleParam.x₀
-    # );
-    (core_point, primal_bound) = (PLCGeneration.core_point, PLCGeneration.primal_bound);
+)    
+    ## ==================================================== Level-set Method ============================================== ##    
     (D, G, L, B) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B);
-    
-    ## ==================================================== Levelset Method ============================================== ##    
     iter = 1;
     α = 1/2;
     Δ = Inf; 
 
     # trajectory
     currentInfo, currentInfo_f = solve_inner_minimization_problem(
-        PLCGeneration,
+        CutGenerationInfo,
         model, 
         levelsetmethodOracleParam.x₀, 
         stateInfo
@@ -323,17 +228,29 @@ function LevelSetMethod_optimization!(
     @variable(nxtModel, y1);
     nxtInfo = ModelInfo(nxtModel, xs, xy, sur, y1, z1);
 
-    cutInfo =  [ 
-        - currentInfo.f - 
-        sum(currentInfo.x.ContVar[:s][g] * core_point.ContVar[:s][g] + 
-        currentInfo.x.BinVar[:y][g] * core_point.BinVar[:y][g] for g in G) - 
+    # cutInfo = [ 
+    #     - currentInfo.f - 
+    #     sum(currentInfo.x.ContVar[:s][g] * core_point.ContVar[:s][g] + 
+    #     currentInfo.x.BinVar[:y][g] * core_point.BinVar[:y][g] for g in G) - 
+    #     sum(
+    #         sum(
+    #             currentInfo.x.ContAugState[:s][g][k] * core_point.ContAugState[:s][g][k] for k in keys(stateInfo.ContAugState[:s][g]); init = 0.0
+    #             ) for g in G
+    #     ), 
+    #     currentInfo.x
+    # ]; 
+
+    cutInfo = [
+        currentInfo_f - 
+        sum(currentInfo.x.ContVar[:s][g] * stateInfo.ContVar[:s][g] + 
+        currentInfo.x.BinVar[:y][g] * stateInfo.BinVar[:y][g] for g in G) - 
         sum(
             sum(
-                currentInfo.x.ContAugState[:s][g][k] * core_point.ContAugState[:s][g][k] for k in keys(stateInfo.ContAugState[:s][g]); init = 0.0
+                currentInfo.x.ContAugState[:s][g][k] * stateInfo.ContAugState[:s][g][k] for k in keys(stateInfo.ContAugState[:s][g]); init = 0.0
                 ) for g in G
-        ), 
+        ),
         currentInfo.x
-    ]; 
+    ];
 
     while true
         add_constraint(currentInfo, oracleInfo);
@@ -361,17 +278,17 @@ function LevelSetMethod_optimization!(
 
         x₀ = currentInfo.x;
         if (round(previousΔ) > round(Δ)) || ((currentInfo.G[1] ≤ 0.0))
-            cutInfo =  [ 
-                - currentInfo.f - 
-                sum(currentInfo.x.ContVar[:s][g] * core_point.ContVar[:s][g] + 
-                currentInfo.x.BinVar[:y][g] * core_point.BinVar[:y][g] for g in G) - 
+            cutInfo = [
+                currentInfo_f - 
+                sum(currentInfo.x.ContVar[:s][g] * stateInfo.ContVar[:s][g] + 
+                currentInfo.x.BinVar[:y][g] * stateInfo.BinVar[:y][g] for g in G) - 
                 sum(
                     sum(
-                        currentInfo.x.ContAugState[:s][g][k] * core_point.ContAugState[:s][g][k] for k in keys(stateInfo.ContAugState[:s][g]); init = 0.0
+                        currentInfo.x.ContAugState[:s][g][k] * stateInfo.ContAugState[:s][g][k] for k in keys(stateInfo.ContAugState[:s][g]); init = 0.0
                         ) for g in G
-                ), 
+                ),
                 currentInfo.x
-            ]; 
+            ];
         end
 
         # update α
@@ -526,13 +443,13 @@ function LevelSetMethod_optimization!(
         end
 
         ## stop rules
-        if Δ ≤ param_levelsetmethod.threshold * primal_bound || iter > param_levelsetmethod.MaxIter
+        if Δ ≤ param_levelsetmethod.threshold * CutGenerationInfo.primal_bound || iter > param_levelsetmethod.MaxIter
             return (cutInfo = cutInfo, iter = iter)
         end
         ## ==================================================== end ============================================== ##
         ## save the trajectory
         currentInfo, currentInfo_f = solve_inner_minimization_problem(
-            PLCGeneration,
+            CutGenerationInfo,
             model, 
             x_nxt, 
             stateInfo

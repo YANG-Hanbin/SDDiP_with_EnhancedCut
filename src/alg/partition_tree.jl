@@ -10,7 +10,7 @@
     )
 # Arguments
 
-    1. `ModelList`: A dictionary of `SDDPLModel` objects
+    1. `ModelList`: A dictionary of `SDDPModel` objects
     2. `stateInfo`: StateInfo
     3. `t`: the stage index
     4. `g`: the generator index
@@ -19,7 +19,7 @@
     1. `Nothing`
 """
 function update_partition_tree!(
-    ModelList::Dict{Int64, SDDPLModel}, 
+    ModelList::Dict{Int64, SDDPModel}, 
     stateInfo::StateInfo,
     t, 
     g;
