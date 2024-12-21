@@ -17,12 +17,17 @@ forwardModel!(; indexSets::IndexSets = indexSets,
     1. `model` : a forward pass model of stage t
   
 """
-function forwardModel!(; indexSets::IndexSets = indexSets, 
-                            paramDemand::ParamDemand = paramDemand, 
-                                paramOPF::ParamOPF = paramOPF, 
-                                    stageRealization::StageRealization = stageRealization,
-                                            θ_bound::Real = 0.0, outputFlag::Int64 = 0, timelimit::Real = 3, mipGap::Float64 = 1e-4, silent::Bool = true
-                            )
+function forwardModel!(; 
+    indexSets::IndexSets = indexSets, 
+    paramDemand::ParamDemand = paramDemand, 
+    paramOPF::ParamOPF = paramOPF, 
+    stageRealization::StageRealization = stageRealization,
+    θ_bound::Real = 0.0, 
+    outputFlag::Int64 = 0, 
+    timelimit::Real = 3, 
+    mipGap::Float64 = 1e-4, 
+    silent::Bool = true
+)
     (D, G, L, B) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T) 
     (Dᵢ, Gᵢ, in_L, out_L) = (indexSets.Dᵢ, indexSets.Gᵢ, indexSets.in_L, indexSets.out_L) 
     N = keys(stageRealization.prob)
@@ -42,7 +47,7 @@ function forwardModel!(; indexSets::IndexSets = indexSets,
 
     @variable(model, y[G], Bin)                                                 ## binary variable for generator commitment status
     @variable(model, v[G], Bin)                                                 ## binary variable for generator startup decision
-    @variable(model, w[G], Bin)                                                 ## binary variable for generator shutdowm decision
+    @variable(model, w[G], Bin)                                                 ## binary variable for generator shutdown decision
 
     @variable(model, h[G] ≥ 0);                                                 ## production cost at generator g
 
@@ -71,15 +76,19 @@ function forwardModel!(; indexSets::IndexSets = indexSets,
     # power flow limitation
     @constraint(model, [l in L], P[l] ≥ - paramOPF.W[l])
     @constraint(model, [l in L], P[l] ≤   paramOPF.W[l])
-    # genertor limitation
+    # generator limitation
     @constraint(model, [g in G], s[g] ≥ paramOPF.smin[g] * y[g])
     @constraint(model, [g in G], s[g] ≤ paramOPF.smax[g] * y[g])
 
-    # power balance constriant
-    @constraint(model, PowerBalance[i in B], sum(s[g] for g in Gᵢ[i]) -
-                                                sum(P[(i, j)] for j in out_L[i]) + 
-                                                    sum(P[(j, i)] for j in in_L[i]) 
-                                                        .== sum(paramDemand.demand[d] * x[d] for d in Dᵢ[i]) )
+    # power balance constraints
+    @constraint(
+        model, 
+        PowerBalance[i in B], 
+        sum(s[g] for g in Gᵢ[i]) - 
+        sum(P[(i, j)] for j in out_L[i]) + 
+        sum(P[(j, i)] for j in in_L[i]) .== 
+        sum(paramDemand.demand[d] * x[d] for d in Dᵢ[i]) 
+    )
     
     # on/off status with startup and shutdown decision
     @constraint(model, ShutUpDown[g in G], v[g] - w[g] == y[g])
@@ -87,11 +96,19 @@ function forwardModel!(; indexSets::IndexSets = indexSets,
     @constraint(model, Ramping2[g in G], s[g] >= - paramOPF.M[g] * y[g] - paramOPF.smin[g] * w[g])
 
     # production cost
-    @constraint(model, production[g in indexSets.G, o in keys(paramOPF.slope[g])], h[g] ≥ paramOPF.slope[g][o] * s[g] + paramOPF.intercept[g][o] * y[g])
+    @constraint(
+        model, 
+        production[g in indexSets.G, o in keys(paramOPF.slope[g])], 
+        h[g] ≥ paramOPF.slope[g][o] * s[g] + paramOPF.intercept[g][o] * y[g]
+    )
 
     # objective function
-    @objective(model, Min, sum(h[g] + paramOPF.C_start[g] * v[g] + paramOPF.C_down[g] * w[g] for g in G) + sum(paramDemand.w[d] * (1 - x[d]) for d in D) + sum(θ)
-                )
+    @objective(
+        model, 
+        Min, 
+        sum(h[g] + paramOPF.C_start[g] * v[g] + paramOPF.C_down[g] * w[g] for g in G) + 
+        sum(paramDemand.w[d] * (1 - x[d]) for d in D) + sum(θ)
+    )
     return model
 end
 
@@ -107,13 +124,14 @@ forwardModification!(; model::Model = model)
     2. Add the current scenario's demand balance constriants
     3. Update its last stage decision with
 """
-
-function forwardModification!(; model::Model = model, 
-                            randomVariables::RandomVariables = randomVariables,
-                                    paramOPF::ParamOPF = paramOPF, paramDemand::ParamDemand = paramDemand,
-                                        stageDecision::Dict{Symbol, Dict{Int64, Any}} = stageDecision, 
-                                            indexSets::IndexSets = indexSets
-                                        )
+function forwardModification!(; 
+    model::Model = model, 
+    randomVariables::RandomVariables = randomVariables, 
+    paramOPF::ParamOPF = paramOPF, 
+    paramDemand::ParamDemand = paramDemand, 
+    stageDecision::Dict{Symbol, Dict{Int64, Any}} = stageDecision, 
+    indexSets::IndexSets = indexSets 
+)
 
     for g in indexSets.G
         delete(model, model[:ShutUpDown][g])
@@ -129,15 +147,19 @@ function forwardModification!(; model::Model = model,
     @constraint(model, Ramping1[g in indexSets.G], model[:s][g] - stageDecision[:s][g] <= paramOPF.M[g] * stageDecision[:y][g] + paramOPF.smin[g] * model[:v][g])
     @constraint(model, Ramping2[g in indexSets.G], model[:s][g] - stageDecision[:s][g] >= - paramOPF.M[g] * model[:y][g] - paramOPF.smin[g] * model[:w][g])
 
-    # power balance constriant
+    # power balance constraints
     for i in indexSets.B
         delete(model, model[:PowerBalance][i])
     end
     unregister(model, :PowerBalance)
-    @constraint(model, PowerBalance[i in indexSets.B], sum(model[:s][g] for g in indexSets.Gᵢ[i]) -
-                                                            sum(model[:P][(i, j)] for j in indexSets.out_L[i]) + 
-                                                                sum(model[:P][(j, i)] for j in indexSets.in_L[i]) 
-                                                                    .== sum(paramDemand.demand[d] * randomVariables.deviation[d] * model[:x][d] for d in indexSets.Dᵢ[i]) )
+    @constraint(
+        model, 
+        PowerBalance[i in indexSets.B], 
+        sum(model[:s][g] for g in indexSets.Gᵢ[i]) - 
+        sum(model[:P][(i, j)] for j in indexSets.out_L[i]) + 
+        sum(model[:P][(j, i)] for j in indexSets.in_L[i]) .== 
+        sum(paramDemand.demand[d] * randomVariables.deviation[d] * model[:x][d] for d in indexSets.Dᵢ[i]) 
+    )
 end
 
 """
@@ -152,7 +174,10 @@ Simulation
 # Returns
   1. `Ξ`: A subset of scenarios.
 """
-function sample_scenarios(; numScenarios::Int64 = 10, scenarioTree::ScenarioTree = scenarioTree)
+function sample_scenarios(; 
+    numScenarios::Int64 = 10, 
+    scenarioTree::ScenarioTree = scenarioTree
+)
     # if seed !== nothing
     #     Random.seed!(seed)
     # end
@@ -161,10 +186,17 @@ function sample_scenarios(; numScenarios::Int64 = 10, scenarioTree::ScenarioTree
     for ω in 1:numScenarios
         ξ = Dict{Int64, RandomVariables}()
         ξ[1] = scenarioTree.tree[1].nodes[1]
-        n = wsample(collect(keys(scenarioTree.tree[1].prob)), collect(values(scenarioTree.tree[1].prob)), 1)[1]
+        n = wsample(
+            collect(keys(scenarioTree.tree[1].prob)), 
+            collect(values(scenarioTree.tree[1].prob)), 
+            1
+        )[1]
         for t in 2:length(keys(scenarioTree.tree))
             ξ[t] = scenarioTree.tree[t].nodes[n]
-            n = wsample(collect(keys(scenarioTree.tree[t].prob)), collect(values(scenarioTree.tree[t].prob)), 1)[1]
+            n = wsample(
+                collect(keys(scenarioTree.tree[t].prob)), 
+                collect(values(scenarioTree.tree[t].prob)), 
+            1)[1]
         end
         Ξ[ω] = ξ
     end
@@ -182,22 +214,43 @@ forwardPass(ξ): function for forward pass in parallel computing
   1. `scenario_solution_collection`: cut coefficients
 
 """
-function forwardPass(ξ::Dict{Int64, RandomVariables}; 
-                        indexSets::IndexSets = indexSets, paramDemand::ParamDemand = paramDemand, paramOPF::ParamOPF = paramOPF, 
-                            forwardInfoList::Dict{Int, Model} = forwardInfoList, 
-                                initialStageDecision::Dict{Symbol, Dict{Int64, Float64}} = initialStageDecision, 
-                                    StateVarList::Dict{Any, Any} = StateVarList
-                    )
+function forwardPass(
+    ξ::Dict{Int64, RandomVariables}; 
+    indexSets::IndexSets = indexSets, 
+    paramDemand::ParamDemand = paramDemand, 
+    paramOPF::ParamOPF = paramOPF, 
+    forwardInfoList::Dict{Int, Model} = forwardInfoList, 
+    initialStageDecision::Dict{Symbol, Dict{Int64, Float64}} = initialStageDecision, 
+    StateVarList::Dict{Any, Any} = StateVarList
+)
 
-    stageDecision[:s] = Dict{Int64, Float64}(g => initialStageDecision[:s][g] for g in indexSets.G); stageDecision[:y] = Dict{Int64, Float64}(g => initialStageDecision[:y][g] for g in indexSets.G);  
-    for g in indexSets.G stageDecision[:sur][g] = Dict(1 => 1.) end; # augmented state variables
+    stageDecision[:s] = Dict{Int64, Float64}(
+        g => initialStageDecision[:s][g] for g in indexSets.G
+    ); 
+    stageDecision[:y] = Dict{Int64, Float64}(
+        g => initialStageDecision[:y][g] for g in indexSets.G
+    );  
+    for g in indexSets.G 
+        stageDecision[:sur][g] = Dict(1 => 1.) 
+    end; # augmented state variables
 
     scenario_solution_collection = Dict();
     for t in 1:indexSets.T
-        forwardModification!(model = forwardInfoList[t], randomVariables = ξ[t], paramOPF = paramOPF, indexSets = indexSets, stageDecision = stageDecision, paramDemand = paramDemand);
+        forwardModification!(
+            model = forwardInfoList[t], 
+            randomVariables = ξ[t], 
+            paramOPF = paramOPF, 
+            indexSets = indexSets, 
+            stageDecision = stageDecision, 
+            paramDemand = paramDemand
+        );
         optimize!(forwardInfoList[t]);
-        stageDecision[:s] = Dict{Int64, Float64}(g => JuMP.value(forwardInfoList[t][:s][g]) for g in indexSets.G);
-        stageDecision[:y] = Dict{Int64, Float64}(g => round(JuMP.value(forwardInfoList[t][:y][g]), digits = 6) for g in indexSets.G);
+        stageDecision[:s] = Dict{Int64, Float64}(
+            g => JuMP.value(forwardInfoList[t][:s][g]) for g in indexSets.G
+        );
+        stageDecision[:y] = Dict{Int64, Float64}(
+            g => round(JuMP.value(forwardInfoList[t][:y][g]), digits = 6) for g in indexSets.G
+        );
         for g in indexSets.G 
             stageDecision[:sur][g] = Dict{Int64, Float64}()
             for k in StateVarList[t].leaf[g]
@@ -207,10 +260,13 @@ function forwardPass(ξ::Dict{Int64, RandomVariables};
                 end
             end
         end
-        scenario_solution_collection[t] = ( stageSolution = deepcopy(stageDecision), 
-                                                stageValue = JuMP.objective_value(forwardInfoList[t]) - sum(JuMP.value.(forwardInfoList[t][:θ])), 
-                                                    OPT = JuMP.objective_value(forwardInfoList[t])
-                                            );
+        scenario_solution_collection[t] = ( 
+            stageSolution = deepcopy(stageDecision), 
+            stageValue = JuMP.objective_value(
+                forwardInfoList[t]) - sum(JuMP.value.(forwardInfoList[t][:θ])
+            ), 
+            OPT = JuMP.objective_value(forwardInfoList[t])
+        );
 
     end  
     return scenario_solution_collection  

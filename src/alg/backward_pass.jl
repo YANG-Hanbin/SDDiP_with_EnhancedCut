@@ -1,0 +1,129 @@
+"""
+RemoveContVarNonAnticipative!(model::Model)
+
+# Arguments
+
+    1. `model::Model` : a nodal problem
+  
+# Modification
+    1. Remove the Nonanticipativity constraints
+"""
+function RemoveContVarNonAnticipative!(
+    model::Model = model;
+    indexSets::IndexSets = indexSets
+)::Nothing
+
+    for g in indexSets.G
+        delete(model, model[:ContVarNonAnticipative][g]);
+        delete(model, model[:BinVarNonAnticipative][g]);
+    end
+    unregister(model, :ContVarNonAnticipative);
+    unregister(model, :BinVarNonAnticipative);
+    
+    return
+end
+
+"""
+    setup_initial_point(stateInfo::StateInfo)
+# Arguments
+    stateInfo::StateInfo : the parent's node decisions
+    function for setting up the initial dual variables
+"""
+function setup_initial_point(
+    stateInfo::StateInfo;
+    indexSets::IndexSets = indexSets 
+)::StateInfo
+    BinVar = Dict{Any, Dict{Any, Any}}(:y => Dict{Any, Any}(
+        g => 0.0 for g in indexSets.G)
+    );
+    ContVar = Dict{Any, Dict{Any, Any}}(:s => Dict{Any, Any}(
+        g => 0.0 for g in indexSets.G)
+    );
+    ContAugState = Dict{Any, Dict{Any, Dict{Any, Any}}}(
+        :s => Dict{Any, Dict{Any, Any}}(
+            g => Dict{Any, Any}(
+                k => 0.0 for k in keys(stateInfo.ContAugState[:s][g])
+            ) for g in indexSets.G
+        )
+    );
+
+    return StateInfo(
+        BinVar, 
+        nothing, 
+        ContVar, 
+        nothing, 
+        nothing, 
+        nothing, 
+        nothing, 
+        nothing, 
+        ContAugState
+    );
+end
+
+"""
+    backwardPass(backwardNodeInfo)
+
+    function for backward pass in parallel computing
+"""
+function backwardPass(
+    backwardNodeInfo::Tuple; 
+    ModelList::Dict{Int64, SDDPLModel} = ModelList,
+    indexSets::IndexSets = indexSets, 
+    paramDemand::ParamDemand = paramDemand, 
+    paramOPF::ParamOPF = paramOPF,
+    scenarioTree::ScenarioTree = scenarioTree, 
+    stateInfoCollection::Dict{Any, Any} = stateInfoCollection,
+    param::NamedTuple = param, param_PLC::NamedTuple = param_PLC, param_levelsetmethod::NamedTuple = param_levelsetmethod
+)
+
+    (i, t, n, ω, cutSelection, core_point_strategy) = backwardNodeInfo; 
+    ModelModification!( 
+        ModelList[t].model, 
+        scenarioTree.tree[t].nodes[n],
+        paramDemand,
+        stateInfoCollection[i, t-1, ω];
+        indexSets = indexSets
+    );
+    RemoveContVarNonAnticipative!(
+        ModelList[t].model;
+        indexSets = indexSets
+    );
+
+    PLCGeneration = ParetoLagrangianCutGeneration{Float64}(
+        core_point_strategy, 
+        setup_core_point(
+            stateInfoCollection[i, t-1, ω];
+            indexSets = indexSets,
+            paramOPF = paramOPF, 
+            param_PLC = param_PLC   
+        ), 
+        param_PLC.δ, 
+        stateInfoCollection[i, t, ω].StateValue
+    );
+    levelsetmethodOracleParam = SetupLevelSetMethodOracleParam(
+        stateInfoCollection[i, t-1, ω];
+        indexSets = indexSets,
+        param_levelsetmethod = param_levelsetmethod
+    );
+    
+    ((λ₀, λ₁), LMiter) = LevelSetMethod_optimization!(
+        ModelList[t].model, 
+        levelsetmethodOracleParam, 
+        stateInfoCollection[i, t-1, ω],
+        PLCGeneration;
+        indexSets = indexSets, 
+        paramDemand = paramDemand, 
+        paramOPF = paramOPF, 
+        param = param, param_levelsetmethod = param_levelsetmethod
+    );
+                                                    
+    # f_star_value = λ₀ + 
+    #     sum(
+    #         λ₁.ContVar[:s][g] * stateInfoCollection[i, t-1, ω].ContVar[:s][g] + 
+    #         λ₁.BinVar[:y][g] * stateInfoCollection[i, t-1, ω].BinVar[:y][g] + 
+    #         sum(λ₁.ContAugState[:s][g][k] * stateInfoCollection[i, t-1, ω].ContAugState[:s][g][k] for k in keys(stateInfoCollection[i, t-1, ω].ContAugState[:s][g]); init = 0.0) 
+    #         for g in indexSets.G
+    # );
+
+    return ((λ₀, λ₁), LMiter)  
+end
