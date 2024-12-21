@@ -34,8 +34,8 @@ function stochastic_dual_dynamic_programming_algorithm(
     initial = now(); i = 1; LB = - Inf; UB = Inf; 
     iter_time = 0; total_Time = 0; t0 = 0.0; LMiter = 0; LM_iter = 0; gap = 100.0; gapString = "100%"; branchDecision = false;
 
-    col_names = [:Iter, :LB, :OPT, :UB, :gap, :time, :LM_iter, :Time, :Branch]; # needs to be a vector Symbols
-    col_types = [Int64, Float64, Union{Float64,Nothing}, Float64, String, Float64, Int64, Float64, Bool]; # needs to be a vector of types
+    col_names = [:Iter, :LB, :OPT, :UB, :gap, :time, :LM_iter, :Time, :Branch];                                 # needs to be a vector Symbols
+    col_types = [Int64, Float64, Union{Float64,Nothing}, Float64, String, Float64, Int64, Float64, Bool];       # needs to be a vector of types
     named_tuple = (; zip(col_names, type[] for type in col_types )...);
     sddipResult = DataFrame(named_tuple); # 0×7 DataFrame
     gapList = [];
@@ -71,7 +71,7 @@ function stochastic_dual_dynamic_programming_algorithm(
             u[ω] = sum(stateInfoCollection[i, t, ω].StageValue for t in 1:indexSets.T);
         end
         @everywhere stateInfoCollection = $stateInfoCollection;
-        ####################################################### To Record Info ###########################################################
+        ####################################################### Record Info ###########################################################
         LB = maximum([stateInfoCollection[i, 1, 1].StateValue, LB]);
         μ̄ = mean(values(u));
         σ̂² = Statistics.var(values(u));
@@ -94,17 +94,24 @@ function stochastic_dual_dynamic_programming_algorithm(
                                 :gapHistory => gapList) 
         end
 
-        ####################################################### Update Partition Tree ###########################################################
+        ####################################################### Partition Tree ###########################################################
         ## the first rule:: for branching: current convex envelope is good enough
-        if i ≥ param.LiftingIter && param.algorithm == :SDDPL                                                                 
+        if i ≥ param.LiftIterThreshold && param.algorithm == :SDDPL                                                                 
             for t in reverse(1:indexSets.T-1) 
                 for ω in [1]#keys(Ξ̃)
-                    dev = Dict()
+                    dev = Dict();
                     for g in indexSets.G 
                         if stateInfoCollection[i, t, ω].BinVar[:y][g] > .5
-                            k = maximum([k for (k, v) in stateInfoCollection[i, t, ω].ContVarLeaf[:s][g] if v[:var] > 0.5]);
-                            info = ModelList[t].ContVarLeaf[:s][g][k]
-                            dev[g] = round(minimum([(info[:ub] - stateInfoCollection[i, t, ω].ContVar[:s][g])/(info[:ub] - info[:lb] + 1e-6), (stateInfoCollection[i, t, ω].ContVar[:s][g] - info[:lb])/(info[:ub] - info[:lb] + 1e-6)]), digits = 5)
+                            k = maximum(
+                                [k for (k, v) in stateInfoCollection[i, t, ω].ContVarLeaf[:s][g] if v[:var] > 0.5]
+                            );
+                            info = ModelList[t].ContVarLeaf[:s][g][k];
+                            dev[g] = round(
+                                minimum(
+                                    [(info[:ub] - stateInfoCollection[i, t, ω].ContVar[:s][g])/(info[:ub] - info[:lb] + 1e-6), 
+                                        (stateInfoCollection[i, t, ω].ContVar[:s][g] - info[:lb])/(info[:ub] - info[:lb] + 1e-6)]
+                                ), digits = 5
+                            );
                         end
                     end
                     # g = [g for (g, v) in dev if v == maximum(values(dev))][1];
@@ -132,7 +139,10 @@ function stochastic_dual_dynamic_programming_algorithm(
                 for n in keys(scenarioTree.tree[t].nodes) 
                     backwardNodeInfoList[n] = (i, t, n, ω, param.cutSelection, param_PLC.core_point_strategy) 
                 end
-                backwardPassResult = pmap(backwardPass, values(backwardNodeInfoList));
+                backwardPassResult = pmap(
+                    backwardPass, 
+                    values(backwardNodeInfoList)
+                );
 
                 for n in keys(scenarioTree.tree[t].nodes)
                     @everywhere begin
@@ -141,7 +151,11 @@ function stochastic_dual_dynamic_programming_algorithm(
                             ModelList[t-1].model, 
                             ModelList[t-1].model[:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + 
                             sum(λ₁.ContVar[:s][g] * ModelList[t-1].model[:s][g] + λ₁.BinVar[:y][g] * ModelList[t-1].model[:y][g] for g in indexSets.G) + 
-                            sum(sum(λ₁.ContAugState[:s][g][k] * ModelList[t-1].model[:augmentVar][g, k] for k in keys(stateInfoCollection[i, t-1, ω].ContAugState[:s][g]); init = 0.0) for g in indexSets.G)
+                            (param.algorithm == :SDDPL ?
+                                sum(
+                                    sum(λ₁.ContAugState[:s][g][k] * ModelList[t-1].model[:augmentVar][g, k] for k in keys(stateInfoCollection[i, t-1, ω].ContAugState[:s][g]); init = 0.0) for g in indexSets.G
+                                ) : 0.0
+                            )
                         );                 
                     end
                 end

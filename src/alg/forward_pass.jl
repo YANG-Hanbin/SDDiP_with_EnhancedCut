@@ -44,36 +44,59 @@ function forwardModel!(
 
     @variable(model, θ[keys(stageRealization.prob)] ≥ param.θ̲)                             ## auxiliary variable for approximation of the value function
 
-    ## augmented variables
-    # define the augmented variables for cont. variables
-    augmentVar = Dict(
-        (g, k) => @variable(model, base_name = "augmentVar[$g, $k]", binary = true)
-        for g in indexSets.G for k in 1:1
-    );
-    model[:augmentVar] = augmentVar;
-    
-    ## define copy variables
-    if param.tightness
-        @variable(model, 0 ≤ s_copy[g in indexSets.G] ≤ paramOPF.smax[g])
-        @variable(model, y_copy[indexSets.G], Bin)        
-        augmentVar_copy = Dict(
-            (g, k) => @variable(model, base_name = "augmentVar_copy[$g, $k]", binary = true)
+    if param.algorithm == :SDDPL
+        ## augmented variables
+        # define the augmented variables for cont. variables
+        augmentVar = Dict(
+            (g, k) => @variable(model, base_name = "augmentVar[$g, $k]", binary = true)
             for g in indexSets.G for k in 1:1
         );
-        model[:augmentVar_copy] = augmentVar_copy;     
-    else
-        @variable(model, 0 ≤ s_copy[g in indexSets.G] ≤ paramOPF.smax[g])
-        @variable(model, 0 ≤ y_copy[indexSets.G] ≤ 1)  
-        augmentVar_copy = Dict(
-            (g, k) => @variable(model, base_name = "augmentVar_copy[$g, $k]", lower_bound = 0, upper_bound = 1)
-            for g in indexSets.G for k in 1:1
+        model[:augmentVar] = augmentVar;
+        
+        ## define copy variables
+        if param.tightness
+            @variable(model, 0 ≤ s_copy[g in indexSets.G] ≤ paramOPF.smax[g])
+            @variable(model, y_copy[indexSets.G], Bin)        
+            augmentVar_copy = Dict(
+                (g, k) => @variable(model, base_name = "augmentVar_copy[$g, $k]", binary = true)
+                for g in indexSets.G for k in 1:1
+            );
+            model[:augmentVar_copy] = augmentVar_copy;     
+        else
+            @variable(model, 0 ≤ s_copy[g in indexSets.G] ≤ paramOPF.smax[g])
+            @variable(model, 0 ≤ y_copy[indexSets.G] ≤ 1)  
+            augmentVar_copy = Dict(
+                (g, k) => @variable(model, base_name = "augmentVar_copy[$g, $k]", lower_bound = 0, upper_bound = 1)
+                for g in indexSets.G for k in 1:1
+            );
+            model[:augmentVar_copy] = augmentVar_copy;     
+        end
+
+        # constraints for augmented variables: Choosing one leaf node
+        @constraint(model, [g in indexSets.G, k in [1]], augmentVar[g, k] == 1)
+        ContVarLeaf = Dict(
+            :s => Dict{Any, Dict{Any, Dict{Symbol, Any}}}(
+                        g => Dict(
+                            k => Dict(
+                                :lb => 0.0, 
+                                :ub => paramOPF.smax[g], 
+                                :parent => nothing, 
+                                :sibling => nothing, 
+                                :var => augmentVar[g,1]) for k in 1:1
+                                ) for g in indexSets.G
+            )
         );
-        model[:augmentVar_copy] = augmentVar_copy;     
+    else 
+        ## define copy variables
+        if param.tightness
+            @variable(model, 0 ≤ s_copy[g in indexSets.G] ≤ paramOPF.smax[g])
+            @variable(model, y_copy[indexSets.G], Bin)             
+        else
+            @variable(model, 0 ≤ s_copy[g in indexSets.G] ≤ paramOPF.smax[g])
+            @variable(model, 0 ≤ y_copy[indexSets.G] ≤ 1)    
+        end
+        ContVarLeaf = nothing;
     end
-
-    # constraints for augmented variables: Choosing one leaf node
-    @constraint(model, [g in indexSets.G, k in [1]], augmentVar[g, k] == 1)
-
 
     ## problem constraints:
     # power flow constraints
@@ -133,14 +156,6 @@ function forwardModel!(
         sum(θ)
     );
 
-    # @expression(
-    #     model, 
-    #     dual_objective_expression, 
-    #     sum(h[g] + paramOPF.C_start[g] * v[g] + 
-    #     paramOPF.C_down[g] * w[g] for g in indexSets.G) + 
-    #     sum(paramDemand.w[d] * (1 - x[d]) for d in indexSets.D) + 
-    #     sum(θ)
-    # );
     @objective(
         model, 
         Min, 
@@ -153,17 +168,7 @@ function forwardModel!(
                 nothing, 
                 Dict{Any, Dict{Any, VariableRef}}(:s => Dict{Any, VariableRef}(g => s[g] for g in indexSets.G)), 
                 nothing, 
-                Dict(:s => Dict{Any, Dict{Any, Dict{Symbol, Any}}}(
-                        g => Dict(
-                            k => Dict(
-                                :lb => 0.0, 
-                                :ub => paramOPF.smax[g], 
-                                :parent => nothing, 
-                                :sibling => nothing, 
-                                :var => augmentVar[g,1]) for k in 1:1
-                                ) for g in indexSets.G
-                    )
-                )
+                ContVarLeaf
     )
 end
 
@@ -207,19 +212,24 @@ function forwardPass(
         ContVar = Dict{Any, Dict{Any, Any}}(:s => Dict{Any, Any}(
             g => JuMP.value(ModelList[t].ContVar[:s][g]) for g in indexSets.G)
         );
-        ContVarLeaf = Dict{Any, Dict{Any, Dict{Any, Dict{Symbol, Any}}}}(
-            :s => Dict{Any, Dict{Any, Dict{Symbol, Any}}}(
-                g => Dict(
-                    k => Dict(
-                        :var => JuMP.value(ModelList[t].ContVarLeaf[:s][g][k][:var])
-                    ) for k in keys(ModelList[t].ContVarLeaf[:s][g]) if JuMP.value(ModelList[t].ContVarLeaf[:s][g][k][:var]) > .5
-                ) for g in indexSets.G
-            )
-        );
+        if ModelList[t].ContVarLeaf ∉ [nothing]
+            ContVarLeaf = Dict{Any, Dict{Any, Dict{Any, Dict{Symbol, Any}}}}(
+                :s => Dict{Any, Dict{Any, Dict{Symbol, Any}}}(
+                    g => Dict(
+                        k => Dict(
+                            :var => JuMP.value(ModelList[t].ContVarLeaf[:s][g][k][:var])
+                        ) for k in keys(ModelList[t].ContVarLeaf[:s][g]) if JuMP.value(ModelList[t].ContVarLeaf[:s][g][k][:var]) > .5
+                    ) for g in indexSets.G
+                )
+            );
+            ContAugState = Dict{Any, Dict{Any, Dict{Any, Any}}}(:s => Dict{Any, Dict{Any, Any}}(g => Dict{Any, Any}() for g in indexSets.G));
+        else
+            ContVarLeaf  = nothing;
+            ContAugState = nothing;
+        end
         
         stageValue = JuMP.objective_value(ModelList[t].model) - sum(JuMP.value.(ModelList[t].model[:θ])); 
         stateValue = JuMP.objective_value(ModelList[t].model);
-        ContAugState = Dict{Any, Dict{Any, Dict{Any, Any}}}(:s => Dict{Any, Dict{Any, Any}}(g => Dict{Any, Any}() for g in indexSets.G));
         stateInfoList[t] = StateInfo(
             BinVar, 
             nothing, 

@@ -39,13 +39,17 @@ function setup_initial_point(
     ContVar = Dict{Any, Dict{Any, Any}}(:s => Dict{Any, Any}(
         g => 0.0 for g in indexSets.G)
     );
-    ContAugState = Dict{Any, Dict{Any, Dict{Any, Any}}}(
-        :s => Dict{Any, Dict{Any, Any}}(
-            g => Dict{Any, Any}(
-                k => 0.0 for k in keys(stateInfo.ContAugState[:s][g])
-            ) for g in indexSets.G
-        )
-    );
+    if stateInfo.ContAugState == nothing 
+        ContAugState = nothing
+    else
+        ContAugState = Dict{Any, Dict{Any, Dict{Any, Any}}}(
+            :s => Dict{Any, Dict{Any, Any}}(
+                g => Dict{Any, Any}(
+                    k => 0.0 for k in keys(stateInfo.ContAugState[:s][g])
+                ) for g in indexSets.G
+            )
+        );
+    end
 
     return StateInfo(
         BinVar, 
