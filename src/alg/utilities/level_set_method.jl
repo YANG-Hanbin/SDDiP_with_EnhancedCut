@@ -120,7 +120,8 @@ end
 function add_constraint(
     currentInfo::CurrentInfo,
     modelInfo::ModelInfo;
-    indexSets::IndexSets = indexSets
+    indexSets::IndexSets = indexSets,
+    param::NamedTuple = param
 )::Nothing
     m = length(currentInfo.G)
 
@@ -128,9 +129,13 @@ function add_constraint(
     @constraint(
         modelInfo.model, 
         modelInfo.z .≥ currentInfo.f + 
-        sum(currentInfo.df[:s][g] * (modelInfo.xs[g] - currentInfo.x.ContVar[:s][g]) for g in indexSets.G) + 
+        (param.algorithm == :SDDiP ?  
+            sum(
+                sum(currentInfo.df[:λ][g][i] * (modelInfo.sur[g, i] - currentInfo.x.ContStateBin[:s][g][i]) for i in 1:param.κ[g]; init = 0.0) for g in indexSets.G
+            ) : sum(currentInfo.df[:s][g] * (modelInfo.xs[g] - currentInfo.x.ContVar[:s][g]) for g in indexSets.G)
+        ) + 
         sum(currentInfo.df[:y][g] * (modelInfo.xy[g] - currentInfo.x.BinVar[:y][g]) for g in indexSets.G) + 
-        (:sur ∈ keys(currentInfo.df) ?  
+        (param.algorithm == :SDDPL ?  
             sum(
                 sum(currentInfo.df[:sur][g][k] * (modelInfo.sur[g, k] - currentInfo.x.ContAugState[:s][g][k]) for k in keys(currentInfo.df[:sur][g]); init = 0.0) for g in indexSets.G
             ) : 0.0
@@ -141,9 +146,13 @@ function add_constraint(
         modelInfo.model, 
         [k = 1:m], 
         modelInfo.y .≥ currentInfo.G[k] + 
-        sum(currentInfo.dG[k].ContVar[:s][g] * (modelInfo.xs[g] .- currentInfo.x.ContVar[:s][g]) for g in keys(currentInfo.df[:s])) + 
+        (param.algorithm == :SDDiP ?  
+            sum(
+                sum(currentInfo.dG[k].ContStateBin[:s][g][j] * (modelInfo.sur[g, j] .- currentInfo.x.ContStateBin[:s][g][j]) for j in 1:param.κ[g]; init = 0.0) for g in indexSets.G
+            ) : sum(currentInfo.dG[k].ContVar[:s][g] * (modelInfo.xs[g] .- currentInfo.x.ContVar[:s][g]) for g in keys(currentInfo.df[:s]))
+        ) + 
         sum(currentInfo.dG[k].BinVar[:y][g] * (modelInfo.xy[g] .- currentInfo.x.BinVar[:y][g]) for g in keys(currentInfo.df[:y])) + 
-        (:sur ∈ keys(currentInfo.df) ?  
+        (param.algorithm == :SDDPL ?  
             sum(
                 sum(currentInfo.dG[k].ContAugState[:s][g][j] * (modelInfo.sur[g, j] .- currentInfo.x.ContAugState[:s][g][j]) for j in keys(currentInfo.df[:sur][g]); init = 0.0) for g in indexSets.G
             ) : 0.0
@@ -217,7 +226,13 @@ function LevelSetMethod_optimization!(
     @variable(oracleModel, z ≥ - z_rhs);
     @variable(oracleModel, xs_oracle[G]);
     @variable(oracleModel, xy_oracle[G]);
-    stateInfo.ContAugState !== nothing ? @variable(oracleModel, sur_oracle[g in G, k in keys(stateInfo.ContAugState[:s][g])]) : sur_oracle = nothing;
+    if param.algorithm == :SDDPL
+        @variable(oracleModel, sur_oracle[g in G, k in keys(stateInfo.ContAugState[:s][g])]);
+    elseif param.algorithm == :SDDP
+        sur_oracle = nothing;
+    elseif param.algorithm == :SDDiP
+        @variable(oracleModel, sur_oracle[g in G, k in 1:param.κ[g]]);
+    end
     @variable(oracleModel, y ≤ 0);
 
     @objective(oracleModel, Min, z);
@@ -234,7 +249,13 @@ function LevelSetMethod_optimization!(
 
     @variable(nxtModel, xs[G]);
     @variable(nxtModel, xy[G]);
-    stateInfo.ContAugState !== nothing ? @variable(nxtModel, sur[g in G, k in keys(stateInfo.ContAugState[:s][g])]) : sur = nothing;
+    if param.algorithm == :SDDPL
+        @variable(nxtModel, sur[g in G, k in keys(stateInfo.ContAugState[:s][g])]);
+    elseif param.algorithm == :SDDP
+        sur = nothing;
+    elseif param.algorithm == :SDDiP
+        @variable(nxtModel, sur[g in G, k in 1:param.κ[g]])
+    end
     @variable(nxtModel, z1);
     @variable(nxtModel, y1);
     nxtInfo = ModelInfo(nxtModel, xs, xy, sur, y1, z1);
@@ -242,7 +263,12 @@ function LevelSetMethod_optimization!(
     cutInfo = [
         currentInfo_f - 
         sum(
-            currentInfo.x.ContVar[:s][g] * stateInfo.ContVar[:s][g] + 
+            (stateInfo.ContStateBin !== nothing ?
+                sum(
+                    currentInfo.x.ContStateBin[:s][g][i] * stateInfo.ContStateBin[:s][g][i] for i in 1:param.κ[g]
+                ) : currentInfo.x.ContVar[:s][g] * stateInfo.ContVar[:s][g]
+            )
+             + 
             currentInfo.x.BinVar[:y][g] * stateInfo.BinVar[:y][g] for g in G
         ) - 
         (stateInfo.ContAugState !== nothing ? 
@@ -256,7 +282,7 @@ function LevelSetMethod_optimization!(
     ];
 
     while true
-        add_constraint(currentInfo, oracleInfo; indexSets = indexSets);
+        add_constraint(currentInfo, oracleInfo; indexSets = indexSets, param = param);
         optimize!(oracleModel);
         st = termination_status(oracleModel);
         if termination_status(oracleModel) == MOI.OPTIMAL
@@ -284,7 +310,12 @@ function LevelSetMethod_optimization!(
             cutInfo = [
                 currentInfo_f - 
                 sum(
-                    currentInfo.x.ContVar[:s][g] * stateInfo.ContVar[:s][g] + 
+                    (stateInfo.ContStateBin !== nothing ?
+                        sum(
+                            currentInfo.x.ContStateBin[:s][g][i] * stateInfo.ContStateBin[:s][g][i] for i in 1:param.κ[g]
+                        ) : currentInfo.x.ContVar[:s][g] * stateInfo.ContVar[:s][g]
+                    )
+                     + 
                     currentInfo.x.BinVar[:y][g] * stateInfo.BinVar[:y][g] for g in G
                 ) - 
                 (stateInfo.ContAugState !== nothing ? 
@@ -325,7 +356,10 @@ function LevelSetMethod_optimization!(
             nxtModel, 
             Min, 
             sum(
-                (xs[g] - x₀.ContVar[:s][g]) * (xs[g] - x₀.ContVar[:s][g]) + 
+                (x₀.ContStateBin !== nothing ?  
+                    sum((sur[g, i] - x₀.ContStateBin[:s][g][i]) * (sur[g, i] - x₀.ContStateBin[:s][g][i]) for i in 1:param.κ[g]; init = 0.0
+                    ) : (xs[g] - x₀.ContVar[:s][g]) * (xs[g] - x₀.ContVar[:s][g])
+                ) + 
                 (xy[g] - x₀.BinVar[:y][g]) * (xy[g] - x₀.BinVar[:y][g]) + 
                 (x₀.ContAugState !== nothing ?  
                     sum((sur[g, k] - x₀.ContAugState[:s][g][k]) * (sur[g, k] - x₀.ContAugState[:s][g][k]) for k in keys(x₀.ContAugState[:s][g]); init = 0.0
@@ -343,13 +377,21 @@ function LevelSetMethod_optimization!(
             ContVar = Dict{Any, Dict{Any, Any}}(:s => Dict{Any, Any}(
                 g => JuMP.value(xs[g]) for g in indexSets.G)
             );
-            if stateInfo.ContAugState == nothing
+            if stateInfo.ContAugState == nothing && stateInfo.ContStateBin == nothing
                 ContAugState = nothing
-            else
+            elseif stateInfo.ContAugState !== nothing
                 ContAugState = Dict{Any, Dict{Any, Dict{Any, Any}}}(
                     :s => Dict{Any, Dict{Any, Any}}(
                         g => Dict{Any, Any}(
                             k => JuMP.value(sur[g, k]) for k in keys(stateInfo.ContAugState[:s][g])
+                        ) for g in indexSets.G
+                    )
+                );
+            elseif stateInfo.ContStateBin !== nothing
+                ContAugState = Dict{Any, Dict{Any, Dict{Any, Any}}}(
+                    :s => Dict{Any, Dict{Any, Any}}(
+                        g => Dict{Any, Any}(
+                            k => JuMP.value(sur[g, k]) for k in 1:param.κ[g]
                         ) for g in indexSets.G
                     )
                 );
@@ -379,7 +421,13 @@ function LevelSetMethod_optimization!(
             set_optimizer_attribute(nxtModel, "TimeLimit", param.TimeLimit);
             @variable(nxtModel, xs[G]);
             @variable(nxtModel, xy[G]);
-            stateInfo.ContAugState !== nothing ? @variable(nxtModel, sur[g in G, k in keys(stateInfo.ContAugState[:s][g])]) : sur = nothing;
+            if param.algorithm == :SDDPL
+                @variable(nxtModel, sur[g in G, k in keys(stateInfo.ContAugState[:s][g])]);
+            elseif param.algorithm == :SDDP
+                sur = nothing;
+            elseif param.algorithm == :SDDiP
+                @variable(nxtModel, sur[g in G, k in 1:param.κ[g]])
+            end
             @variable(nxtModel, z1);
             @variable(nxtModel, y1);
             nxtInfo = ModelInfo(nxtModel, xs, xy, sur, y1, z1);
@@ -389,7 +437,10 @@ function LevelSetMethod_optimization!(
                 nxtModel, 
                 Min, 
                 sum(
-                    (xs[g] - x₀.ContVar[:s][g]) * (xs[g] - x₀.ContVar[:s][g]) + 
+                    (x₀.ContStateBin !== nothing ?  
+                        sum((sur[g, i] - x₀.ContStateBin[:s][g][i]) * (sur[g, i] - x₀.ContStateBin[:s][g][i]) for i in 1:param.κ[g]; init = 0.0
+                        ) : (xs[g] - x₀.ContVar[:s][g]) * (xs[g] - x₀.ContVar[:s][g])
+                    ) + 
                     (xy[g] - x₀.BinVar[:y][g]) * (xy[g] - x₀.BinVar[:y][g]) + 
                     (x₀.ContAugState !== nothing ?  
                         sum((sur[g, k] - x₀.ContAugState[:s][g][k]) * (sur[g, k] - x₀.ContAugState[:s][g][k]) for k in keys(x₀.ContAugState[:s][g]); init = 0.0
@@ -407,13 +458,21 @@ function LevelSetMethod_optimization!(
                 ContVar = Dict{Any, Dict{Any, Any}}(:s => Dict{Any, Any}(
                     g => JuMP.value(xs[g]) for g in indexSets.G)
                 );
-                if stateInfo.ContAugState == nothing
+                if stateInfo.ContAugState == nothing && stateInfo.ContStateBin == nothing
                     ContAugState = nothing
-                else
+                elseif stateInfo.ContAugState !== nothing
                     ContAugState = Dict{Any, Dict{Any, Dict{Any, Any}}}(
                         :s => Dict{Any, Dict{Any, Any}}(
                             g => Dict{Any, Any}(
                                 k => JuMP.value(sur[g, k]) for k in keys(stateInfo.ContAugState[:s][g])
+                            ) for g in indexSets.G
+                        )
+                    );
+                elseif stateInfo.ContStateBin !== nothing
+                    ContAugState = Dict{Any, Dict{Any, Dict{Any, Any}}}(
+                        :s => Dict{Any, Dict{Any, Any}}(
+                            g => Dict{Any, Any}(
+                                k => JuMP.value(sur[g, k]) for k in 1:param.κ[g]
                             ) for g in indexSets.G
                         )
                     );
@@ -447,13 +506,21 @@ function LevelSetMethod_optimization!(
                 ContVar = Dict{Any, Dict{Any, Any}}(:s => Dict{Any, Any}(
                     g => JuMP.value(xs[g]) for g in indexSets.G)
                 );
-                if stateInfo.ContAugState == nothing
+                if stateInfo.ContAugState == nothing && stateInfo.ContStateBin == nothing
                     ContAugState = nothing
-                else
+                elseif stateInfo.ContAugState !== nothing
                     ContAugState = Dict{Any, Dict{Any, Dict{Any, Any}}}(
                         :s => Dict{Any, Dict{Any, Any}}(
                             g => Dict{Any, Any}(
                                 k => JuMP.value(sur[g, k]) for k in keys(stateInfo.ContAugState[:s][g])
+                            ) for g in indexSets.G
+                        )
+                    );
+                elseif stateInfo.ContStateBin !== nothing
+                    ContAugState = Dict{Any, Dict{Any, Dict{Any, Any}}}(
+                        :s => Dict{Any, Dict{Any, Any}}(
+                            g => Dict{Any, Any}(
+                                k => JuMP.value(sur[g, k]) for k in 1:param.κ[g]
                             ) for g in indexSets.G
                         )
                     );

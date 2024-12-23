@@ -24,7 +24,7 @@ using Distributed; addprocs(5);
 
 end
 
-case = "case30pwl"; algorithm = :SDDPL; cut = :SMC; num = 5; T = 12;
+case = "case30pwl"; algorithm = :SDDPL; cut = :PLC; num = 3; T = 6;
 for algorithm in [:SDDPL, :SDDP, :SDDiP]
     for cut in [:PLC, :SMC, :LC]
         for num in [3, 5, 10]

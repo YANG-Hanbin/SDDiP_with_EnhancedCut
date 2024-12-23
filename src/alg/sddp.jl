@@ -78,8 +78,8 @@ function stochastic_dual_dynamic_programming_algorithm(
                 indexSets = indexSets,
                 initialStateInfo = initialStateInfo,
                 param = param
-            );
-        end
+            )
+        end;
 
         for j in 1:param.numScenarios
             ω = collect(keys(Ξ̃))[j]
