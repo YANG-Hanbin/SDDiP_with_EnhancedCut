@@ -191,7 +191,8 @@ function LevelSetMethod_optimization!(
         CutGenerationInfo,
         model, 
         levelsetmethodOracleParam.x₀, 
-        stateInfo
+        stateInfo;
+        indexSets = indexSets
     );
 
     functionHistory = FunctionHistory(  
@@ -253,7 +254,7 @@ function LevelSetMethod_optimization!(
     ];
 
     while true
-        add_constraint(currentInfo, oracleInfo);
+        add_constraint(currentInfo, oracleInfo; indexSets = indexSets);
         optimize!(oracleModel);
         st = termination_status(oracleModel);
         if termination_status(oracleModel) == MOI.OPTIMAL
@@ -317,7 +318,7 @@ function LevelSetMethod_optimization!(
             unregister(nxtModel, :levelConstraint);
             @constraint(nxtModel, levelConstraint, α * z1 + (1 - α) * y1 ≤ level);
         end
-        add_constraint(currentInfo, nxtInfo);
+        add_constraint(currentInfo, nxtInfo; indexSets = indexSets);
         @objective(
             nxtModel, 
             Min, 
@@ -379,7 +380,7 @@ function LevelSetMethod_optimization!(
             @variable(nxtModel, y1);
             nxtInfo = ModelInfo(nxtModel, xs, xy, sur, y1, z1);
             @constraint(nxtModel, levelConstraint, α * z1 + (1 - α) * y1 ≤ level);
-            add_constraint(currentInfo, nxtInfo);
+            add_constraint(currentInfo, nxtInfo; indexSets = indexSets);
             @objective(
                 nxtModel, 
                 Min, 
@@ -478,7 +479,8 @@ function LevelSetMethod_optimization!(
             CutGenerationInfo,
             model, 
             x_nxt, 
-            stateInfo
+            stateInfo;
+            indexSets = indexSets
         );
         iter = iter + 1;
         functionHistory.f_his[iter] = currentInfo.f;

@@ -1,3 +1,4 @@
+export forwardModel!, forwardPass
 """
     function forwardModel!( 
         paramDemand::ParamDemand, 
@@ -24,8 +25,9 @@ function forwardModel!(
     param::NamedTuple = param
 )::SDDPModel
     ## build the forward model
-    model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(GRB_ENV), 
-                                                    "Threads" => 0)); 
+    model = Model(optimizer_with_attributes(
+        () -> Gurobi.Optimizer(GRB_ENV), 
+        "Threads" => 0)); 
     MOI.set(model, MOI.Silent(), !param.verbose);
     set_optimizer_attribute(model, "MIPGap", param.MIPGap);
     set_optimizer_attribute(model, "TimeLimit", param.TimeLimit);

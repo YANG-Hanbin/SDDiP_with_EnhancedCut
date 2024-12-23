@@ -1,3 +1,4 @@
+export backwardPass
 """
 RemoveContVarNonAnticipative!(model::Model)
 

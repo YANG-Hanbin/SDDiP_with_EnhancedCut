@@ -31,13 +31,13 @@ function stochastic_dual_dynamic_programming_algorithm(
         param::NamedTuple = param
 )::Dict
     ## d: x dim
-    initial = now(); i = 1; LB = - Inf; UB = Inf; 
-    iter_time = 0; total_Time = 0; t0 = 0.0; LMiter = 0; LM_iter = 0; gap = 100.0; gapString = "100%"; branchDecision = false;
+    initial = now(); i::Int64 = 1; LB::Float64 = - Inf; UB::Float64 = Inf; 
+    iter_time::Float64 = 0; total_Time::Float64 = 0; t0 = 0.0; LMiter::Int64 = 0; LM_iter::Int64 = 0; gap::Float64 = 100.0; gapString = "100%"; branchDecision = false;
 
     col_names = [:Iter, :LB, :OPT, :UB, :gap, :time, :LM_iter, :Time, :Branch];                                 # needs to be a vector Symbols
     col_types = [Int64, Float64, Union{Float64,Nothing}, Float64, String, Float64, Int64, Float64, Bool];       # needs to be a vector of types
     named_tuple = (; zip(col_names, type[] for type in col_types )...);
-    sddipResult = DataFrame(named_tuple); # 0×7 DataFrame
+    solHistory = DataFrame(named_tuple); # 0×7 DataFrame
     gapList = [];
     
     @everywhere begin
@@ -60,8 +60,16 @@ function stochastic_dual_dynamic_programming_algorithm(
         Ξ̃ = sample_scenarios(; scenarioTree = scenarioTree, numScenarios = param.numScenarios);
         u = Dict{Int64, Float64}();  # to store the value of each scenario
         ####################################################### Forward Steps ###########################################################
-
-        forwardPassResult = pmap(forwardPass, values(Ξ̃));
+        # forwardPassResult = pmap(forwardPass, values(Ξ̃));
+        forwardPassResult = pmap(values(Ξ̃)) do ξ
+            forwardPass(ξ;
+                # ModelList = ModelList,
+                paramDemand = paramDemand,
+                paramOPF = paramOPF,
+                indexSets = indexSets,
+                initialStateInfo = initialStateInfo
+            )
+        end
 
         for j in 1:param.numScenarios
             ω = collect(keys(Ξ̃))[j]
@@ -78,20 +86,28 @@ function stochastic_dual_dynamic_programming_algorithm(
         UB = μ̄ + 1.96 * sqrt(σ̂²/param.numScenarios); # minimum([μ̄ + 1.96 * sqrt(σ̂²/numScenarios), UB]);
         gap = round((UB-LB)/UB * 100 ,digits = 2); 
         gapString = string(gap,"%"); 
-        push!(sddipResult, [i, LB, param.OPT, UB, gapString, iter_time, LM_iter, total_Time, branchDecision]); 
+        push!(solHistory, [i, LB, param.OPT, UB, gapString, iter_time, LM_iter, total_Time, branchDecision]); 
         push!(gapList, gap); 
         branchDecision = false;
         if i == 1
-            println("----------------------------------------- Iteration Info ------------------------------------------------")
-            println("Iter |        LB        |        UB        |       Gap      |      i-time     |    #LM     |     T-Time")
-            println("----------------------------------------------------------------------------------------------------------")
+            print_iteration_info_bar();
         end
-        @printf("%4d | %12.2f     | %12.2f     | %9.2f%%     | %9.2f s     | %6d     | %10.2f s     \n", 
-                i, LB, UB, gap, iter_time, LM_iter, total_Time); LM_iter = 0;
+        print_iteration_info(i, LB, UB, gap, iter_time, LM_iter, total_Time); 
+        save_info(
+            param, 
+            Dict(
+                :solHistory => solHistory, 
+                # :solution => stateInfoCollection, 
+                :gapHistory => gapList
+            )
+        );
+        LM_iter = 0;
         if total_Time > param.TimeLimit || i ≥ param.MaxIter || UB-LB ≤ param.terminate_threshold * UB  
-            return Dict(:solHistory => sddipResult, 
-                            :solution => stateInfoCollection, 
-                                :gapHistory => gapList) 
+            return Dict(
+                :solHistory => solHistory, 
+                # :solution => stateInfoCollection, 
+                :gapHistory => gapList
+            ) 
         end
 
         ####################################################### Partition Tree ###########################################################
@@ -139,14 +155,25 @@ function stochastic_dual_dynamic_programming_algorithm(
                 for n in keys(scenarioTree.tree[t].nodes) 
                     backwardNodeInfoList[n] = (i, t, n, ω, param.cutSelection, param_PLC.core_point_strategy) 
                 end
-                backwardPassResult = pmap(
-                    backwardPass, 
-                    values(backwardNodeInfoList)
-                );
+
+                # backwardPassResult = pmap(backwardPass, values(backwardNodeInfoList))
+
+                backwardPassResult = pmap(values(backwardNodeInfoList)) do backwardNodeInfo
+                    backwardPass(
+                        backwardNodeInfo; 
+                        # ModelList = ModelList,
+                        indexSets = indexSets, 
+                        paramDemand = paramDemand, 
+                        paramOPF = paramOPF,
+                        scenarioTree = scenarioTree, 
+                        stateInfoCollection = stateInfoCollection,
+                        param = param, param_PLC = param_PLC, param_levelsetmethod = param_levelsetmethod
+                    )
+                end
 
                 for n in keys(scenarioTree.tree[t].nodes)
                     @everywhere begin
-                        n = $n; t = $t; i = $i; ω = $ω; (λ₀, λ₁) = $backwardPassResult[n][1]; 
+                        n = $n; t = $t; i = $i; ω = $ω; (λ₀, λ₁) = $backwardPassResult[n][1]; # (λ₀, λ₁) = backwardPassResult[n][1]
                         @constraint(
                             ModelList[t-1].model, 
                             ModelList[t-1].model[:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + 

@@ -21,7 +21,8 @@ function solve_inner_minimization_problem(
     CutGenerationInfo::ParetoLagrangianCutGeneration,
     model::Model, 
     x₀::StateInfo, 
-    stateInfo::StateInfo
+    stateInfo::StateInfo;
+    indexSets::IndexSets = indexSets
 )
     @objective(
         model, 
@@ -127,7 +128,8 @@ function solve_inner_minimization_problem(
     CutGenerationInfo::SquareMinimizationCutGeneration,
     model::Model, 
     x₀::StateInfo, 
-    stateInfo::StateInfo
+    stateInfo::StateInfo;
+    indexSets::IndexSets = indexSets
 )
     @objective(
         model, 
@@ -223,7 +225,8 @@ function solve_inner_minimization_problem(
     CutGenerationInfo::LagrangianCutGeneration,
     model::Model, 
     x₀::StateInfo, 
-    stateInfo::StateInfo
+    stateInfo::StateInfo;
+    indexSets::IndexSets = indexSets
 )
     @objective(
         model, 
