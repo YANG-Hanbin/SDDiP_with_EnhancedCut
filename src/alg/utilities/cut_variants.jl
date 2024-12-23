@@ -69,7 +69,9 @@ function solve_inner_minimization_problem(
                     ) 
                 for g in indexSets.G
             )
-        ) : nothing
+        ) : nothing,
+        nothing,
+        nothing
     );
     currentInfo = CurrentInfo(  
         x₀, 
@@ -176,7 +178,9 @@ function solve_inner_minimization_problem(
                     ) 
                 for g in indexSets.G
             )
-        ) : nothing
+        ) : nothing,
+        nothing,
+        nothing
     );
     currentInfo = CurrentInfo(  
         x₀, 
@@ -279,6 +283,8 @@ function solve_inner_minimization_problem(
             nothing, 
             nothing, 
             nothing, 
+            nothing,
+            nothing,
             nothing
             )
         )                                                                                                                                                               ## constraint gradient

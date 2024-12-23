@@ -364,7 +364,9 @@ function LevelSetMethod_optimization!(
                 nothing, 
                 nothing, 
                 nothing, 
-                ContAugState
+                ContAugState,
+                nothing,
+                nothing
             );
         elseif st == MOI.NUMERICAL_ERROR ## need to figure out why this case happened and fix it
             # @info "Numerical Error occurs -- Build a new nxtModel"
@@ -426,7 +428,9 @@ function LevelSetMethod_optimization!(
                     nothing, 
                     nothing, 
                     nothing, 
-                    ContAugState
+                    ContAugState,
+                    nothing,
+                    nothing
                 );
             else
                 return (cutInfo = cutInfo, iter = iter)
@@ -464,7 +468,9 @@ function LevelSetMethod_optimization!(
                     nothing, 
                     nothing, 
                     nothing, 
-                    ContAugState
+                    ContAugState,
+                    nothing,
+                    nothing
                 );
             else
                 return (cutInfo = cutInfo, iter = iter)
