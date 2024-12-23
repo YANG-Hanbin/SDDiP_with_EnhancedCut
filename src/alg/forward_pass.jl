@@ -56,8 +56,8 @@ function forwardModel!(
         model[:augmentVar] = augmentVar;
         
         ## define copy variables
+        @variable(model, 0 ≤ s_copy[g in indexSets.G] ≤ paramOPF.smax[g])
         if param.tightness
-            @variable(model, 0 ≤ s_copy[g in indexSets.G] ≤ paramOPF.smax[g])
             @variable(model, y_copy[indexSets.G], Bin)        
             augmentVar_copy = Dict(
                 (g, k) => @variable(model, base_name = "augmentVar_copy[$g, $k]", binary = true)
@@ -65,7 +65,6 @@ function forwardModel!(
             );
             model[:augmentVar_copy] = augmentVar_copy;     
         else
-            @variable(model, 0 ≤ s_copy[g in indexSets.G] ≤ paramOPF.smax[g])
             @variable(model, 0 ≤ y_copy[indexSets.G] ≤ 1)  
             augmentVar_copy = Dict(
                 (g, k) => @variable(model, base_name = "augmentVar_copy[$g, $k]", lower_bound = 0, upper_bound = 1)
@@ -88,16 +87,38 @@ function forwardModel!(
                                 ) for g in indexSets.G
             )
         );
-    else 
+        ContVarBinaries = nothing;
+    elseif param.algorithm == :SDDP 
         ## define copy variables
+        @variable(model, 0 ≤ s_copy[g in indexSets.G] ≤ paramOPF.smax[g])
         if param.tightness
-            @variable(model, 0 ≤ s_copy[g in indexSets.G] ≤ paramOPF.smax[g])
             @variable(model, y_copy[indexSets.G], Bin)             
         else
-            @variable(model, 0 ≤ s_copy[g in indexSets.G] ≤ paramOPF.smax[g])
             @variable(model, 0 ≤ y_copy[indexSets.G] ≤ 1)    
         end
         ContVarLeaf = nothing;
+        ContVarBinaries = nothing;
+    elseif param.algorithm == :SDDiP
+        ## approximate the continuous state s[g], s[g] = ∑_{i=0}^{κ-1} 2ⁱ * λ[g, i] * ε, κ = log2(paramOPF.smax[g] / ε) + 1
+        @variable(model, λ[g in indexSets.G, i in 1:param.κ[g]], Bin)  
+        @constraint(model, ContiApprox[g in indexSets.G], param.ε * sum(2^(i-1) * λ[g, i] for i in 1:param.κ[g]) == s[g])
+        ContVarLeaf = nothing;
+        ContVarBinaries = Dict(
+            :s => Dict{Any, Dict{Any, VariableRef}}(
+                    g => Dict(
+                        i => λ[g, i] for i in 1:param.κ[g]
+                    ) for g in indexSets.G
+                )
+        );
+        @variable(model, 0 ≤ s_copy[g in indexSets.G] ≤ paramOPF.smax[g])
+        if param.tightness
+            @variable(model, λ_copy[g in indexSets.G, i in 1:param.κ[g]], Bin)
+            @variable(model, y_copy[indexSets.G], Bin)        
+        else
+            @variable(model, 0 ≤ λ_copy[g in indexSets.G, i in 1:param.κ[g]] ≤ 1)       
+            @variable(model, 0 ≤ y_copy[indexSets.G] ≤ 1)       
+        end
+        @constraint(model, [g in indexSets.G], param.ε * sum(2^(i-1) * λ_copy[g, i] for i in 1:param.κ[g]) == s_copy[g])
     end
 
     ## problem constraints:
@@ -170,9 +191,81 @@ function forwardModel!(
                 nothing, 
                 Dict{Any, Dict{Any, VariableRef}}(:s => Dict{Any, VariableRef}(g => s[g] for g in indexSets.G)), 
                 nothing, 
-                ContVarLeaf
+                ContVarLeaf,
+                nothing,
+                ContVarBinaries
     )
 end
+
+"""
+ModelModification!(; model::Model = model)
+
+# Arguments
+
+    1. `model::Model` : a forward pass model of stage t
+    2. `randomVariables::RandomVariables` : random variables
+    3. `paramDemand::ParamDemand` : demand parameters
+    4. `stateInfo::StateInfo` : the last stage decisions
+  
+# Modification
+    1. Remove the other scenario's demand balance constraints
+    2. Add the current scenario's demand balance constraints
+    3. Update its last stage decision with
+"""
+function ModelModification!( 
+    model::Model, 
+    randomVariables::RandomVariables,
+    paramDemand::ParamDemand,
+    stateInfo::StateInfo;
+    indexSets::IndexSets = indexSets,
+    param::NamedTuple = param
+)::Nothing
+    if stateInfo.ContStateBin ∈ [nothing]
+        if :ContVarNonAnticipative ∉ keys(model.obj_dict) 
+            @constraint(
+                model, 
+                ContVarNonAnticipative[g in indexSets.G], 
+                model[:s_copy][g] == stateInfo.ContVar[:s][g]
+            );
+        end
+
+        if :BinVarNonAnticipative ∉ keys(model.obj_dict) 
+            @constraint(
+                model, 
+                BinVarNonAnticipative[g in indexSets.G], 
+                model[:y_copy][g] == stateInfo.BinVar[:y][g]
+            );
+        end
+    else 
+        if :BinarizationNonAnticipative ∉ keys(model.obj_dict) 
+            @constraint(
+                model, 
+                BinarizationNonAnticipative[g in indexSets.G, i in 1:param.κ[g]], 
+                model[:λ_copy][g, i] == stateInfo.ContStateBin[:s][g][i]
+            );
+        end
+    end
+
+    # power balance constraints
+    for i in indexSets.B
+        delete(model, model[:PowerBalance][i])
+    end
+    unregister(model, :PowerBalance)
+    @constraint(model, PowerBalance[i in indexSets.B], 
+                            sum(model[:s][g]      for g in indexSets.Gᵢ[i]) -
+                            sum(model[:P][(i, j)] for j in indexSets.out_L[i]) + 
+                            sum(model[:P][(j, i)] for j in indexSets.in_L[i]) .==
+                            sum(paramDemand.demand[d] * randomVariables.deviation[d] * model[:x][d] for d in indexSets.Dᵢ[i])
+    )
+
+    @objective(
+        model, 
+        Min, 
+        model[:primal_objective_expression]
+    );
+    return
+end
+
 
 
 
@@ -193,7 +286,8 @@ function forwardPass(
     paramDemand::ParamDemand = paramDemand, 
     paramOPF::ParamOPF = paramOPF, 
     indexSets::IndexSets = indexSets, 
-    initialStateInfo::StateInfo = initialStateInfo
+    initialStateInfo::StateInfo = initialStateInfo, 
+    param::NamedTuple = param
 )
     stateInfoList = Dict();
     stateInfoList[0] = deepcopy(initialStateInfo);
@@ -203,7 +297,8 @@ function forwardPass(
             ξ[t],
             paramDemand,
             stateInfoList[t-1];
-            indexSets = indexSets
+            indexSets = indexSets,
+            param = param
         )
         optimize!(ModelList[t].model);
 
@@ -229,6 +324,18 @@ function forwardPass(
             ContVarLeaf  = nothing;
             ContAugState = nothing;
         end
+
+        if ModelList[t].ContVarBinaries ∉ [nothing]
+            ContStateBin = Dict{Any, Dict{Any, Dict{Any, Any}}}(
+                :s => Dict{Any, Dict{Any, Any}}(
+                    g => Dict{Any, Any}(
+                        i => JuMP.value(ModelList[t].ContVarBinaries[:s][g][i]) for i in 1:param.κ[g]
+                    ) for g in indexSets.G
+                )
+            );
+        else
+            ContStateBin = nothing;
+        end
         
         stageValue = JuMP.objective_value(ModelList[t].model) - sum(JuMP.value.(ModelList[t].model[:θ])); 
         stateValue = JuMP.objective_value(ModelList[t].model);
@@ -241,7 +348,9 @@ function forwardPass(
             stageValue, 
             stateValue, 
             nothing, 
-            ContAugState
+            ContAugState,
+            nothing,
+            ContStateBin
         );
     end  
     return stateInfoList  

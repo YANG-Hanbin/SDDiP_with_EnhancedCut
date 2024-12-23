@@ -120,6 +120,8 @@ abstract type SolutionMethod end
         ContVar         ::Dict{Any, Dict{Any, Dict{Symbol, Any}}}
         IntVarLeaf      ::Union{Nothing, Dict{Any, Dict{Any, Dict{Any, Dict{Symbol, Any}}}}}
         ContVarLeaf     ::Union{Nothing, Dict{Any, Dict{Any, Dict{Any, Dict{Symbol, Any}}}}}
+        IntVarBinaries  ::Union{Nothing, Dict{Any, Dict{Any, Dict{Any, VariableRef}}}}
+        ContVarBinaries ::Union{Nothing, Dict{Any, Dict{Any, Dict{Any, VariableRef}}}}
     end
 
 Forward nodal problem.
@@ -140,6 +142,8 @@ Fields
     the first `Any` is the variable name, the second `Any` is the index, 
     the third `Any` is the leaf node index,
     `Symbol ∈ {:lb, :ub, :parent, :sibling, :var}` is the key to record the information.
+- `IntVarBinaries` and `ContVarBinaries`:
+    the binarization variables of the integer/continuous state variables of the problem, the first `Any` is the variable name, the second `Any` is the index.
 """
 mutable struct SDDPModel  <: SequentialModels 
     model           ::Model
@@ -148,13 +152,8 @@ mutable struct SDDPModel  <: SequentialModels
     ContVar         ::Union{Nothing, Dict{Any, Dict{Any, VariableRef}}}
     IntVarLeaf      ::Union{Nothing, Dict{Any, Dict{Any, Dict{Any, Dict{Symbol, Any}}}}}
     ContVarLeaf     ::Union{Nothing, Dict{Any, Dict{Any, Dict{Any, Dict{Symbol, Any}}}}}
-end
-
-mutable struct SDDiPModel  <: SequentialModels 
-    model           ::Model
-    BinVar          ::Union{Nothing, Dict{Any, Dict{Any, VariableRef}}}
-    IntVar          ::Union{Nothing, Dict{Any, Dict{Any, VariableRef}}}
-    ContVar         ::Union{Nothing, Dict{Any, Dict{Any, VariableRef}}}
+    IntVarBinaries  ::Union{Nothing, Dict{Any, Dict{Any, Dict{Any, VariableRef}}}}
+    ContVarBinaries ::Union{Nothing, Dict{Any, Dict{Any, Dict{Any, VariableRef}}}}
 end
 
 """
@@ -168,6 +167,8 @@ end
         StateValue      ::Union{Nothing, Float64}
         IntAugState     ::Union{Nothing, Dict{Any, Dict{Any, Dict{Any, Any}}}}
         ContAugState    ::Union{Nothing, Dict{Any, Dict{Any, Dict{Any, Any}}}}
+        IntStateBin     ::Union{Nothing, Dict{Any, Dict{Any, Dict{Any, Any}}}}
+        ContStateBin    ::Union{Nothing, Dict{Any, Dict{Any, Dict{Any, Any}}}}
     end
 
 Record the state variables of the problem.
@@ -194,6 +195,8 @@ Fields
     the augmented variables of the integer state variables are used as the augmented state variable
 - `ContAugState`:
     the augmented variables of the continuous state variables are used as the augmented state variable
+- `IntStateBin` and `ContStateBin`:
+    the binarization variables of the integer/continuous state variables of the problem, the first `Any` is the variable name, the second `Any` is the index of the variable, and the third `Any` is the index of the binarization variables.
 """
 mutable struct StateInfo
     BinVar              ::Union{Nothing, Dict{Any, Dict{Any, Any}}}
@@ -205,6 +208,8 @@ mutable struct StateInfo
     StateValue          ::Union{Nothing, Float64}
     IntAugState         ::Union{Nothing, Dict{Any, Dict{Any, Dict{Any, Any}}}}
     ContAugState        ::Union{Nothing, Dict{Any, Dict{Any, Dict{Any, Any}}}}
+    IntStateBin         ::Union{Nothing, Dict{Any, Dict{Any, Dict{Any, Any}}}}
+    ContStateBin        ::Union{Nothing, Dict{Any, Dict{Any, Dict{Any, Any}}}}
 end
 
 ## ====================================================================================== ##

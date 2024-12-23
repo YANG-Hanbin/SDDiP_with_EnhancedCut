@@ -1,62 +1,4 @@
 """
-ModelModification!(; model::Model = model)
-
-# Arguments
-
-    1. `model::Model` : a forward pass model of stage t
-    2. `randomVariables::RandomVariables` : random variables
-    3. `paramDemand::ParamDemand` : demand parameters
-    4. `stateInfo::StateInfo` : the last stage decisions
-  
-# Modification
-    1. Remove the other scenario's demand balance constraints
-    2. Add the current scenario's demand balance constraints
-    3. Update its last stage decision with
-"""
-function ModelModification!( 
-    model::Model, 
-    randomVariables::RandomVariables,
-    paramDemand::ParamDemand,
-    stateInfo::StateInfo;
-    indexSets::IndexSets = indexSets
-)::Nothing
-    if :ContVarNonAnticipative ∉ keys(model.obj_dict)
-        @constraint(
-            model, 
-            ContVarNonAnticipative[g in indexSets.G], 
-            model[:s_copy][g] == stateInfo.ContVar[:s][g]
-        );
-    end
-
-    if :BinVarNonAnticipative ∉ keys(model.obj_dict)
-        @constraint(
-            model, 
-            BinVarNonAnticipative[g in indexSets.G], 
-            model[:y_copy][g] == stateInfo.BinVar[:y][g]
-        );
-    end
-
-    # power balance constraints
-    for i in indexSets.B
-        delete(model, model[:PowerBalance][i])
-    end
-    unregister(model, :PowerBalance)
-    @constraint(model, PowerBalance[i in indexSets.B], 
-                            sum(model[:s][g]      for g in indexSets.Gᵢ[i]) -
-                            sum(model[:P][(i, j)] for j in indexSets.out_L[i]) + 
-                            sum(model[:P][(j, i)] for j in indexSets.in_L[i]) .==
-                            sum(paramDemand.demand[d] * randomVariables.deviation[d] * model[:x][d] for d in indexSets.Dᵢ[i])
-    )
-
-    @objective(
-        model, 
-        Min, 
-        model[:primal_objective_expression]
-    );
-    return
-end
-
-"""
 function sample_scenarios(; 
     numScenarios::Int64 = 10, 
     scenarioTree::ScenarioTree = scenarioTree
@@ -155,7 +97,9 @@ function save_info(
 end
 
 function param_setup(;
+    TimeLimit::Any = 3600,
     terminate_threshold::Float64 = 1e-3,
+    ε::Float64 = 0.125,
     MaxIter::Int64 = 3000,
     tightness::Bool = true,
     numScenarios::Int64 = 3,
@@ -167,14 +111,17 @@ function param_setup(;
     num::Int64 = 10,
     case::String = "case30pwl"
 )::NamedTuple
-    param = (
+
+    return (
         verbose             = false,
         MIPGap              = 1e-4,
-        TimeLimit           = 3600,
+        TimeLimit           = TimeLimit,
         terminate_threshold = terminate_threshold,
         MaxIter             = MaxIter,
         θ̲                   = 0.0,
         OPT                 = 0.0,
+        ε                   = ε,
+        κ                   = Dict{Int64, Int64}(),
         tightness           = tightness,
         numScenarios        = numScenarios,
         LiftIterThreshold   = LiftIterThreshold,
@@ -189,5 +136,36 @@ function param_setup(;
         num                 = num, 
         case                = case, # "case_RTS_GMLC", "case30", "case30pwl", "case24_ieee_rts"     
     )
-    return param
+end
+
+
+function param_levelsetmethod_setup(;
+    μ::Float64 = 0.9,
+    λ::Float64 = 0.5,
+    threshold::Float64 = 1e-4,
+    nxt_bound::Float64 = 1e10,
+    MaxIter::Int64 = 200,
+    verbose::Bool = false
+)::NamedTuple
+    return (
+        μ             = μ,
+        λ             = λ,
+        threshold     = threshold,
+        nxt_bound     = nxt_bound,
+        MaxIter       = MaxIter,
+        verbose       = verbose,
+    )
+end
+
+
+function param_cut_setup(;
+    core_point_strategy::String = "Eps", # "Mid", "Eps"
+    δ::Float64 = 1e-3,
+    ℓ::Float64 = .0,
+)::NamedTuple
+    return (
+        core_point_strategy = core_point_strategy, # "Mid", "Eps"
+        δ                   = δ,
+        ℓ                   = ℓ,
+    )
 end

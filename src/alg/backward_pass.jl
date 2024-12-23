@@ -11,15 +11,25 @@ RemoveContVarNonAnticipative!(model::Model)
 """
 function RemoveContVarNonAnticipative!(
     model::Model = model;
-    indexSets::IndexSets = indexSets
+    indexSets::IndexSets = indexSets,
+    param::NamedTuple = param
 )::Nothing
 
-    for g in indexSets.G
-        delete(model, model[:ContVarNonAnticipative][g]);
-        delete(model, model[:BinVarNonAnticipative][g]);
+    if :λ_copy ∉ keys(model.obj_dict)
+        for g in indexSets.G
+            delete(model, model[:ContVarNonAnticipative][g]);
+            delete(model, model[:BinVarNonAnticipative][g]);
+        end
+        unregister(model, :ContVarNonAnticipative);
+        unregister(model, :BinVarNonAnticipative);
+    else
+        for g in indexSets.G
+            for i in 1:param.κ[g]
+                delete(model, model[:BinarizationNonAnticipative][g, i]);
+            end
+        end
+        unregister(model, :BinarizationNonAnticipative);
     end
-    unregister(model, :ContVarNonAnticipative);
-    unregister(model, :BinVarNonAnticipative);
     
     return
 end
@@ -32,7 +42,8 @@ end
 """
 function setup_initial_point(
     stateInfo::StateInfo;
-    indexSets::IndexSets = indexSets 
+    indexSets::IndexSets = indexSets,
+    param::NamedTuple = param
 )::StateInfo
     BinVar = Dict{Any, Dict{Any, Any}}(:y => Dict{Any, Any}(
         g => 0.0 for g in indexSets.G)
@@ -52,6 +63,18 @@ function setup_initial_point(
         );
     end
 
+    if stateInfo.ContStateBin == nothing 
+        ContStateBin = nothing
+    else
+        ContStateBin = Dict{Any, Dict{Any, Dict{Any, Any}}}(
+            :s => Dict{Any, Dict{Any, Any}}(
+                g => Dict{Any, Any}(
+                    i => 0.0 for i in 1:param.κ[g]
+                ) for g in indexSets.G
+            )
+        );
+    end
+
     return StateInfo(
         BinVar, 
         nothing, 
@@ -61,7 +84,9 @@ function setup_initial_point(
         nothing, 
         nothing, 
         nothing, 
-        ContAugState
+        ContAugState,
+        nothing,
+        ContStateBin
     );
 end
 
@@ -78,7 +103,7 @@ function backwardPass(
     paramOPF::ParamOPF = paramOPF,
     scenarioTree::ScenarioTree = scenarioTree, 
     stateInfoCollection::Dict{Any, Any} = stateInfoCollection,
-    param::NamedTuple = param, param_PLC::NamedTuple = param_PLC, param_levelsetmethod::NamedTuple = param_levelsetmethod
+    param::NamedTuple = param, param_cut::NamedTuple = param_cut, param_levelsetmethod::NamedTuple = param_levelsetmethod
 )
 
     (i, t, n, ω, cutSelection, core_point_strategy) = backwardNodeInfo; 
@@ -91,7 +116,8 @@ function backwardPass(
     );
     RemoveContVarNonAnticipative!(
         ModelList[t].model;
-        indexSets = indexSets
+        indexSets = indexSets,
+        param = param
     );
 
     if cutSelection == :PLC
@@ -101,9 +127,10 @@ function backwardPass(
                 stateInfoCollection[i, t-1, ω];
                 indexSets = indexSets,
                 paramOPF = paramOPF, 
-                param_PLC = param_PLC   
+                param_cut = param_cut,
+                param = param
             ), 
-            param_PLC.δ, 
+            param_cut.δ, 
             stateInfoCollection[i, t, ω].StateValue
         );
     elseif cutSelection == :LC
@@ -112,13 +139,13 @@ function backwardPass(
         );
     elseif cutSelection == :SMC
         CutGenerationInfo = SquareMinimizationCutGeneration{Float64}(
-            param_PLC.δ, 
+            param_cut.δ, 
             stateInfoCollection[i, t, ω].StateValue
         );
     else
         @warn "Invalid cutSelection value: $cutSelection. Defaulting to :SMC."
         CutGenerationInfo = SquareMinimizationCutGeneration{Float64}(
-            param_PLC.δ, 
+            param_cut.δ, 
             stateInfoCollection[i, t, ω].StateValue
         )
     end

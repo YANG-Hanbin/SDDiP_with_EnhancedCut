@@ -5,7 +5,7 @@
             paramDemand::ParamDemand,
             paramOPF::ParamOPF;
             initialStateInfo::StateInfo = initialStateInfo,
-            param_PLC::NamedTuple = param_PLC, 
+            param_cut::NamedTuple = param_cut, 
             param_levelsetmethod::NamedTuple = param_levelsetmethod, 
             param::NamedTuple = param
     )
@@ -16,7 +16,7 @@
   3. `paramDemand::ParamDemand`: Demand parameters
   4. `paramOPF::ParamOPF`: OPF parameters
   5. `initialStateInfo::StateInfo`: Initial state information
-  6. `param_PLC::NamedTuple`: Named tuple of parameters for the PLC algorithm
+  6. `param_cut::NamedTuple`: Named tuple of parameters for the PLC algorithm
   7. `param_levelsetmethod::NamedTuple`: Named tuple of parameters for the level set method
   8. `param::NamedTuple`: Named tuple of parameters for the SDDiP algorithm
 """
@@ -26,7 +26,7 @@ function stochastic_dual_dynamic_programming_algorithm(
         paramDemand::ParamDemand,
         paramOPF::ParamOPF;
         initialStateInfo::StateInfo = initialStateInfo,
-        param_PLC::NamedTuple = param_PLC, 
+        param_cut::NamedTuple = param_cut, 
         param_levelsetmethod::NamedTuple = param_levelsetmethod, 
         param::NamedTuple = param
 )::Dict
@@ -41,6 +41,15 @@ function stochastic_dual_dynamic_programming_algorithm(
     gapList = [];
     
     @everywhere begin
+        if param.algorithm == :SDDiP
+            for g in indexSets.G
+                if paramOPF.smax[g] ≥ param.ε
+                    param.κ[g] = floor(Int, log2(paramOPF.smax[g] / param.ε)) + 1
+                else
+                    param.κ[g] = 1
+                end
+            end
+        end
         ModelList = Dict{Int, SDDPModel}();
         for t in 1:indexSets.T 
             ModelList[t] = forwardModel!( 
@@ -67,8 +76,9 @@ function stochastic_dual_dynamic_programming_algorithm(
                 paramDemand = paramDemand,
                 paramOPF = paramOPF,
                 indexSets = indexSets,
-                initialStateInfo = initialStateInfo
-            )
+                initialStateInfo = initialStateInfo,
+                param = param
+            );
         end
 
         for j in 1:param.numScenarios
@@ -153,7 +163,7 @@ function stochastic_dual_dynamic_programming_algorithm(
             for ω in [1]#keys(Ξ̃)
                 backwardNodeInfoList = Dict{Int64, Tuple}(); 
                 for n in keys(scenarioTree.tree[t].nodes) 
-                    backwardNodeInfoList[n] = (i, t, n, ω, param.cutSelection, param_PLC.core_point_strategy) 
+                    backwardNodeInfoList[n] = (i, t, n, ω, param.cutSelection, param_cut.core_point_strategy) 
                 end
 
                 # backwardPassResult = pmap(backwardPass, values(backwardNodeInfoList))
@@ -167,7 +177,7 @@ function stochastic_dual_dynamic_programming_algorithm(
                         paramOPF = paramOPF,
                         scenarioTree = scenarioTree, 
                         stateInfoCollection = stateInfoCollection,
-                        param = param, param_PLC = param_PLC, param_levelsetmethod = param_levelsetmethod
+                        param = param, param_cut = param_cut, param_levelsetmethod = param_levelsetmethod
                     )
                 end
 

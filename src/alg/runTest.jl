@@ -14,53 +14,69 @@ using Distributed; addprocs(5);
 
     include(joinpath(project_root, "src", "alg", "utilities", "structs.jl"))
     include(joinpath(project_root, "src", "alg", "utilities", "auxiliary.jl"))
-    include(joinpath(project_root, "src", "alg", "utilities", "bundle_method.jl"))
+    include(joinpath(project_root, "src", "alg", "utilities", "level_set_method.jl"))
     include(joinpath(project_root, "src", "alg", "utilities", "cut_variants.jl"))
     include(joinpath(project_root, "src", "alg", "utils.jl"))
     include(joinpath(project_root, "src", "alg", "forward_pass.jl"))
     include(joinpath(project_root, "src", "alg", "backward_pass.jl"))
     include(joinpath(project_root, "src", "alg", "partition_tree.jl"))
-    include(joinpath(project_root, "src", "alg", "config.jl"))
-    include(joinpath(project_root, "src", "alg", "stochastic_dual_dynamic_programming.jl"))
+    include(joinpath(project_root, "src", "alg", "sddp.jl"))
 
 end
 
-case = "case30pwl"
-for cut in [:PLC, :SMC, :LC]
-    for num in [3, 5, 10]
-        for T in [6, 8, 12] 
-            param = param_setup(
-                numScenarios = 50,
-                LiftIterThreshold = 10,
-                cutSelection = cut, 
-                algorithm = :SDDP,
-                T = T,
-                num = num,
-                case = case
-            );
-            indexSets        = load(joinpath(project_root, "src", "alg", "experiment_$case", "stage($T)real($num)", "indexSets.jld2"))["indexSets"];
-            paramOPF         = load(joinpath(project_root, "src", "alg", "experiment_$case", "stage($T)real($num)", "paramOPF.jld2"))["paramOPF"];
-            paramDemand      = load(joinpath(project_root, "src", "alg", "experiment_$case", "stage($T)real($num)", "paramDemand.jld2"))["paramDemand"];
-            scenarioTree     = load(joinpath(project_root, "src", "alg", "experiment_$case", "stage($T)real($num)", "scenarioTree.jld2"))["scenarioTree"];
-            initialStateInfo = load(joinpath(project_root, "src", "alg", "experiment_$case", "initialStateInfo.jld2"))["initialStateInfo"];
+case = "case30pwl"; algorithm = :SDDiP; cut = :PLC; num = 3; T = 6;
+for algorithm in [:SDDPL, :SDDP, :SDDiP]
+    for cut in [:PLC, :SMC, :LC]
+        for num in [3, 5, 10]
+            for T in [6, 8, 12] 
+                param = param_setup(
+                    ε = 1/32;
+                    numScenarios = 50,
+                    LiftIterThreshold = 10,
+                    cutSelection = cut, 
+                    algorithm = algorithm,
+                    T = T,
+                    num = num,
+                    case = case
+                );
+                param_cut = param_cut_setup(
+                    core_point_strategy = "Eps", # "Mid", "Eps"
+                    δ = 1e-3,
+                    ℓ = .0,
+                );
+                param_levelsetmethod = param_levelsetmethod_setup(
+                    μ = 0.9,
+                    λ = 0.5,
+                    threshold = 1e-4,
+                    nxt_bound = 1e10,
+                    MaxIter = 200,
+                    verbose = false
+                );
+                indexSets        = load(joinpath(project_root, "src", "alg", "experiment_$case", "stage($T)real($num)", "indexSets.jld2"))["indexSets"];
+                paramOPF         = load(joinpath(project_root, "src", "alg", "experiment_$case", "stage($T)real($num)", "paramOPF.jld2"))["paramOPF"];
+                paramDemand      = load(joinpath(project_root, "src", "alg", "experiment_$case", "stage($T)real($num)", "paramDemand.jld2"))["paramDemand"];
+                scenarioTree     = load(joinpath(project_root, "src", "alg", "experiment_$case", "stage($T)real($num)", "scenarioTree.jld2"))["scenarioTree"];
+                initialStateInfo = load(joinpath(project_root, "src", "alg", "experiment_$case", "initialStateInfo.jld2"))["initialStateInfo"];
 
-            
-            @everywhere begin
-                indexSets = $indexSets; paramOPF = $paramOPF; paramDemand = $paramDemand; scenarioTree = $scenarioTree; initialStateInfo = $initialStateInfo;
+                
+                @everywhere begin
+                    indexSets = $indexSets; paramOPF = $paramOPF; paramDemand = $paramDemand; scenarioTree = $scenarioTree; initialStateInfo = $initialStateInfo;
+                    param_cut = $param_cut; param_levelsetmethod = $param_levelsetmethod; param = $param;
+                end
+
+
+                sddpResults = stochastic_dual_dynamic_programming_algorithm(
+                        scenarioTree,                   
+                        indexSets,                        
+                        paramDemand,
+                        paramOPF;
+                        initialStateInfo = initialStateInfo,
+                        param_cut = param_cut, 
+                        param_levelsetmethod = param_levelsetmethod, 
+                        param = param
+                );
+                @everywhere GC.gc(); # garbage collection
             end
-
-
-            sddpResults = stochastic_dual_dynamic_programming_algorithm(
-                    scenarioTree,                   
-                    indexSets,                        
-                    paramDemand,
-                    paramOPF;
-                    initialStateInfo = initialStateInfo,
-                    param_PLC = param_PLC, 
-                    param_levelsetmethod = param_levelsetmethod, 
-                    param = param
-            );
-            @everywhere GC.gc(); # garbage collection
         end
     end
 end

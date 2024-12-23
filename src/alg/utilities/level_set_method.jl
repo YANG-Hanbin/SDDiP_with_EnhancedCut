@@ -15,6 +15,7 @@
 function SetupLevelSetMethodOracleParam(
     stateInfo::StateInfo;
     indexSets::IndexSets = indexSets,
+    param::NamedTuple = param,
     param_levelsetmethod::NamedTuple = param_levelsetmethod
 )::LevelSetMethodOracleParam
     
@@ -34,7 +35,8 @@ function SetupLevelSetMethodOracleParam(
         verbose, 
         setup_initial_point(
             stateInfo;
-            indexSets = indexSets 
+            indexSets = indexSets,
+            param = param
         )
     )
 end
