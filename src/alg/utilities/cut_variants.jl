@@ -31,12 +31,12 @@ function solve_inner_minimization_problem(
         model[:primal_objective_expression] +
         sum( 
             x₀.BinVar[:y][g] * (stateInfo.BinVar[:y][g] - model[:y_copy][g]) + 
-            (stateInfo.ContStateBin !== nothing ?
+            (param.algorithm == :SDDiP ?
                 sum(
                     x₀.ContStateBin[:s][g][i] * (stateInfo.ContStateBin[:s][g][i] - model[:λ_copy][g, i]) for i in 1:param.κ[g]
                 ) : x₀.ContVar[:s][g] * (stateInfo.ContVar[:s][g] - model[:s_copy][g])
             ) +
-            (stateInfo.ContAugState !== nothing && haskey(stateInfo.ContAugState, :s) && haskey(stateInfo.ContAugState[:s], g) ?
+            (param.algorithm == :SDDPL ?
                 sum(
                     x₀.ContAugState[:s][g][k] * (stateInfo.ContAugState[:s][g][k] - model[:augmentVar_copy][g, k]) 
                     for k in keys(stateInfo.ContAugState[:s][g]); init = 0.0
@@ -66,7 +66,7 @@ function solve_inner_minimization_problem(
         nothing, 
         nothing, 
         nothing, 
-        stateInfo.ContAugState !== nothing ? Dict{Any, Dict{Any, Dict{Any, Any}}}(
+        param.algorithm == :SDDPL ? Dict{Any, Dict{Any, Dict{Any, Any}}}(
             :s => Dict{Any, Dict{Any, Any}}(
                 g => Dict{Any, Any}(
                         k => JuMP.value(model[:augmentVar_copy][g, k]) - stateInfo.ContAugState[:s][g][k]
@@ -76,7 +76,7 @@ function solve_inner_minimization_problem(
             )
         ) : nothing,
         nothing,
-        stateInfo.ContStateBin !== nothing ? Dict{Any, Dict{Any, Dict{Any, Any}}}(
+        param.algorithm == :SDDiP ? Dict{Any, Dict{Any, Dict{Any, Any}}}(
             :s => Dict{Any, Dict{Any, Any}}(
                 g => Dict{Any, Any}(
                         i => JuMP.value(model[:λ_copy][g, i]) - stateInfo.ContStateBin[:s][g][i]
@@ -89,14 +89,13 @@ function solve_inner_minimization_problem(
     currentInfo = CurrentInfo(  
         x₀, 
         - F - sum(
-            (stateInfo.ContStateBin !== nothing ?
+            (param.algorithm == :SDDiP ?
                 sum(
                     x₀.ContStateBin[:s][g][i] * (CutGenerationInfo.core_point.ContStateBin[:s][g][i] - stateInfo.ContStateBin[:s][g][i]) for i in 1:param.κ[g]
                 ) : x₀.ContVar[:s][g] * (CutGenerationInfo.core_point.ContVar[:s][g] - stateInfo.ContVar[:s][g])
             ) +
             x₀.BinVar[:y][g] * (CutGenerationInfo.core_point.BinVar[:y][g] - stateInfo.BinVar[:y][g]) +
-            (
-                stateInfo.ContAugState !== nothing && haskey(stateInfo.ContAugState, :s) && haskey(stateInfo.ContAugState[:s], g) ?
+            (param.algorithm == :SDDPL ?
                 sum(
                     x₀.ContAugState[:s][g][k] * (CutGenerationInfo.core_point.ContAugState[:s][g][k] - stateInfo.ContAugState[:s][g][k])
                     for k in keys(stateInfo.ContAugState[:s][g]); init = 0.0
@@ -107,7 +106,7 @@ function solve_inner_minimization_problem(
         Dict(
             1 => CutGenerationInfo.primal_bound - F - CutGenerationInfo.δ
         ),                                                                                                                                                              ## constraint value
-        stateInfo.ContAugState !== nothing ? 
+        param.algorithm == :SDDPL ? 
         Dict{Symbol, Dict{Int64, Any}}(
             :s => Dict(g => JuMP.value(model[:s_copy][g]) - CutGenerationInfo.core_point.ContVar[:s][g] for g in indexSets.G),
             :y => Dict(g => JuMP.value(model[:y_copy][g]) - CutGenerationInfo.core_point.BinVar[:y][g] for g in indexSets.G),
@@ -118,7 +117,7 @@ function solve_inner_minimization_problem(
                 ) for g in indexSets.G
             ),
             :λ => Dict(
-                g => (stateInfo.ContStateBin !== nothing ?
+                g => (param.algorithm == :SDDiP ?
                     Dict(
                         i => JuMP.value(model[:λ_copy][g, i]) - CutGenerationInfo.core_point.ContStateBin[:s][g][i] for i in 1:param.κ[g]
                     ) : nothing
@@ -129,7 +128,7 @@ function solve_inner_minimization_problem(
             :s => Dict(g => JuMP.value(model[:s_copy][g]) - CutGenerationInfo.core_point.ContVar[:s][g] for g in indexSets.G),
             :y => Dict(g => JuMP.value(model[:y_copy][g]) - CutGenerationInfo.core_point.BinVar[:y][g] for g in indexSets.G),
             :λ => Dict(
-                g => (stateInfo.ContStateBin !== nothing ?
+                g => (param.algorithm == :SDDiP ?
                     Dict(
                         i => JuMP.value(model[:λ_copy][g, i]) - CutGenerationInfo.core_point.ContStateBin[:s][g][i] for i in 1:param.κ[g]
                     ) : nothing
@@ -173,12 +172,12 @@ function solve_inner_minimization_problem(
         model[:primal_objective_expression] +
         sum(
             x₀.BinVar[:y][g] * (stateInfo.BinVar[:y][g] - model[:y_copy][g]) + 
-            (stateInfo.ContStateBin !== nothing ?
+            (param.algorithm == :SDDiP ?
                 sum(
                     x₀.ContStateBin[:s][g][i] * (stateInfo.ContStateBin[:s][g][i] - model[:λ_copy][g, i]) for i in 1:param.κ[g]
                 ) : x₀.ContVar[:s][g] * (stateInfo.ContVar[:s][g] - model[:s_copy][g])
             ) +
-            (stateInfo.ContAugState !== nothing && haskey(stateInfo.ContAugState, :s) && haskey(stateInfo.ContAugState[:s], g) ?
+            (param.algorithm == :SDDPL ?
                 sum(
                     x₀.ContAugState[:s][g][k] * (stateInfo.ContAugState[:s][g][k] - model[:augmentVar_copy][g, k]) 
                     for k in keys(stateInfo.ContAugState[:s][g]); init = 0.0
@@ -208,7 +207,7 @@ function solve_inner_minimization_problem(
         nothing, 
         nothing, 
         nothing, 
-        stateInfo.ContAugState !== nothing ? Dict{Any, Dict{Any, Dict{Any, Any}}}(
+        param.algorithm == :SDDPL ? Dict{Any, Dict{Any, Dict{Any, Any}}}(
             :s => Dict{Any, Dict{Any, Any}}(
                 g => Dict{Any, Any}(
                         k => JuMP.value(model[:augmentVar_copy][g, k]) - stateInfo.ContAugState[:s][g][k]
@@ -218,7 +217,7 @@ function solve_inner_minimization_problem(
             )
         ) : nothing,
         nothing,
-        stateInfo.ContStateBin !== nothing ? Dict{Any, Dict{Any, Dict{Any, Any}}}(
+        param.algorithm == :SDDiP ? Dict{Any, Dict{Any, Dict{Any, Any}}}(
             :s => Dict{Any, Dict{Any, Any}}(
                 g => Dict{Any, Any}(
                         i => JuMP.value(model[:λ_copy][g, i]) - stateInfo.ContStateBin[:s][g][i]
@@ -230,7 +229,7 @@ function solve_inner_minimization_problem(
     );
     currentInfo = CurrentInfo(  
         x₀, 
-        1/2 * (stateInfo.ContStateBin !== nothing ?
+        1/2 * (param.algorithm == :SDDiP ?
                 sum(
                     x₀.ContStateBin[:s][g][i] * x₀.ContStateBin[:s][g][i] for i in 1:param.κ[g] for g in indexSets.G
                 ) : sum(x₀.ContVar[:s][g] * x₀.ContVar[:s][g] for g in indexSets.G)
@@ -241,14 +240,14 @@ function solve_inner_minimization_problem(
         Dict(
             1 => CutGenerationInfo.primal_bound - F - CutGenerationInfo.δ
         ),                                                                                                                                                              ## constraint value
-        stateInfo.ContAugState !== nothing ?
+        param.algorithm == :SDDPL ?
         Dict{Symbol, Dict{Int64, Any}}(
             :s => Dict(g => x₀.ContVar[:s][g] for g in indexSets.G),
             :y => Dict(g => x₀.BinVar[:y][g] for g in indexSets.G), 
             :sur => Dict(g => Dict(k => x₀.ContAugState[:s][g][k] for k in keys(stateInfo.ContAugState[:s][g])) for g in indexSets.G),
             :λ => Dict(
                 g => (
-                    stateInfo.ContStateBin !== nothing ?
+                    param.algorithm == :SDDiP ?
                         Dict(i => x₀.ContStateBin[:s][g][i] for i in 1:param.κ[g]) : nothing
                 ) for g in indexSets.G
             )
@@ -258,7 +257,7 @@ function solve_inner_minimization_problem(
             :y => Dict(g => x₀.BinVar[:y][g] for g in indexSets.G),
             :λ => Dict(
                 g => (
-                    stateInfo.ContStateBin !== nothing ?
+                    param.algorithm == :SDDiP ?
                         Dict(i => x₀.ContStateBin[:s][g][i] for i in 1:param.κ[g]) : nothing
                 ) for g in indexSets.G
             )
@@ -300,12 +299,12 @@ function solve_inner_minimization_problem(
         model[:primal_objective_expression] +
         sum(
             x₀.BinVar[:y][g] * (stateInfo.BinVar[:y][g] - model[:y_copy][g]) + 
-            (stateInfo.ContStateBin !== nothing ?
+            (param.algorithm == :SDDiP ?
                 sum(
                     x₀.ContStateBin[:s][g][i] * (stateInfo.ContStateBin[:s][g][i] - model[:λ_copy][g, i]) for i in 1:param.κ[g]
                 ) : x₀.ContVar[:s][g] * (stateInfo.ContVar[:s][g] - model[:s_copy][g])
             ) +
-            (stateInfo.ContAugState !== nothing && haskey(stateInfo.ContAugState, :s) && haskey(stateInfo.ContAugState[:s], g) ?
+            (param.algorithm == :SDDPL ?
                 sum(
                     x₀.ContAugState[:s][g][k] * (stateInfo.ContAugState[:s][g][k] - model[:augmentVar_copy][g, k]) 
                     for k in keys(stateInfo.ContAugState[:s][g]); init = 0.0
@@ -324,7 +323,7 @@ function solve_inner_minimization_problem(
         Dict(
             1 => 0.0
         ),                                                                                                                                                              ## constraint value
-        stateInfo.ContAugState !== nothing ?                                                                                                                            
+        param.algorithm == :SDDPL ?                                                                                                                            
         Dict{Symbol, Dict{Int64, Any}}(
             :s   => Dict(g => JuMP.value(model[:s_copy][g]) - stateInfo.ContVar[:s][g] for g in indexSets.G),
             :y   => Dict(g => JuMP.value(model[:y_copy][g]) - stateInfo.BinVar[:y][g]  for g in indexSets.G), 
@@ -332,7 +331,7 @@ function solve_inner_minimization_problem(
                 k => JuMP.value(model[:augmentVar_copy][g, k]) - stateInfo.ContAugState[:s][g][k] for k in keys(stateInfo.ContAugState[:s][g])
                 ) for g in indexSets.G),
             :λ   => Dict(
-                g => (stateInfo.ContStateBin !== nothing ?
+                g => (param.algorithm == :SDDiP ?
                     Dict(i => JuMP.value(model[:λ_copy][g, i]) - stateInfo.ContStateBin[:s][g][i] for i in 1:param.κ[g]) : nothing
                 ) for g in indexSets.G
             )
@@ -341,7 +340,7 @@ function solve_inner_minimization_problem(
             :s   => Dict(g => JuMP.value(model[:s_copy][g]) - stateInfo.ContVar[:s][g] for g in indexSets.G),
             :y   => Dict(g => JuMP.value(model[:y_copy][g]) - stateInfo.BinVar[:y][g]  for g in indexSets.G),
             :λ   => Dict(
-                g => (stateInfo.ContStateBin !== nothing ?
+                g => (param.algorithm == :SDDiP ?
                     Dict(i => JuMP.value(model[:λ_copy][g, i]) - stateInfo.ContStateBin[:s][g][i] for i in 1:param.κ[g]) : nothing
                 ) for g in indexSets.G
             )
@@ -359,7 +358,7 @@ function solve_inner_minimization_problem(
             nothing, 
             nothing, 
             nothing, 
-            stateInfo.ContAugState !== nothing ? Dict{Any, Dict{Any, Dict{Any, Any}}}(
+            param.algorithm == :SDDPL ? Dict{Any, Dict{Any, Dict{Any, Any}}}(
                 :s => Dict{Any, Dict{Any, Any}}(
                     g => Dict{Any, Any}(
                             k => 0.0
@@ -369,7 +368,7 @@ function solve_inner_minimization_problem(
                 )
             ) : nothing,
             nothing,
-            stateInfo.ContStateBin !== nothing ? Dict{Any, Dict{Any, Dict{Any, Any}}}(
+            param.algorithm == :SDDiP ? Dict{Any, Dict{Any, Dict{Any, Any}}}(
             :s => Dict{Any, Dict{Any, Any}}(
                 g => Dict{Any, Any}(
                         i => 0.0

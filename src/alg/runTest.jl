@@ -24,7 +24,7 @@ using Distributed; addprocs(5);
 
 end
 
-case = "case30pwl"; algorithm = :SDDPL; cut = :PLC; num = 3; T = 6;
+case = "case30"; algorithm = :SDDPL; cut = :PLC; num = 3; T = 6;
 for algorithm in [:SDDPL, :SDDP, :SDDiP]
     for cut in [:PLC, :SMC, :LC]
         for num in [3, 5, 10]
@@ -37,7 +37,8 @@ for algorithm in [:SDDPL, :SDDP, :SDDiP]
                     algorithm = algorithm,
                     T = T,
                     num = num,
-                    case = case
+                    case = case,
+                    med_method = "interval_mid"
                 );
                 param_cut = param_cut_setup(
                     core_point_strategy = "Eps", # "Mid", "Eps"

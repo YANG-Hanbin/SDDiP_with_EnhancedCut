@@ -109,6 +109,7 @@ function param_setup(;
     algorithm::Symbol = :SDDPL,
     T::Int64 = 12,
     num::Int64 = 10,
+    med_method::String = "interval_mid",
     case::String = "case30pwl"
 )::NamedTuple
 
@@ -127,7 +128,7 @@ function param_setup(;
         LiftIterThreshold   = LiftIterThreshold,
         branch_threshold    = branch_threshold,
         ## "interval_mid", "exact_point"
-        med_method          = "interval_mid",   
+        med_method          = med_method,   
         ## :PLC, :SMC, :LC
         cutSelection        = cutSelection,             
         ## :SDDPL, :SDDP, :SDDiP

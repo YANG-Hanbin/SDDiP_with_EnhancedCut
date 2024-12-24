@@ -40,7 +40,7 @@ function forwardModel!(
 
     @variable(model, y[indexSets.G], Bin)                                                 ## binary variable for generator commitment status
     @variable(model, v[indexSets.G], Bin)                                                 ## binary variable for generator startup decision
-    @variable(model, w[indexSets.G], Bin)                                                 ## binary variable for generator shutdowm decision
+    @variable(model, w[indexSets.G], Bin)                                                 ## binary variable for generator shutdown decision
 
     @variable(model, h[indexSets.G] ≥ 0);                                                 ## production cost at generator g
 
@@ -220,7 +220,7 @@ function ModelModification!(
     indexSets::IndexSets = indexSets,
     param::NamedTuple = param
 )::Nothing
-    if stateInfo.ContStateBin ∈ [nothing]
+    if param.algorithm !== :SDDiP
         if :ContVarNonAnticipative ∉ keys(model.obj_dict) 
             @constraint(
                 model, 
@@ -236,7 +236,7 @@ function ModelModification!(
                 model[:y_copy][g] == stateInfo.BinVar[:y][g]
             );
         end
-    else 
+    elseif param.algorithm == :SDDiP
         if :BinarizationNonAnticipative ∉ keys(model.obj_dict) 
             @constraint(
                 model, 
@@ -309,7 +309,7 @@ function forwardPass(
         ContVar = Dict{Any, Dict{Any, Any}}(:s => Dict{Any, Any}(
             g => JuMP.value(ModelList[t].ContVar[:s][g]) for g in indexSets.G)
         );
-        if ModelList[t].ContVarLeaf ∉ [nothing]
+        if param.algorithm == :SDDPL
             ContVarLeaf = Dict{Any, Dict{Any, Dict{Any, Dict{Symbol, Any}}}}(
                 :s => Dict{Any, Dict{Any, Dict{Symbol, Any}}}(
                     g => Dict(
@@ -320,12 +320,10 @@ function forwardPass(
                 )
             );
             ContAugState = Dict{Any, Dict{Any, Dict{Any, Any}}}(:s => Dict{Any, Dict{Any, Any}}(g => Dict{Any, Any}() for g in indexSets.G));
-        else
+            ContStateBin = nothing;
+        elseif param.algorithm == :SDDiP
             ContVarLeaf  = nothing;
             ContAugState = nothing;
-        end
-
-        if ModelList[t].ContVarBinaries ∉ [nothing]
             ContStateBin = Dict{Any, Dict{Any, Dict{Any, Any}}}(
                 :s => Dict{Any, Dict{Any, Any}}(
                     g => Dict{Any, Any}(
@@ -333,7 +331,9 @@ function forwardPass(
                     ) for g in indexSets.G
                 )
             );
-        else
+        elseif param.algorithm == :SDDP
+            ContVarLeaf  = nothing;
+            ContAugState = nothing;
             ContStateBin = nothing;
         end
         
