@@ -27,7 +27,8 @@ end
 case = "case30"; # "case_RTS_GMLC", "case30", "case30pwl",
 algorithm = :SDDPL; 
 cut = :SMC; 
-num = 5; T = 12;
+num = 3; T = 6;
+logger_save = true;
 for algorithm in [:SDDPL, :SDDP, :SDDiP]
     for cut in [:PLC, :SMC, :LC]
         for num in [3, 5, 10]
@@ -37,14 +38,16 @@ for algorithm in [:SDDPL, :SDDP, :SDDiP]
                     TimeLimit = 10,
                     ε = 1/32;
                     numScenarios = 10,
-                    LiftIterThreshold = 30,
+                    LiftIterThreshold = 100,
                     cutSelection = cut, 
                     algorithm = algorithm,
                     terminate_threshold = 1e-3,
+                    branch_threshold = 0.0,
                     T = T,
                     num = num,
                     case = case,
-                    med_method = :IntervalMed # :IntervalMed, :ExactPoint
+                    med_method = :IntervalMed, # :IntervalMed, :ExactPoint
+                    logger_save = logger_save
                 );
                 param_cut = param_cut_setup(
                     core_point_strategy = "Eps", # "Mid", "Eps"

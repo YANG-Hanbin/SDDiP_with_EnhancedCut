@@ -85,14 +85,17 @@ end
 
 function save_info(
     param::NamedTuple, 
-    sddpResults::Dict
+    sddpResults::Dict;
+    logger_save::Bool = true
 )::Nothing
-    case = param.case; cutSelection = param.cutSelection; num = param.num; T = param.T; algorithm = param.algorithm;
-    save(
-        "/Users/aaron/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection.jld2", 
-        "sddpResults", 
-        sddpResults
-    );
+    if logger_save == true
+        case = param.case; cutSelection = param.cutSelection; num = param.num; T = param.T; algorithm = param.algorithm;
+        save(
+            "/Users/aaron/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection.jld2", 
+            "sddpResults", 
+            sddpResults
+        );
+    end
     return 
 end
 
@@ -111,7 +114,8 @@ function param_setup(;
     T::Int64 = 12,
     num::Int64 = 10,
     med_method::Symbol = :ExactPoint,
-    case::String = "case30pwl"
+    case::String = "case30pwl",
+    logger_save::Bool = true
 )::NamedTuple
 
     return (
@@ -137,7 +141,8 @@ function param_setup(;
         algorithm           = algorithm,   
         T                   = T, 
         num                 = num, 
-        case                = case, # "case_RTS_GMLC", "case30", "case30pwl", "case24_ieee_rts"     
+        case                = case, # "case_RTS_GMLC", "case30", "case30pwl", "case24_ieee_rts"  
+        logger_save         = logger_save   
     )
 end
 

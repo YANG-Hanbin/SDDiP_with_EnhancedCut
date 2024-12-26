@@ -109,7 +109,8 @@ function stochastic_dual_dynamic_programming_algorithm(
                 :solHistory => solHistory, 
                 # :solution => stateInfoCollection, 
                 :gapHistory => gapList
-            )
+            );
+            logger_save = param.logger_save
         );
         LM_iter = 0;
         if total_Time > param.terminate_time || i ≥ param.MaxIter || UB-LB ≤ param.terminate_threshold * UB  
@@ -140,9 +141,9 @@ function stochastic_dual_dynamic_programming_algorithm(
                             );
                         end
                     end
-                    # g = [g for (g, v) in dev if v == maximum(values(dev))][1];
-                    large_dev = [g for (g, g_dev) in dev if g_dev ≥ param.branch_threshold]
-                    # if dev[g] ≥ param.branch_threshold                                        ## the second rule: current point is far from being an extreme point
+                    ## the second rule: current point is far from being an extreme point
+                    large_dev = [g for (g, v) in dev if v == maximum(values(dev))] 
+                    # large_dev = [g for (g, g_dev) in dev if g_dev ≥ param.branch_threshold]
                     for g in large_dev
                         branchDecision = true;
                         @everywhere begin
