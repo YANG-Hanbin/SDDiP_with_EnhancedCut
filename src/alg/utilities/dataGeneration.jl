@@ -9,7 +9,7 @@ project_root = @__DIR__;
 include(joinpath(project_root, "src", "alg", "utilities", "structs.jl"))
 include(joinpath(project_root, "src", "alg", "utilities", "readin.jl"))
 
-case = "case30"; # "case_RTS_GMLC", "case30", "case30pwl", "case24_ieee_rts"
+case = "case_RTS_GMLC"; # "case_RTS_GMLC", "case30", "case30pwl", "case24_ieee_rts"
 network_data = PowerModels.parse_file("src/alg/data/$case/$case.m");
 branchInfo = CSV.read("src/alg/data/case_RTS_GMLC/branch.csv", DataFrame);
 

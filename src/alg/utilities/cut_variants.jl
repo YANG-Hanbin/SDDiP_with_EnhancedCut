@@ -235,7 +235,12 @@ function solve_inner_minimization_problem(
                 ) : sum(x₀.ContVar[:s][g] * x₀.ContVar[:s][g] for g in indexSets.G)
         ) +
         1/2 * sum(x₀.BinVar[:y][g] * x₀.BinVar[:y][g] for g in indexSets.G) + 
-        1/2 * sum(sum(x₀.ContAugState[:s][g][k] * x₀.ContAugState[:s][g][k] for k in keys(stateInfo.ContAugState[:s][g]); init = 0.0) for g in indexSets.G
+        (param.algorithm == :SDDPL ? 
+        1/2 * sum(
+                sum(
+                    x₀.ContAugState[:s][g][k] * x₀.ContAugState[:s][g][k] for k in keys(stateInfo.ContAugState[:s][g]); init = 0.0
+                ) for g in indexSets.G
+            ) : 0.0
         ),                                                                                                                                                              ## obj function value
         Dict(
             1 => CutGenerationInfo.primal_bound - F - CutGenerationInfo.δ

@@ -97,7 +97,8 @@ function save_info(
 end
 
 function param_setup(;
-    TimeLimit::Any = 3600,
+    terminate_time::Any = 3600,
+    TimeLimit::Any = 10,
     terminate_threshold::Float64 = 1e-3,
     ε::Float64 = 0.125,
     MaxIter::Int64 = 3000,
@@ -109,7 +110,7 @@ function param_setup(;
     algorithm::Symbol = :SDDPL,
     T::Int64 = 12,
     num::Int64 = 10,
-    med_method::String = "interval_mid",
+    med_method::Symbol = :ExactPoint,
     case::String = "case30pwl"
 )::NamedTuple
 
@@ -117,6 +118,7 @@ function param_setup(;
         verbose             = false,
         MIPGap              = 1e-4,
         TimeLimit           = TimeLimit,
+        terminate_time      = terminate_time,
         terminate_threshold = terminate_threshold,
         MaxIter             = MaxIter,
         θ̲                   = 0.0,

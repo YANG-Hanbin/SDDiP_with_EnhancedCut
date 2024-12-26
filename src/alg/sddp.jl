@@ -112,7 +112,7 @@ function stochastic_dual_dynamic_programming_algorithm(
             )
         );
         LM_iter = 0;
-        if total_Time > param.TimeLimit || i ≥ param.MaxIter || UB-LB ≤ param.terminate_threshold * UB  
+        if total_Time > param.terminate_time || i ≥ param.MaxIter || UB-LB ≤ param.terminate_threshold * UB  
             return Dict(
                 :solHistory => solHistory, 
                 # :solution => stateInfoCollection, 

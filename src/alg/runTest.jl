@@ -24,25 +24,31 @@ using Distributed; addprocs(5);
 
 end
 
-case = "case30"; algorithm = :SDDPL; cut = :PLC; num = 3; T = 6;
+case = "case30"; # "case_RTS_GMLC", "case30", "case30pwl",
+algorithm = :SDDPL; 
+cut = :SMC; 
+num = 5; T = 12;
 for algorithm in [:SDDPL, :SDDP, :SDDiP]
     for cut in [:PLC, :SMC, :LC]
         for num in [3, 5, 10]
             for T in [6, 8, 12] 
                 param = param_setup(
+                    terminate_time = 7200,
+                    TimeLimit = 10,
                     ε = 1/32;
-                    numScenarios = 50,
-                    LiftIterThreshold = 10,
+                    numScenarios = 10,
+                    LiftIterThreshold = 30,
                     cutSelection = cut, 
                     algorithm = algorithm,
+                    terminate_threshold = 1e-3,
                     T = T,
                     num = num,
                     case = case,
-                    med_method = "interval_mid"
+                    med_method = :IntervalMed # :IntervalMed, :ExactPoint
                 );
                 param_cut = param_cut_setup(
                     core_point_strategy = "Eps", # "Mid", "Eps"
-                    δ = 1e-3,
+                    δ = 1e-2,
                     ℓ = .0,
                 );
                 param_levelsetmethod = param_levelsetmethod_setup(

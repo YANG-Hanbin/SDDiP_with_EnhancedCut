@@ -304,7 +304,7 @@ function forwardPass(
 
         # record the solution
         BinVar = Dict{Any, Dict{Any, Any}}(:y => Dict{Any, Any}(
-            g => JuMP.value(ModelList[t].BinVar[:y][g]) for g in indexSets.G)
+            g => round(JuMP.value(ModelList[t].BinVar[:y][g]), digits = 2) for g in indexSets.G)
         );
         ContVar = Dict{Any, Dict{Any, Any}}(:s => Dict{Any, Any}(
             g => JuMP.value(ModelList[t].ContVar[:s][g]) for g in indexSets.G)
@@ -314,7 +314,7 @@ function forwardPass(
                 :s => Dict{Any, Dict{Any, Dict{Symbol, Any}}}(
                     g => Dict(
                         k => Dict(
-                            :var => JuMP.value(ModelList[t].ContVarLeaf[:s][g][k][:var])
+                            :var => round(JuMP.value(ModelList[t].ContVarLeaf[:s][g][k][:var]), digits = 2)
                         ) for k in keys(ModelList[t].ContVarLeaf[:s][g]) if JuMP.value(ModelList[t].ContVarLeaf[:s][g][k][:var]) > .5
                     ) for g in indexSets.G
                 )
@@ -327,7 +327,7 @@ function forwardPass(
             ContStateBin = Dict{Any, Dict{Any, Dict{Any, Any}}}(
                 :s => Dict{Any, Dict{Any, Any}}(
                     g => Dict{Any, Any}(
-                        i => JuMP.value(ModelList[t].ContVarBinaries[:s][g][i]) for i in 1:param.κ[g]
+                        i => round(JuMP.value(ModelList[t].ContVarBinaries[:s][g][i]), digits = 2) for i in 1:param.κ[g]
                     ) for g in indexSets.G
                 )
             );
