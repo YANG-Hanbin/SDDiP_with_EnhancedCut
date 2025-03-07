@@ -195,7 +195,7 @@ function scenario_tree_generation(; T::Int64 = 10, numRealization::Int64 = 3, in
         for n in 1:numRealization
             deviation = Dict{Int64, Float64}()
             for d in indexSets.D
-                deviation[d] = rand(Uniform(0.9, 1.1))
+                deviation[d] = rand(Uniform(0.8, 1.6))
             end
             nodes[n] = RandomVariables(deviation)
         end

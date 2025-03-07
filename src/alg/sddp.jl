@@ -141,9 +141,12 @@ function stochastic_dual_dynamic_programming_algorithm(
                             );
                         end
                     end
-                    ## the second rule: current point is far from being an extreme point
-                    large_dev = [g for (g, v) in dev if v == maximum(values(dev))] 
-                    # large_dev = [g for (g, g_dev) in dev if g_dev ≥ param.branch_threshold]
+                    ##TODO the second rule: current point is far from being an extreme point
+                    if param.branch_variable == :MFV
+                        large_dev = [g for (g, v) in dev if v == maximum(values(dev))] 
+                    elseif param.branch_variable == :ALL
+                        large_dev = [g for (g, g_dev) in dev if g_dev ≥ param.branch_threshold]
+                    end
                     for g in large_dev
                         branchDecision = true;
                         @everywhere begin

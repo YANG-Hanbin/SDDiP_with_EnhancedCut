@@ -109,6 +109,7 @@ function param_setup(;
     numScenarios::Int64 = 3,
     LiftIterThreshold::Int64 = 10,
     branch_threshold::Float64 = 1e-3,
+    branch_variable::Symbol = :ALL, # :ALL, :MFV
     cutSelection::Symbol = :PLC, 
     algorithm::Symbol = :SDDPL,
     T::Int64 = 12,
@@ -133,6 +134,7 @@ function param_setup(;
         numScenarios        = numScenarios,
         LiftIterThreshold   = LiftIterThreshold,
         branch_threshold    = branch_threshold,
+        branch_variable     = branch_variable, # :ALL, :MFV
         ## "interval_mid", "exact_point"
         med_method          = med_method,   
         ## :PLC, :SMC, :LC

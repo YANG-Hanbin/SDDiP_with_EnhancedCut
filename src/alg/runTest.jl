@@ -21,7 +21,7 @@ using Distributed; addprocs(5);
     include(joinpath(project_root, "src", "alg", "backward_pass.jl"))
     include(joinpath(project_root, "src", "alg", "partition_tree.jl"))
     include(joinpath(project_root, "src", "alg", "sddp.jl"))
-
+    # include(joinpath(project_root, "src", "alg", "utilities", "extForm.jl"))
 end
 
 case = "case30"; # "case_RTS_GMLC", "case30", "case30pwl",
@@ -37,12 +37,13 @@ for algorithm in [:SDDPL, :SDDP, :SDDiP]
                     terminate_time = 7200,
                     TimeLimit = 10,
                     ε = 1/32;
-                    numScenarios = 10,
-                    LiftIterThreshold = 100,
+                    numScenarios = 1000,
+                    LiftIterThreshold = 2,
                     cutSelection = cut, 
                     algorithm = algorithm,
                     terminate_threshold = 1e-3,
-                    branch_threshold = 0.0,
+                    branch_threshold = 1e-6,
+                    branch_variable = :MFV, # :ALL, :MFV
                     T = T,
                     num = num,
                     case = case,
@@ -67,6 +68,17 @@ for algorithm in [:SDDPL, :SDDP, :SDDiP]
                 paramDemand      = load(joinpath(project_root, "src", "alg", "experiment_$case", "stage($T)real($num)", "paramDemand.jld2"))["paramDemand"];
                 scenarioTree     = load(joinpath(project_root, "src", "alg", "experiment_$case", "stage($T)real($num)", "scenarioTree.jld2"))["scenarioTree"];
                 initialStateInfo = load(joinpath(project_root, "src", "alg", "experiment_$case", "initialStateInfo.jld2"))["initialStateInfo"];
+                # Ξ = load("src/alg/experiment_$case/stage($T)real($num)/Ξ.jld2")["Ξ"];
+                # @time extResult = extensive_form(
+                #     indexSets = indexSets, 
+                #     paramDemand = paramDemand, 
+                #     paramOPF = paramOPF, 
+                #     scenarioTree = scenarioTree, 
+                #     Ξ = Ξ, 
+                #     silent = false, 
+                #     initialStageDecision = initialStageDecision
+                #     ); 
+                # OPT = extResult.OPT;
 
                 
                 @everywhere begin

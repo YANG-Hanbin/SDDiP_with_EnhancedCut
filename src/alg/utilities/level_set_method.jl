@@ -163,12 +163,16 @@ function add_constraint(
 end
 
 """
-LevelSetMethod_optimization!(; stageDecision::Dict{Symbol, Dict{Int64, Float64}} = stageDecision,
-                                    f_star_value::Float64 = f_star_value,
-                                        x_interior::Union{Dict{Symbol, Dict{Int64, Float64}}, Nothing} = nothing,
-                                            x₀::Dict{Symbol, Dict{Int64, Float64}} = x₀
-                            )
-
+    function LevelSetMethod_optimization!(
+        model::Model, 
+        levelsetmethodOracleParam::LevelSetMethodOracleParam, 
+        stateInfo::StateInfo,
+        CutGenerationInfo::CutGeneration;
+        indexSets::IndexSets = indexSets, 
+        paramDemand::ParamDemand = paramDemand, 
+        paramOPF::ParamOPF = paramOPF, 
+        param::NamedTuple = param, param_levelsetmethod::NamedTuple = param_levelsetmethod
+    )  
 # Arguments
 
     1. `stageDecision::Dict{Symbol, Dict{Int64, Float64}}` : the decision of the last stage
