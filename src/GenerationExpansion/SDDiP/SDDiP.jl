@@ -2,7 +2,7 @@ function setupLevelsetPara(forwardInfo::ForwardModelInfo, stageData::StageData, 
                                     cutSelection::String = "ELC", 
                                     binaryInfo::BinaryInfo = binaryInfo, 
                                     Output_Gap::Bool = false,
-                                    λ::Union{Float64, Nothing} = .3, ℓ1::Real = 1.0, ℓ2::Real = 0.8)
+                                    λ::Union{Float64, Nothing} = .3, ℓ1::Real = 1.0, ℓ2::Real = 0.0)
     if cutSelection == "ELC"
         forward_modify_constraints!(forwardInfo, 
                                         stageData, 
@@ -53,21 +53,22 @@ function setupLevelsetPara(forwardInfo::ForwardModelInfo, stageData::StageData, 
 end
 
 
-function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}}, 
-                            probList::Dict{Int64,Vector{Float64}}, 
-                            stageDataList::Dict{Int64, StageData}; 
-                            scenario_sequence::Dict{Int64, Dict{Int64, Any}} = scenario_sequence, ϵ::Float64 = 0.001, M::Int64 = 1, max_iter::Int64 = 100, 
-                            Output_Gap::Bool = false, tightness::Bool = false,
-                            cutSelection::String = "LC", binaryInfo::BinaryInfo = binaryInfo)
-    # ## d: dimension of x
-    # ## M: num of scenarios when doing one iteration
+function SDDiP_algorithm(   
+    Ω::Dict{Int64,Dict{Int64,RandomVariables}}, 
+    probList::Dict{Int64,Vector{Float64}}, 
+    stageDataList::Dict{Int64, StageData}; 
+    Output_Gap::Bool = false, 
+    binaryInfo::BinaryInfo = binaryInfo,
+    param::NamedTuple = param
+)
+    cutSelection = param.cutSelection; tightness = param.tightness; M = param.M; 
     OPT = Inf;
-    @time gurobiResult = gurobiOptimize!(Ω, 
-                                    probList, 
-                                    stageDataList,
-                                    binaryInfo = binaryInfo);
-    OPT = gurobiResult.OPT 
-    initial = now(); iter_time = 0; total_Time = 0; t0 = 0.0; 
+    # @time gurobiResult = gurobiOptimize!(Ω, 
+    #                                 probList, 
+    #                                 stageDataList,
+    #                                 binaryInfo = binaryInfo);
+    # OPT = gurobiResult.OPT 
+    initial = now(); iter_time = 0.; total_Time = 0.; t0 = 0.0; 
     T = length(keys(Ω));
     i = 1; LB = - Inf; UB = Inf; solCollection = Dict(); u = 0;Scenarios = 0;
 
@@ -79,39 +80,54 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
     forwardInfoList = Dict{Int, ForwardModelInfo}();
     backwardInfoList = Dict{Int, BackwardModelInfo}();
     for t in 1:T 
-        forwardInfoList[t] = forwardModel!(stageDataList[t], binaryInfo = binaryInfo, timelimit = 10, mipGap = 1e-4)
-        backwardInfoList[t] = backwardModel!(stageDataList[t], binaryInfo = binaryInfo, timelimit = 10, mipGap = 1e-4, 
-                                                tightness = tightness)
+        forwardInfoList[t] = forwardModel!(
+            stageDataList[t], 
+            binaryInfo = binaryInfo, 
+            timelimit = 10, 
+            mipGap = 1e-4
+        );
+        backwardInfoList[t] = backwardModel!(
+            stageDataList[t], 
+            binaryInfo = binaryInfo,
+            timelimit = 10, 
+            mipGap = 1e-4,                                      
+            tightness = tightness
+        );
     end 
     
-    println("---------------- print out iteration information -------------------")
     while true
         t0 = now();
         solCollection = Dict();  # to store every iteration results
         u = Vector{Float64}(undef, M);  # to compute upper bound 
-        Random.seed!(i)
-        Scenarios = SampleScenarios(scenario_sequence, T = T, M = M);
+        Random.seed!(i);
+        Scenarios = SampleScenarios(
+            Ω, 
+            probList, 
+            M = M
+        );
         
         ## Forward Step
         for k in 1:M
-             L̂= [0.0 for i in 1:binaryInfo.n];  ## for the first-stage subproblem, we create a zero vector as 'x_ancestor'
+            L̂= [0.0 for i in 1:binaryInfo.n];  ## for the first-stage subproblem, we create a zero vector as 'x_ancestor'
             for t in 1:T
                 forwardInfo = forwardInfoList[t];
                 ## realization of k-th scenario at stage t
-                ω = scenario_sequence[Scenarios[k]][1][t];
+                ω = Scenarios[k][t];
                 ## the following function is used to (1). change the problem coefficients for different node within the same stage t.
-                forward_modify_constraints!(forwardInfo, 
-                                                stageDataList[t], 
-                                                Ω[t][ω].d, 
-                                                L̂, 
-                                                binaryInfo = binaryInfo
-                                                );
+                forward_modify_constraints!(
+                    forwardInfo,           
+                    stageDataList[t],                  
+                    Ω[t][ω].d,                          
+                    L̂,      
+                    binaryInfo = binaryInfo                
+                );
                 optimize!(forwardInfo.model);
 
-                solCollection[t, k] = ( stageSolution = round.(JuMP.value.(forwardInfo.Lt), digits = 3), 
-                                        stageValue = JuMP.objective_value(forwardInfo.model) - JuMP.value(forwardInfo.θ),
-                                        OPT = JuMP.objective_value(forwardInfo.model)
-                                        );
+                solCollection[t, k] = ( 
+                    stageSolution = round.(JuMP.value.(forwardInfo.Lt), digits = 3), 
+                    stageValue = JuMP.objective_value(forwardInfo.model) - JuMP.value(forwardInfo.θ),                       
+                    OPT = JuMP.objective_value(forwardInfo.model)
+                );
 
                  L̂ = solCollection[t, k].stageSolution;
             end
@@ -127,14 +143,23 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
         gapString = string(gap,"%");
         push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, gap);
         if i == 1
-            println("---------------------------------- Iteration Info ------------------------------------")
-            println("Iter |   LB                              UB                             gap")
+            print_iteration_info_bar();
         end
-        @printf("%3d  |   %5.3g                         %5.3g                              %1.3f%s\n", i, LB, UB, gap, "%")
-        if UB-LB ≤ 1e-2 * UB || total_Time > 18000 || i >= max_iter
-            return Dict(:solHistory => sddipResult, 
-                            :solution => solCollection[1, 1].stageSolution, 
-                            :gapHistory => gapList) 
+        print_iteration_info(i, LB, UB, gap, iter_time, 0, total_Time); 
+        save_info(
+            param, 
+            Dict(
+                :solHistory => sddipResult, 
+                :gapHistory => gapList
+            );
+            logger_save = param.logger_save
+        );
+        if total_Time > param.terminate_time # || UB-LB ≤ param.terminate_threshold * UB || i >= param.MaxIter
+            return Dict(
+                :solHistory => sddipResult, 
+                :solution => solCollection[1, 1].stageSolution, 
+                :gapHistory => gapList
+            ) 
         end
 
         for t = reverse(2:T)
@@ -143,31 +168,45 @@ function SDDiP_algorithm(   Ω::Dict{Int64,Dict{Int64,RandomVariables}},
                 for j in keys(Ω[t])
                     # @info "$t, $k, $j"
                     backwardInfo = backwardInfoList[t]
-                    backward_Constraint_Modification!(backwardInfo, 
-                                                            Ω[t][j].d );
+                    backward_Constraint_Modification!(
+                        backwardInfo,                                         
+                        Ω[t][j].d 
+                    );
                     # copyVariable_Constraint!(backwardInfo, 
                     #                                 stageDataList[t], 
                     #                                 Ω[t-1][j].d;
                     #                                 binaryInfo = binaryInfo             
                     #                                 );
                     
-                    (levelSetMethodParam, x₀) = setupLevelsetPara(forwardInfoList[t], stageDataList[t], Ω[t][j].d, solCollection[t-1,k].stageSolution;
-                                                                        cutSelection = cutSelection,  # "ShrinkageLC", "ELCwithoutConstraint", "LC", "ELC"
-                                                                        binaryInfo = binaryInfo, 
-                                                                        Output_Gap = Output_Gap,
-                                                                        λ = .3, ℓ1 = 0.0, 
-                                                                        ℓ2 = 0.0);
-                    c = c + probList[t][j] .* LevelSetMethod_optimization!(backwardInfo, x₀; 
-                                                                                levelSetMethodParam = levelSetMethodParam, 
-                                                                                        stageData = stageDataList[t],   
-                                                                                                    ϵ = ϵ,      
-                                                                                                        binaryInfo = binaryInfo
-                                                                        ) 
+                    (levelSetMethodParam, x₀) = setupLevelsetPara(
+                        forwardInfoList[t], 
+                        stageDataList[t], Ω[t][j].d, 
+                        solCollection[t-1,k].stageSolution;
+                        cutSelection = cutSelection,  # "ShrinkageLC", "ELCwithoutConstraint", "LC", "ELC"                       
+                        binaryInfo = binaryInfo,                         
+                        Output_Gap = Output_Gap,                                 
+                        λ = .3, 
+                        ℓ1 = param.ℓ1,                                              
+                        ℓ2 = param.ℓ2
+                    );
+                    c = c + probList[t][j] .* LevelSetMethod_optimization!(
+                        backwardInfo, x₀; 
+                        levelSetMethodParam = levelSetMethodParam, 
+                        stageData = stageDataList[t], 
+                        ϵ = param.ε, 
+                        binaryInfo = binaryInfo
+                    ); 
 
                 end
                 # # add cut to both backward models and forward models
-                @constraint(forwardInfoList[t-1].model, forwardInfoList[t-1].θ ≥ c[1] + c[2]' * forwardInfoList[t-1].Lt )
-                @constraint(backwardInfoList[t-1].model, backwardInfoList[t-1].θ ≥ c[1] + c[2]' * backwardInfoList[t-1].Lt )              
+                @constraint(
+                    forwardInfoList[t-1].model, 
+                    forwardInfoList[t-1].θ ≥ c[1] + c[2]' * forwardInfoList[t-1].Lt 
+                );
+                @constraint(
+                    backwardInfoList[t-1].model, 
+                    backwardInfoList[t-1].θ ≥ c[1] + c[2]' * backwardInfoList[t-1].Lt 
+                );   
             end
         end
 

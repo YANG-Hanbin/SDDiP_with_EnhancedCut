@@ -89,9 +89,9 @@ function save_info(
     logger_save::Bool = true
 )::Nothing
     if logger_save == true
-        case = param.case; cutSelection = param.cutSelection; num = param.num; T = param.T; algorithm = param.algorithm;
+        case = param.case; cutSelection = param.cutSelection; num = param.num; T = param.T; algorithm = param.algorithm; med_method = param.med_method;
         save(
-            "/Users/aaron/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection.jld2", 
+            "/Users/aaron/SDDiP_with_EnhancedCut/src/alg/new_logger/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$med_method.jld2", 
             "sddpResults", 
             sddpResults
         );

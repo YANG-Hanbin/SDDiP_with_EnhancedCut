@@ -140,7 +140,7 @@ function dataGeneration(;   T::Int64 = 2, num_Ω::Int64 = num_Ω, seed::Int64 = 
             if t == 1
                 Ω[t][i]= RandomVariables([initial_demand])
             else
-                Ω[t][i]= RandomVariables( rand(Uniform(1.3, 1.6))*Ω[t-1][i].d )
+                Ω[t][i]= RandomVariables( rand(Uniform(1.05, 1.2))*Ω[t-1][i].d )
             end
         end
     end

@@ -10,13 +10,13 @@ using CSV, DataFrames
 using JLD2, FileIO
 
 
-const GRB_ENV = Gurobi.Env()
+const GRB_ENV = Gurobi.Env();
 
 
 include("src/GenerationExpansion/SDDiP/def.jl")
 include("src/GenerationExpansion/SDDiP/backwardPass.jl")
 include("src/GenerationExpansion/SDDiP/forwardPass.jl")
-include("src/GenerationExpansion/SDDiP/extFormGurobi.jl")
+# include("src/GenerationExpansion/SDDiP/extFormGurobi.jl")
 include("src/GenerationExpansion/SDDiP/LevelSetMethod.jl")
 include("src/GenerationExpansion/SDDiP/setting.jl")
 include("src/GenerationExpansion/SDDiP/SDDiP.jl")
@@ -26,24 +26,45 @@ include("src/GenerationExpansion/SDDiP/SDDiP.jl")
 #############################################################################################
 ####################################    main function   #####################################
 #############################################################################################
-max_iter = 100; ϵ = 1e-4; M = 30; Output_Gap = false; tightness = false; 
-cutSelection = "ShrinkageLC"; # "LC", "ShrinkageLC", "ELC"
-T = 5; # 3, 5
-num = 10; # 5, 10
+MaxIter = 200; ε = 1e-3; M = 500; Output_Gap = false; tightness = false; TimeLimit = 60*60.;
+cutSelection = "ELC"; # "LC", "ShrinkageLC", "ELC"
+T = 10; 
+num = 5; 
+logger_save = true;
+ℓ1 = .0; ℓ2 = 0.0;
 for cutSelection in ["ELC", "ShrinkageLC" ,"LC"]
-    for T in [3, 5]
+    for T in [10, 15]
         for num in [5, 10]
             stageDataList = load("src/GenerationExpansion/numerical_data/testData_stage($T)_real($num)/stageDataList.jld2")["stageDataList"]
             Ω = load("src/GenerationExpansion/numerical_data/testData_stage($T)_real($num)/Ω.jld2")["Ω"]
             binaryInfo = load("src/GenerationExpansion/numerical_data/testData_stage($T)_real($num)/binaryInfo.jld2")["binaryInfo"]
-            scenario_sequence = load("src/GenerationExpansion/numerical_data/testData_stage($T)_real($num)/scenario_sequence.jld2")["scenario_sequence"]
+            # scenario_sequence = load("src/GenerationExpansion/numerical_data/testData_stage($T)_real($num)/scenario_sequence.jld2")["scenario_sequence"]
             probList = load("src/GenerationExpansion/numerical_data/testData_stage($T)_real($num)/probList.jld2")["probList"]
 
-            sddipResults = SDDiP_algorithm(Ω, probList, stageDataList, 
-                                        scenario_sequence = scenario_sequence,
-                                            ϵ = ϵ, M = M, max_iter = max_iter, Output_Gap = Output_Gap, tightness = tightness,
-                                                cutSelection = cutSelection, binaryInfo = binaryInfo)
-            save("src/GenerationExpansion/numerical_data/testData_stage($T)_real($num)/sddip_tight($tightness)_$cutSelection.jld2", "sddipResults", sddipResults)
+            param = param_setup(;
+                terminate_time         = TimeLimit,
+                terminate_threshold    = 1e-3,
+                MaxIter                = MaxIter,
+                M                      = M, 
+                ε                      = ε,
+                tightness              = tightness,
+                cutSelection           = cutSelection,      ## :PLC, :LC, :SMC, :BC, :MDC
+                T                      = T,
+                num                    = num,
+                ℓ1                     = ℓ1,
+                ℓ2                     = ℓ2,
+                logger_save            = logger_save,
+                algorithm              = :SDDiP
+            );
+
+            sddipResults = SDDiP_algorithm(
+                Ω, 
+                probList, 
+                stageDataList; 
+                Output_Gap, 
+                binaryInfo = binaryInfo,
+                param
+            );
         end
     end
 end

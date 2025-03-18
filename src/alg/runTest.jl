@@ -24,13 +24,14 @@ using Distributed; addprocs(5);
     # include(joinpath(project_root, "src", "alg", "utilities", "extForm.jl"))
 end
 
-case = "case30"; # "case_RTS_GMLC", "case30", "case30pwl",
+case = "case30pwl"; # "case_RTS_GMLC", "case30", "case30pwl",
 algorithm = :SDDPL; 
-cut = :SMC; 
+cut = :LC; 
 num = 3; T = 6;
 logger_save = true;
+med_method = :ExactPoint; # :IntervalMed, :ExactPoint
 for algorithm in [:SDDPL, :SDDP, :SDDiP]
-    for cut in [:PLC, :SMC, :LC]
+    for cut in [:LC, :PLC, :SMC]
         for num in [3, 5, 10]
             for T in [6, 8, 12] 
                 param = param_setup(
@@ -47,7 +48,7 @@ for algorithm in [:SDDPL, :SDDP, :SDDiP]
                     T = T,
                     num = num,
                     case = case,
-                    med_method = :IntervalMed, # :IntervalMed, :ExactPoint
+                    med_method = med_method, 
                     logger_save = logger_save
                 );
                 param_cut = param_cut_setup(

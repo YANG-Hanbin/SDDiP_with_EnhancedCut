@@ -12,8 +12,9 @@ function Δ_model_formulation(functionHistory::FunctionHistory, f_star::Float64,
                                                 "OutputFlag" => Output, 
                                                 "Threads" => 0)); 
     MOI.set(alphaModel, MOI.Silent(), true);
-    set_optimizer_attribute(alphaModel, "MIPGap", 1e-3);
+    set_optimizer_attribute(alphaModel, "MIPGap", 1e-4);
     set_optimizer_attribute(alphaModel, "TimeLimit", 5);
+    set_optimizer_attribute(alphaModel, "FeasibilityTol", 1e-7);
 
     @variable(alphaModel, z)
     @variable(alphaModel, 0 ≤ α ≤ 1)
@@ -62,42 +63,64 @@ end
 """
     This function is to collect the information from the objecive f, and constraints G
 """
-function FuncInfo_LevelSetMethod(x₀::Vector{Float64}; 
-                                        backwardInfo::BackwardModelInfo = backwardInfo,
-                                            cutSelection::String = cutSelection, 
-                                                f_star_value::Union{Float64, Nothing} = f_star_value, 
-                                                    stageData::StageData = stageData, 
-                                                        Ŝ::Vector{Float64} =  Ŝ, S̃::Union{Vector{Float64}, Nothing} =  S̃, 
-                                                            ϵ::Float64 = ϵ )
+function FuncInfo_LevelSetMethod(
+    x₀::Vector{Float64}; 
+    backwardInfo::BackwardModelInfo = backwardInfo,   
+    cutSelection::String = cutSelection, 
+    f_star_value::Union{Float64, Nothing} = f_star_value,                
+    stageData::StageData = stageData,                   
+    Ŝ::Vector{Float64} = Ŝ, 
+    S̃::Union{Vector{Float64}, Nothing} =  S̃,                                       
+    ϵ::Float64 = ϵ 
+)
 
     if cutSelection == "ELC"
-        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
-                                                            x₀' * ( Ŝ .- backwardInfo.Sc) );
+        @objective(
+            backwardInfo.model, 
+            Min, 
+            stageData.c1' * backwardInfo.x + 
+            stageData.c2' * backwardInfo.y + 
+            backwardInfo.θ + stageData.penalty * backwardInfo.slack +                                                 
+            x₀' * ( Ŝ .- backwardInfo.Sc) 
+        );
         optimize!(backwardInfo.model);
-        F_solution = ( F = JuMP.objective_value(backwardInfo.model), 
-                            ∇F = Ŝ .- JuMP.value.(backwardInfo.Sc) );
+        F_solution = ( 
+            F = JuMP.objective_value(backwardInfo.model),                 
+            ∇F = Ŝ .- JuMP.value.(backwardInfo.Sc) 
+        );
 
-        currentInfo  = CurrentInfo(x₀, 
-                                    - F_solution.F - x₀' * ( S̃ .-  Ŝ),
-                                    Dict(1 => (1 - ϵ) * f_star_value - F_solution.F),
-                                    - F_solution.∇F - ( S̃ .-  Ŝ),
-                                    Dict(1 => - F_solution.∇F), 
-                                    F_solution.F
-                                    )                                        
+        currentInfo  = CurrentInfo(
+            x₀, 
+            - F_solution.F - x₀' * ( S̃ .-  Ŝ),
+            Dict(1 => (1 - ϵ) * f_star_value - F_solution.F),
+            - F_solution.∇F - ( S̃ .-  Ŝ),
+            Dict(1 => - F_solution.∇F),             
+            F_solution.F  
+        );                                        
     elseif cutSelection == "LC"
-        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack - 
-                                                            x₀' * backwardInfo.Sc );
+        @objective(
+            backwardInfo.model, 
+            Min, 
+            stageData.c1' * backwardInfo.x + 
+            stageData.c2' * backwardInfo.y + 
+            backwardInfo.θ + stageData.penalty * backwardInfo.slack -                                                 
+            x₀' * backwardInfo.Sc 
+        );
         optimize!(backwardInfo.model);
-        F_solution = (F = JuMP.objective_value(backwardInfo.model), 
-                                ∇F = - JuMP.value.(backwardInfo.Sc) );
+        F_solution = (
+            F = JuMP.objective_value(backwardInfo.model),                     
+            ∇F = - JuMP.value.(backwardInfo.Sc) 
+        );
 
-        currentInfo  = CurrentInfo(x₀, 
-                                    - F_solution.F - x₀' *  Ŝ, 
-                                    Dict(1 => 0.0),
-                                    - F_solution.∇F -  Ŝ,
-                                    Dict(1 => - F_solution.∇F * 0), 
-                                    F_solution.F
-                                    );
+        currentInfo  = CurrentInfo(
+            x₀, 
+            - F_solution.F - x₀' *  Ŝ,          
+            Dict(1 => 0.0),  
+            - F_solution.∇F -  Ŝ,
+            Dict(1 => - F_solution.∇F * 0),             
+            F_solution.F
+        );
+
     elseif cutSelection == "ELCwithoutConstraint"
         @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
                                                             x₀' * ( Ŝ .- backwardInfo.Sc) );
@@ -166,8 +189,9 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
                                         "OutputFlag" => Output, 
                                         "Threads" => 0)); 
     MOI.set(oracleModel, MOI.Silent(), true);
-    set_optimizer_attribute(oracleModel, "MIPGap", 1e-3);
-    set_optimizer_attribute(oracleModel, "TimeLimit", 5);
+    set_optimizer_attribute(oracleModel, "MIPGap", 1e-4);
+    set_optimizer_attribute(oracleModel, "TimeLimit", 5);         
+    set_optimizer_attribute(oracleModel, "FeasibilityTol", 1e-6);
 
     para_oracle_bound = abs(currentInfo.f);
     z_rhs = 10 * 10^(ceil(log10(para_oracle_bound)));
@@ -182,8 +206,9 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
                                                 "OutputFlag" => Output, 
                                                 "Threads" => 0)); 
     MOI.set(nxtModel, MOI.Silent(), true);
-    set_optimizer_attribute(nxtModel, "MIPGap", 1e-3);
+    set_optimizer_attribute(nxtModel, "MIPGap", 1e-4);
     set_optimizer_attribute(nxtModel, "TimeLimit", 5);
+    set_optimizer_attribute(nxtModel, "FeasibilityTol", 1e-6);
 
     @variable(nxtModel, x1[i = 1:d]);
     @variable(nxtModel, z1 );
@@ -214,25 +239,7 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
         if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
             f_star = JuMP.objective_value(oracleModel)
         else
-            @info "oracle is infeasible, new start!"
-            oracleModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-                                                "OutputFlag" => Output, 
-                                                "Threads" => 0)); 
-            MOI.set(oracleModel, MOI.Silent(), true);
-            set_optimizer_attribute(oracleModel, "MIPGap", 1e-3);
-            set_optimizer_attribute(oracleModel, "TimeLimit", 5);
-
-            para_oracle_bound = abs(currentInfo.f);
-            z_rhs = 10 * 10^(ceil(log10(para_oracle_bound)));
-            @variable(oracleModel, z  ≥  - z_rhs);
-            @variable(oracleModel, x[i = 1:d]);
-            @variable(oracleModel, y ≤ 0);
-
-            @objective(oracleModel, Min, z);
-            oracleInfo = ModelInfo(oracleModel, x, y, z);
-            add_constraint(currentInfo, oracleInfo);
-            optimize!(oracleModel);
-            f_star = JuMP.objective_value(oracleModel)
+            return cutInfo
         end
 
         # f_star = JuMP.objective_value(oracleModel)
@@ -316,6 +323,8 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
             st = termination_status(nxtModel)
             if st == MOI.OPTIMAL 
                 x_nxt = JuMP.value.(x1)
+            else
+                return cutInfo
             end
         elseif st == MOI.NUMERICAL_ERROR 
             # @info "Numerical Error occures! -- Build a new nxtModel"
@@ -323,8 +332,9 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
                         "OutputFlag" => Output, 
                         "Threads" => 0)); 
             MOI.set(nxtModel, MOI.Silent(), true);
-            set_optimizer_attribute(nxtModel, "MIPGap", 1e-3);
+            set_optimizer_attribute(nxtModel, "MIPGap", 1e-4);
             set_optimizer_attribute(nxtModel, "TimeLimit", 5);
+            set_optimizer_attribute(nxtModel, "FeasibilityTol", 1e-7);
         
             @variable(nxtModel, x1[i = 1:d]);
             @variable(nxtModel, z1 );

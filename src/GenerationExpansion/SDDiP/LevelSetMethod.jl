@@ -12,7 +12,7 @@ function Δ_model_formulation(functionHistory::FunctionHistory, f_star::Float64,
                                                 "OutputFlag" => Output, 
                                                 "Threads" => 0)); 
     MOI.set(alphaModel, MOI.Silent(), true);
-    set_optimizer_attribute(alphaModel, "MIPGap", 1e-3);
+    set_optimizer_attribute(alphaModel, "MIPGap", 1e-4);
     set_optimizer_attribute(alphaModel, "TimeLimit", 5);
 
     @variable(alphaModel, z)
@@ -79,7 +79,7 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
 
         currentInfo  = CurrentInfo(x₀, 
                                     - F_solution.F - x₀' * ( L̃ .-  L̂),
-                                    Dict(1 => (1 - ϵ) * f_star_value - F_solution.F),
+                                    Dict(1 => f_star_value - F_solution.F - ϵ),
                                     - F_solution.∇F - ( L̃ .-  L̂),
                                     Dict(1 => - F_solution.∇F), 
                                     F_solution.F
@@ -121,7 +121,7 @@ function FuncInfo_LevelSetMethod(x₀::Vector{Float64};
 
         currentInfo  = CurrentInfo(x₀, 
                                     1/2 * sum(x₀ .* x₀),
-                                    Dict(1 => (1 - ϵ) * f_star_value - F_solution.F),
+                                    Dict(1 => f_star_value - F_solution.F - ϵ),
                                     x₀,
                                     Dict(1 => - F_solution.∇F), 
                                     F_solution.F
@@ -166,7 +166,7 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
                                         "OutputFlag" => Output, 
                                         "Threads" => 0)); 
     MOI.set(oracleModel, MOI.Silent(), true);
-    set_optimizer_attribute(oracleModel, "MIPGap", 1e-3);
+    set_optimizer_attribute(oracleModel, "MIPGap", 1e-4);
     set_optimizer_attribute(oracleModel, "TimeLimit", 5);
 
     para_oracle_bound = abs(currentInfo.f);
@@ -182,7 +182,7 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
                                                 "OutputFlag" => Output, 
                                                 "Threads" => 0)); 
     MOI.set(nxtModel, MOI.Silent(), true);
-    set_optimizer_attribute(nxtModel, "MIPGap", 1e-3);
+    set_optimizer_attribute(nxtModel, "MIPGap", 1e-4);
     set_optimizer_attribute(nxtModel, "TimeLimit", 5);
 
     @variable(nxtModel, x1[i = 1:n]);
@@ -212,24 +212,7 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
         if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
             f_star = JuMP.objective_value(oracleModel)
         else
-            oracleModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-                                                "OutputFlag" => Output, 
-                                                "Threads" => 0)); 
-            MOI.set(oracleModel, MOI.Silent(), true);
-            set_optimizer_attribute(oracleModel, "MIPGap", 1e-3);
-            set_optimizer_attribute(oracleModel, "TimeLimit", 5);
-
-            para_oracle_bound = abs(currentInfo.f);
-            z_rhs = 10 * 10^(ceil(log10(para_oracle_bound)));
-            @variable(oracleModel, z  ≥  - z_rhs);
-            @variable(oracleModel, x[i = 1:n]);
-            @variable(oracleModel, y ≤ 0);
-
-            @objective(oracleModel, Min, z);
-            oracleInfo = ModelInfo(oracleModel, x, y, z);
-            add_constraint(currentInfo, oracleInfo);
-            optimize!(oracleModel);
-            f_star = JuMP.objective_value(oracleModel)
+            return cutInfo
         end
 
         f_star = JuMP.objective_value(oracleModel)
@@ -313,6 +296,8 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
             st = termination_status(nxtModel)
             if st == MOI.OPTIMAL 
                 x_nxt = JuMP.value.(x1)
+            else
+                return cutInfo  
             end
         elseif st == MOI.NUMERICAL_ERROR 
             # @info "Numerical Error occures! -- Build a new nxtModel"

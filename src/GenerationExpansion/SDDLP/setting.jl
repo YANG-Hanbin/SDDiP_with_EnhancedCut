@@ -86,6 +86,27 @@ function SampleScenarios(scenario_sequence::Dict{Int64, Dict{Int64, Any}}; T::In
     return scenarios
 end
 
+function SampleScenarios(
+    Ω::Dict{Int64, Dict{Int64, RandomVariables}}, 
+    probList::Dict{Int64, Vector{Float64}}; 
+    M::Int64 = 30
+)
+    ## a dict to store realization for each stage t in scenario k
+    T = length(keys(Ω));
+    scenarios = Dict{Int64, Vector{Int64}}()
+    for k in 1:M
+        scenario_path = [1];
+        for t in 2:T
+            items = [i for i in keys(Ω[t])]
+            weights = Weights(probList[t])
+            j = sample(items, weights)
+            push!(scenario_path, j)
+        end
+        scenarios[k] = scenario_path
+    end
+    return scenarios
+end
+
 ## rounding data
 function round!(a::Float64)               ## a = 1.3333e10
     b = floor(log10(a))                   ## b = 10
@@ -162,3 +183,74 @@ function dataGeneration(; T::Int64 = 2,
             binaryInfo = binaryInfo)
 end
 
+
+
+function print_iteration_info(
+    i::Int64, 
+    LB::Float64, 
+    UB::Float64,
+    gap::Float64, 
+    iter_time::Float64, 
+    LM_iter::Int, 
+    total_Time::Float64
+)::Nothing
+    @printf("%4d | %12.2f     | %12.2f     | %9.2f%%     | %9.2f s     | %6d     | %10.2f s     \n", 
+                i, LB, UB, gap, iter_time, LM_iter, total_Time); 
+    return 
+end
+
+function print_iteration_info_bar()::Nothing
+    println("------------------------------------------ Iteration Info ------------------------------------------------")
+    println("Iter |        LB        |        UB        |       Gap      |      i-time     |    #D.     |     T-Time")
+    println("----------------------------------------------------------------------------------------------------------")
+    return 
+end
+
+function save_info(
+    param::NamedTuple, 
+    sddpResults::Dict;
+    logger_save::Bool = true
+)::Nothing
+    if logger_save == true
+        cutSelection = param.cutSelection; num = param.num; T = param.T; tightness = param.tightness; algorithm = param.algorithm;
+        save(
+            "/Users/aaron/SDDiP_with_EnhancedCut/src/GenerationExpansion/logger/Periods$T-Real$num/$algorithm-$cutSelection-$tightness.jld2", 
+            "sddpResults", 
+            sddpResults
+        );
+    end
+    return 
+end
+
+
+function param_setup(;
+    terminate_time::Any             = 3600,
+    terminate_threshold::Float64    = 1e-3,
+    MaxIter::Int64                  = 3000,
+    M::Int64                        = 5, 
+    ε::Float64                      = 0.125,
+    tightness::Bool                 = true,
+    cutSelection::String            = "LC", 
+    T::Int64                        = 12,
+    num::Int64                      = 10,
+    ℓ1::Float64                     = 1.0,
+    ℓ2::Float64                     = 1.0,
+    logger_save::Bool               = true,
+    algorithm::Symbol               = :SDDLP
+)::NamedTuple
+    return (
+        terminate_time      = terminate_time,
+        terminate_threshold = terminate_threshold,
+        MaxIter             = MaxIter,
+        M                   = M, 
+        ε                   = ε,
+        tightness           = tightness,
+        cutSelection        = cutSelection, 
+        T                   = T, 
+        num                 = num, 
+        ℓ1                  = ℓ1,
+        ℓ2                  = ℓ2,
+        logger_save         = logger_save,
+        algorithm           = algorithm  
+    )
+end

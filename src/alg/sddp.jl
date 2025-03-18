@@ -113,7 +113,7 @@ function stochastic_dual_dynamic_programming_algorithm(
             logger_save = param.logger_save
         );
         LM_iter = 0;
-        if total_Time > param.terminate_time || i ≥ param.MaxIter || UB-LB ≤ param.terminate_threshold * UB  
+        if total_Time > param.terminate_time #|| i ≥ param.MaxIter || UB-LB ≤ param.terminate_threshold * UB  
             return Dict(
                 :solHistory => solHistory, 
                 # :solution => stateInfoCollection, 
@@ -141,7 +141,7 @@ function stochastic_dual_dynamic_programming_algorithm(
                             );
                         end
                     end
-                    ##TODO the second rule: current point is far from being an extreme point
+                    ##TODO: the second rule: current point is far from being an extreme point
                     if param.branch_variable == :MFV
                         large_dev = [g for (g, v) in dev if v == maximum(values(dev))] 
                     elseif param.branch_variable == :ALL

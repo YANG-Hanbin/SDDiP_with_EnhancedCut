@@ -5,17 +5,23 @@
 """
     This is the oracle in level set method, and it will return [F, dF]
 """
-function backwardModel!(             stageData::StageData; 
-                                            θ_bound::Real = 0.0,
-                                            binaryInfo::BinaryInfo = binaryInfo, 
-                                            timelimit::Int64 = 3, mipGap::Real = 1e-4, tightness::Bool = false)
+function backwardModel!( 
+    stageData::StageData, 
+    param::NamedTuple;                                   
+    θ_bound::Real = 0.0,                  
+    binaryInfo::BinaryInfo = binaryInfo,                     
+    tightness::Bool = false
+)::BackwardModelInfo
 
-    F = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-                                                "OutputFlag" => 0, 
-                                                "Threads" => 0)); 
-    MOI.set(F, MOI.Silent(), true);
-    set_optimizer_attribute(F, "MIPGap", mipGap);
-    set_optimizer_attribute(F, "TimeLimit", timelimit);
+
+    F = Model(optimizer_with_attributes(
+        () -> Gurobi.Optimizer(GRB_ENV), 
+        "Threads" => 0)); 
+    MOI.set(F, MOI.Silent(), !param.verbose);
+    set_optimizer_attribute(F, "MIPGap", param.MIPGap);
+    set_optimizer_attribute(F, "TimeLimit", param.TimeLimit);
+    set_optimizer_attribute(F, "MIPFocus", param.MIPFocus);           
+    set_optimizer_attribute(F, "FeasibilityTol", param.FeasibilityTol);
 
     @variable(F, x[i = 1:binaryInfo.d] ≥ 0, Int)                   # the number of generators will be built in this stage
     @variable(F, y[i = 1:binaryInfo.d] ≥ 0)

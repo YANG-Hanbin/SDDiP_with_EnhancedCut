@@ -138,11 +138,13 @@ function forwardModel!(
     @constraint(model, [g in indexSets.G], s[g] ≤ paramOPF.smax[g] * y[g])
 
     # power balance constraints
-    @constraint(model, PowerBalance[i in indexSets.B], 
-                    sum(s[g] for g in indexSets.Gᵢ[i]) -
-                    sum(P[(i, j)] for j in indexSets.out_L[i]) + 
-                    sum(P[(j, i)] for j in indexSets.in_L[i]) 
-                    .== sum(paramDemand.demand[d] * x[d] for d in indexSets.Dᵢ[i]) 
+    @constraint(
+        model, 
+        PowerBalance[i in indexSets.B], 
+        sum(s[g] for g in indexSets.Gᵢ[i]) -
+        sum(P[(i, j)] for j in indexSets.out_L[i]) + 
+        sum(P[(j, i)] for j in indexSets.in_L[i]) 
+        .== sum(paramDemand.demand[d] * x[d] for d in indexSets.Dᵢ[i]) 
     )
     
     # on/off status with startup and shutdown decision
@@ -186,14 +188,14 @@ function forwardModel!(
     );
     
     return SDDPModel(
-                model, 
-                Dict{Any, Dict{Any, VariableRef}}(:y => Dict{Any, VariableRef}(g => y[g] for g in indexSets.G)), 
-                nothing, 
-                Dict{Any, Dict{Any, VariableRef}}(:s => Dict{Any, VariableRef}(g => s[g] for g in indexSets.G)), 
-                nothing, 
-                ContVarLeaf,
-                nothing,
-                ContVarBinaries
+        model, 
+        Dict{Any, Dict{Any, VariableRef}}(:y => Dict{Any, VariableRef}(g => y[g] for g in indexSets.G)), 
+        nothing, 
+        Dict{Any, Dict{Any, VariableRef}}(:s => Dict{Any, VariableRef}(g => s[g] for g in indexSets.G)), 
+        nothing, 
+        ContVarLeaf,
+        nothing,
+        ContVarBinaries
     )
 end
 
