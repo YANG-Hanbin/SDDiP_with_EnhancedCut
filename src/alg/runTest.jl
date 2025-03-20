@@ -25,11 +25,11 @@ using Distributed; addprocs(5);
 end
 
 case = "case30pwl"; # "case_RTS_GMLC", "case30", "case30pwl",
-algorithm = :SDDPL; 
-cut = :LC; 
-num = 3; T = 6;
+algorithm = :SDDP; 
+cut = :PLC; 
+num = 3; T = 8;
 logger_save = true;
-med_method = :ExactPoint; # :IntervalMed, :ExactPoint
+med_method = :IntervalMed; # :IntervalMed, :ExactPoint
 for algorithm in [:SDDPL, :SDDP, :SDDiP]
     for cut in [:LC, :PLC, :SMC]
         for num in [3, 5, 10]
@@ -53,7 +53,7 @@ for algorithm in [:SDDPL, :SDDP, :SDDiP]
                 );
                 param_cut = param_cut_setup(
                     core_point_strategy = "Eps", # "Mid", "Eps"
-                    δ = 1e-2,
+                    δ = 1e2,
                     ℓ = .0,
                 );
                 param_levelsetmethod = param_levelsetmethod_setup(
