@@ -231,8 +231,10 @@ function solve_inner_minimization_problem(
         x₀, 
         1/2 * (param.algorithm == :SDDiP ?
                 sum(
-                    x₀.ContStateBin[:s][g][i] * x₀.ContStateBin[:s][g][i] for i in 1:param.κ[g] for g in indexSets.G
-                ) : sum(x₀.ContVar[:s][g] * x₀.ContVar[:s][g] for g in indexSets.G)
+                    sum(x₀.ContStateBin[:s][g][i] * x₀.ContStateBin[:s][g][i] for i in 1:param.κ[g]) 
+                    for g in indexSets.G
+                ) : 
+                sum(x₀.ContVar[:s][g] * x₀.ContVar[:s][g] for g in indexSets.G)
         ) +
         1/2 * sum(x₀.BinVar[:y][g] * x₀.BinVar[:y][g] for g in indexSets.G) + 
         (param.algorithm == :SDDPL ? 

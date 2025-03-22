@@ -44,11 +44,22 @@ function stochastic_dual_dynamic_programming_algorithm(
         if param.algorithm == :SDDiP
             for g in indexSets.G
                 if paramOPF.smax[g] ≥ param.ε
-                    param.κ[g] = floor(Int, log2(paramOPF.smax[g] / param.ε)) + 1
+                    param.κ[g] = ceil(Int, log2(paramOPF.smax[g] / param.ε)) # floor(Int, log2(paramOPF.smax[g] / param.ε)) + 1
                 else
                     param.κ[g] = 1
                 end
             end
+
+            contStateBin = Dict(
+                g => binarize_continuous_variable(initialStateInfo.ContVar[:s][g], paramOPF.smax[g], param) for g in indexSets.G
+            );
+            initialStateInfo.ContStateBin = Dict{Any, Dict{Any, Dict{Any, Any}}}(
+                :s => Dict{Any, Dict{Any, Any}}(
+                    g => Dict{Any, Any}(
+                        i => contStateBin[g][i] for i in 1:param.κ[g]
+                    ) for g in indexSets.G
+                )
+            );
         end
         ModelList = Dict{Int, SDDPModel}();
         for t in 1:indexSets.T 

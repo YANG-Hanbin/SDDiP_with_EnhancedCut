@@ -212,7 +212,6 @@ timeiter = @df sddlpResultLC plot(:Iter, :time, label="SDDℓP-LC",
 
 ## ================================================================ binarization ================================================================ ##
 coef = 10; T = 6; num = 5; case = "case30";
-sddipResult5 = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddipResult-$cutSelection-$tightness-5.jld2")["sddipResult"][:solHistory]
 sddipResult6 = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddipResult-$cutSelection-$tightness-6.jld2")["sddipResult"][:solHistory]
 sddipResult7 = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddipResult-$cutSelection-$tightness-7.jld2")["sddipResult"][:solHistory]
 sddipResult8 = load("src/UnitCommitment/numericalResults-$case/Periods$T-Real$num/sddipResult-$cutSelection-$tightness-8.jld2")["sddipResult"][:solHistory]

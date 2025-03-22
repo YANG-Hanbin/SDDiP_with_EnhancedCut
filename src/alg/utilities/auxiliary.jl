@@ -89,3 +89,21 @@ function setup_core_point(
         ContStateBin
     );
 end
+
+""" 
+    function binarize_continuous_variable(
+        state::Float64, 
+        smax::Float64, 
+        param::NamedTuple  
+    )::StateInfo
+"""
+function binarize_continuous_variable(
+    state::Float64, 
+    smax::Float64, 
+    param::NamedTuple  
+)::Vector
+    num_binary_vars = floor(Int, log2(smax / param.ε)) + 1  # the number of binary variables needed
+    max_integer = round(Int, state / param.ε)  # 将连续变量映射到整数
+    binary_representation = digits(max_integer, base=2, pad=num_binary_vars)  # 获取二进制表示（低位在前）
+    return binary_representation
+end

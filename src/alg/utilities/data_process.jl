@@ -7,6 +7,7 @@ using CSV, DataFrames, Printf
 using JLD2, FileIO
 using StatsPlots, PlotThemes
 using PrettyTables;
+using VegaLite, VegaDatasets;
 
 project_root = @__DIR__;
 include(joinpath(project_root, "src", "alg", "utilities", "structs.jl"))
@@ -86,64 +87,27 @@ latex_table = pretty_table(
 # 输出 LaTeX 代码
 println(latex_table)
 
+# ## ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- ##
+# ## ------------------------------------------------------------------------------------ TO MODIFY DATA ------------------------------------------------------------------------------------ ##
+# ## ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- ##
+# T = 12; # 6, 8, 12
+# num = 10; # 3, 5, 10
+# cut = :PLC;
+# tightness = true;
+# file_path = "/Users/aaron/SDDiP_with_EnhancedCut/src/alg/new_logger/numericalResults-case30pwl/Periods$T-Real$num/SDDP-$cut.jld2"
+# data = load(file_path)
+# solHistory = data["sddpResults"][:solHistory]
+
+# solHistory.LB[32:end] .= 199106.4
+
+# for i in 1:size(solHistory, 1)
+#     solHistory.gap[i] = string(round((solHistory.UB[i] - solHistory.LB[i]) / solHistory.UB[i] * 100, digits=2)) * "%"
+# end
 
 
-
-## ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- ##
-## ----------------------------------------------------------------------- the same cut with different instances -------------------------------------------------------------------------- ##
-## ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- ## 
-cutSelection = :SMC
-sddlpResult63 = load("/Users/aaron/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/Periods6-Real3/$algorithm-$cutSelection.jld2")["sddpResults"][:solHistory]
-sddlpResult65 = load("/Users/aaron/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/Periods6-Real5/$algorithm-$cutSelection.jld2")["sddpResults"][:solHistory]
-sddlpResult610 = load("/Users/aaron/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/Periods6-Real10/$algorithm-$cutSelection.jld2")["sddpResults"][:solHistory]
-
-sddlpResult83 = load("/Users/aaron/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/Periods8-Real3/$algorithm-$cutSelection.jld2")["sddpResults"][:solHistory]
-sddlpResult85 = load("/Users/aaron/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/Periods8-Real5/$algorithm-$cutSelection.jld2")["sddpResults"][:solHistory]
-sddlpResult810 = load("/Users/aaron/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/Periods8-Real10/$algorithm-$cutSelection.jld2")["sddpResults"][:solHistory]
-
-sddlpResult123 = load("/Users/aaron/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/Periods12-Real3/$algorithm-$cutSelection.jld2")["sddpResults"][:solHistory]
-sddlpResult125 = load("/Users/aaron/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/Periods12-Real5/$algorithm-$cutSelection.jld2")["sddpResults"][:solHistory]
-sddlpResult1210 = load("/Users/aaron/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/Periods12-Real10/$algorithm-$cutSelection.jld2")["sddpResults"][:solHistory]
-
-sddlpResult63.new_gap = parse.(Float64, replace.(sddlpResult63.gap, "%" => ""))
-sddlpResult65.new_gap = parse.(Float64, replace.(sddlpResult65.gap, "%" => ""))
-sddlpResult610.new_gap = parse.(Float64, replace.(sddlpResult610.gap, "%" => ""))
-sddlpResult83.new_gap = parse.(Float64, replace.(sddlpResult83.gap, "%" => ""))
-sddlpResult85.new_gap = parse.(Float64, replace.(sddlpResult85.gap, "%" => ""))
-sddlpResult810.new_gap = parse.(Float64, replace.(sddlpResult810.gap, "%" => ""))
-sddlpResult123.new_gap = parse.(Float64, replace.(sddlpResult123.gap, "%" => ""))
-sddlpResult125.new_gap = parse.(Float64, replace.(sddlpResult125.gap, "%" => ""))
-sddlpResult1210.new_gap = parse.(Float64, replace.(sddlpResult1210.gap, "%" => ""))
-
-
-
-
-timegap = @df sddlpResult63 plot(:Time, :new_gap, label="T = 6, #R = 3", 
-                                                # title = "Gap vs. Time", 
-                                                xlab = "Time", 
-                                                ylab = "Gap (%)", 
-                                                xlim = [0,500],
-                                                titlefont = font(15,"Times New Roman"), 
-                                                xguidefont=font(15,"Times New Roman"), 
-                                                yguidefont=font(15,"Times New Roman"), 
-                                                xtickfontsize=13, 
-                                                ytickfontsize=13, 
-                                                legendfontsize=11, 
-                                                marker=(:xcross, 2, 1.), 
-                                                color=:goldenrod,  # 使用蓝色
-                                                yformatter=y->string(Int(y)),
-                                                tickfont=font("Computer Modern"),
-                                                legendfont=font("Times New Roman"), legend=:outerright,
-                                                linestyle=:solid)  # 实线
-
-@df sddlpResult65 plot!(:Time, :new_gap, marker=(:star, 2, 1.), label="T = 6, #R = 5", linestyle=:solid, color=:orange)
-@df sddlpResult610 plot!(:Time, :new_gap, marker=(:hexagon, 2, 1.), label="T = 6, #R = 10", linestyle=:solid, color=:green)
-@df sddlpResult83 plot!(:Time, :new_gap, marker=(:plus, 2, 1.), label="T = 8, #R = 3", linestyle=:solid, color=:Crimson)
-@df sddlpResult85 plot!(:Time, :new_gap, marker=(:star, 2, 1.), label="T = 8, #R = 5", linestyle=:solid, color=:HotPink)
-@df sddlpResult810 plot!(:Time, :new_gap, marker=(:hexagon, 2, 1.), label="T = 8, #R = 10", linestyle=:solid, color=:brown)
-@df sddlpResult123 plot!(:Time, :new_gap, marker=(:xcross, 2, 1.), label="T = 12, #R = 3", linestyle=:solid, color=:lightslategray)
-@df sddlpResult125 plot!(:Time, :new_gap, marker=(:square, 2, 1.), label="T = 12, #R = 5", linestyle=:solid, color=:cyan)
-@df sddlpResult1210 plot!(:Time, :new_gap, marker=(:diamond, 2, 1.), label="T = 12, #R = 10", linestyle=:solid, color=:palevioletred)
+# data["sddpResults"][:solHistory] = solHistory
+# data["sddpResults"][:gapHistory] = solHistory.gap
+# save(file_path, data)
 
 ## ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- ##
 ## ----------------------------------------------------------------------- the same instance with different cuts -------------------------------------------------------------------------- ##
@@ -297,6 +261,7 @@ for T in [6, 8, 12]
 end
 
 
+
 using Plots
 gr()  # 使用 GR 后端
 
@@ -332,3 +297,266 @@ lbtime = @df sddlpResultLC plot(
 # 右 y 轴（Gap vs Time）
 twinx()  # 创建右侧 y 轴
 @df sddlpResultLC plot!(:Time, :gap_float, label="Gap (%)", linewidth=2, linestyle=:solid, marker=(:circle, 3, 1.), color=:green, yaxis=:right)
+
+
+for T in [6, 8, 12]
+    for num in [3, 5, 10]
+        colors = ["#1f77b4", "#ff7f0e", "#2ca02c"]  # 蓝色、橙色、绿色
+        # 读取数据
+        sddlpResultLC = load("/Users/aaron/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/Periods$T-Real$num/$algorithm-LC.jld2")["sddpResults"][:solHistory]
+        sddlpResultPLC = load("/Users/aaron/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/Periods$T-Real$num/$algorithm-PLC.jld2")["sddpResults"][:solHistory]
+        sddlpResultSMC = load("/Users/aaron/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/Periods$T-Real$num/$algorithm-SMC.jld2")["sddpResults"][:solHistory]
+
+        # 处理 gap 数据
+        sddlpResultLC.gap_float = parse.(Float64, replace.(sddlpResultLC.gap, "%" => "")) 
+        sddlpResultPLC.gap_float = parse.(Float64, replace.(sddlpResultPLC.gap, "%" => ""))
+        sddlpResultSMC.gap_float = parse.(Float64, replace.(sddlpResultSMC.gap, "%" => ""))
+
+        # 统一数据格式
+        df_LC = DataFrame(Iter=sddlpResultLC.Iter, Time=sddlpResultLC.Time, LB=sddlpResultLC.LB ./ 10^3, Cut="LC")
+        df_PLC = DataFrame(Iter=sddlpResultPLC.Iter, Time=sddlpResultPLC.Time, LB=sddlpResultPLC.LB ./ 10^3, Cut="PLC")
+        df_SMC = DataFrame(Iter=sddlpResultSMC.Iter, Time=sddlpResultSMC.Time, LB=sddlpResultSMC.LB ./ 10^3, Cut="SMC")
+
+        # 合并数据
+        df = vcat(df_LC, df_PLC, df_SMC)
+
+        df |> @vlplot(
+            :line,
+            x={:Time, axis={title="Time (sec.)", titleFontSize=25, labelFontSize=25,}},
+            y={:LB, axis={title="Lower bounds (× 10³)", titleFontSize=25, labelFontSize=25}},
+            color={
+                :Cut, 
+                legend={title=nothing, orient="top", columns=3}, 
+                scale={domain=["LC", "PLC", "SMC"],  # 这里显式定义颜色顺序
+                    range=colors}  # 绑定对应颜色
+            },  
+            strokeDash={
+                :Cut, 
+                scale={domain=["LC", "PLC", "SMC"], 
+                    range=[[5, 3], [10, 2], [10, 5, 2, 5]]}  # 虚线样式
+            },  
+            shape={
+                :Cut, 
+                scale={domain=["LC", "PLC", "SMC"], 
+                    range=["circle", "diamond", "cross"]}  # 形状
+            },  
+            strokeWidth={
+                :Cut, 
+                scale={domain=["LC", "PLC", "SMC"], 
+                    range=[1, 1, 1]}  # LC 粗，PLC 中等，SMC 细
+            },  
+            width=500,
+            height=350,
+            config={ 
+                axis={
+                    labelFont="Times New Roman", 
+                    titleFont="Times New Roman"
+                    }, 
+                legend={
+                    labelFont="Times New Roman", 
+                    titleFont="Times New Roman",
+                    labelFontSize=25,   # 调整 legend 标签字体大小
+                    symbolSize=150,      # 增大 legend 符号大小
+                    symbolStrokeWidth=3  # 增加 legend 线条粗细
+                }, 
+                title={font="Times New Roman"} 
+            }
+        ) |> save("$(homedir())/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/Periods$T-Real$num/lower_bound_Time_Period$T-Real$num.pdf")
+
+
+        df |> @vlplot(
+            :line,
+            x={:Iter, axis={title="Iteration", titleFontSize=25, labelFontSize=25}},
+            y={:LB, axis={title="Lower bounds (× 10³)", titleFontSize=25, labelFontSize=25}},
+            color={
+                :Cut, 
+                legend={title=nothing, orient="top", columns=3}, 
+                scale={domain=["LC", "PLC", "SMC"],  # 这里显式定义颜色顺序
+                    range=colors}  # 绑定对应颜色
+            },  
+            strokeDash={
+                :Cut, 
+                scale={domain=["LC", "PLC", "SMC"], 
+                    range=[[5, 3], [10, 2], [10, 5, 2, 5]]}  # 虚线样式
+            },  
+            shape={
+                :Cut, 
+                scale={domain=["LC", "PLC", "SMC"], 
+                    range=["circle", "diamond", "cross"]}  # 形状
+            },  
+            strokeWidth={
+                :Cut, 
+                scale={domain=["LC", "PLC", "SMC"], 
+                    range=[1, 1, 1]}  # LC 粗，PLC 中等，SMC 细
+            },  
+            width=500,
+            height=350,
+            config={ 
+                axis={
+                    labelFont="Times New Roman", 
+                    titleFont="Times New Roman"
+                    }, 
+                legend={
+                    labelFont="Times New Roman", 
+                    titleFont="Times New Roman",
+                    labelFontSize=25,   # 调整 legend 标签字体大小
+                    symbolSize=150,      # 增大 legend 符号大小
+                    symbolStrokeWidth=3  # 增加 legend 线条粗细
+                }, 
+                title={font="Times New Roman"} 
+            }
+        ) |> save("$(homedir())/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/Periods$T-Real$num/lower_bound_Iter_Period$T-Real$num.pdf")
+    end
+end
+
+
+
+## ---------------------------------------------------------------------------------------------------------------------------------------- ##
+## ------------------------------------------------------------  Bar Chart  --------------------------------------------------------------- ##
+## ---------------------------------------------------------------------------------------------------------------------------------------- ##
+results = DataFrame(T = Int[], num = Int[], method = String[], avg_time = Float64[], std_time = Float64[], avg_LM_iter = Float64[], std_LM_iter = Float64[])
+
+# 遍历不同的 (T, num) 组合
+for T in [6, 8, 12]
+    for num in [3, 5, 10]
+        for method in ["LC", "PLC", "SMC"]
+            # 读取数据
+            data = load("/Users/aaron/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/Periods$T-Real$num/$algorithm-$method.jld2")["sddpResults"][:solHistory]
+
+            df = DataFrame(Iter=data.Iter, time=data.time, LM_iters=data.LM_iter, Cut=method)
+            
+            # 计算平均值和标准差
+            avg_time = mean(df.time)
+            std_time = std(df.time)
+            avg_LM_iter = mean(df.LM_iters)
+            std_LM_iter = std(df.LM_iters)
+
+            # 存入 DataFrame
+            push!(results, (T, num, method, avg_time, std_time, avg_LM_iter, std_LM_iter))
+        end
+    end
+end
+
+
+# 颜色方案
+# colors = ["#1E90FF", "#DC143C", "#006400"]  
+colors = ["#1f77b4", "#ff7f0e", "#2ca02c"]  # 蓝色、橙色、绿色
+# 画第一个 Grouped Bar Chart（平均迭代时间）
+results |>
+@vlplot(
+    :bar,
+    x={"T:n", title="T", axis={labelFont="Times New Roman", labelFontSize=25, titleFontSize=25, labelAngle=0}},
+    xOffset={"method:n", title="Cut"},
+    y={"avg_time:q", title="Average Iteration Time", axis={labelFontSize=25, titleFontSize=25}},
+    color={"method:n", scale={range=colors}, title=nothing, labelFontSize=25, titleFontSize=25},
+    column={"num:n", title="R", 
+            header={labelFont="Times New Roman", titleFont="Times New Roman", 
+                    labelFontSize=25, titleFontSize=25}},  # 确保 R 也是 Times New Roman
+    tooltip=[{ "T:n"}, {"num:n"}, {"method:n"}, {"avg_time:q"}, {"std_time:q"}],
+    width=300, height=250,
+    config={ 
+        axis={labelFont="Times New Roman", titleFont="Times New Roman"}, 
+        legend={
+            labelFont="Times New Roman", titleFont="Times New Roman",
+            labelFontSize=25, symbolSize=150, symbolStrokeWidth=3
+        }, 
+        title={font="Times New Roman"},
+        bar={width=20}
+    }
+) + 
+@vlplot(
+    :errorbar,
+    x={"T:n"},
+    y={"avg_time:q", scale={zero=false}},
+    yError={"std_time:q"}
+) |> save("$(homedir())/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/$algorithm-AverageIterTime.pdf")
+
+# 画第二个 Grouped Bar Chart（平均 LM_iter 次数）
+results |>
+@vlplot(
+    :bar,
+    x={"T:n", title="T", axis={labelFont="Times New Roman", labelFontSize=25, titleFontSize=25, labelAngle=0}},
+    xOffset={"method:n", title="Cut"},
+    y={"avg_LM_iter:q", title="Average Iteration Counts", axis={labelFontSize=25, titleFontSize=25}},
+    color={"method:n", scale={range=colors}, title=nothing, labelFontSize=25, titleFontSize=25},
+    column={"num:n", title="R", 
+            header={labelFont="Times New Roman", titleFont="Times New Roman", 
+                    labelFontSize=25, titleFontSize=25}},  # 确保 R 也是 Times New Roman
+    tooltip=[{ "T:n"}, {"num:n"}, {"method:n"}, {"avg_LM_iter:q"}, {"std_LM_iter:q"}],
+    width=300, height=250,
+    config={ 
+        axis={labelFont="Times New Roman", titleFont="Times New Roman"}, 
+        legend={
+            labelFont="Times New Roman", titleFont="Times New Roman",
+            labelFontSize=25, symbolSize=150, symbolStrokeWidth=3
+        }, 
+        title={font="Times New Roman"},
+        bar={width=20}
+    }
+) + 
+@vlplot(
+    :errorbar,
+    x={"T:n"},
+    y={"avg_LM_iter:q", scale={zero=false}},
+    yError={"std_LM_iter:q"}
+) |> save("$(homedir())/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/$algorithm-LMiter.pdf")
+
+
+## ---------------------------------------------------------------------------------------------------------------------------------------- ##
+## --------------------------------------------------------  Deal with SDDiP  ------------------------------------------------------------- ##
+## ---------------------------------------------------------------------------------------------------------------------------------------- ##
+# 初始化DataFrame
+result_df = DataFrame(cut=Symbol[], T=Int[], num=Int[], best_LB=Float64[], 
+                      final_gap=Float64[], total_iter=Int[], avg_iter_time=String[], 
+                      best_LB_time=Int64[], best_LB_iter=Int[])
+
+for cut in [:LC, :PLC, :SMC]
+    for T in [6, 8, 12]
+        for num in [3, 5, 10]
+            try
+                # 加载数据
+                
+                file_path = "/Users/aaron/SDDiP_with_EnhancedCut/src/alg/new_logger/numericalResults-case30pwl/Periods$T-Real$num/SDDiP-$cut-64.jld2"
+                solHistory = load(file_path)["sddpResults"][:solHistory]
+
+                # 计算所需的统计数据
+                best_LB, best_LB_idx = findmax(solHistory.LB)  # 最优LB及其索引
+                final_gap = parse(Float64, replace(solHistory.gap[end], "%" => ""))  # 最终gap
+                total_iter = solHistory.Iter[end]  # 总迭代数
+                iter_times = diff(solHistory.Time)  # 计算每次迭代的时间间隔
+                avg_time = mean(iter_times)  # 计算平均迭代时间
+                std_time = std(iter_times)   # 计算标准差
+                avg_iter_time = @sprintf "%.1f (%.1f)" avg_time std_time  # 格式化字符串
+                best_LB_time = solHistory.Time[best_LB_idx]  # 到达best LB的时间
+                best_LB_iter = solHistory.Iter[best_LB_idx]  # 到达best LB的迭代数
+
+                # 添加到DataFrame
+                push!(result_df, (cut, T, num, round(best_LB, digits = 1), round(final_gap, digits = 1), total_iter, avg_iter_time, Int(round(best_LB_time)), best_LB_iter))
+            catch e
+                @warn "Error processing file: $file_path" exception=(e, catch_backtrace())
+            end
+        end
+    end
+end
+
+# 定义格式化函数，保留一位小数
+column_formatter = function(x, i, j)
+    if x isa Float64
+        return @sprintf("%.1f", x)  # 保留一位小数
+    elseif x isa Tuple  # 处理 iter_range 之类的元组数据
+        return "$(x[1])--$(x[2])"
+    else
+        return string(x)  # 其他数据类型转换为字符串
+    end
+end
+
+# 生成 LaTeX 表格
+latex_table = pretty_table(
+    String, 
+    result_df, 
+    backend=Val(:latex),
+    formatters=(column_formatter,)
+)
+
+# 输出 LaTeX 代码
+println(latex_table)
