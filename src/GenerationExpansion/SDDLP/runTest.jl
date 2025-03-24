@@ -24,9 +24,9 @@ include("src/GenerationExpansion/SDDLP/SDDiP.jl")
 #############################################################################################
 ####################################    main function   #####################################
 #############################################################################################
-MaxIter = 200; ε = 1e-3; M = 500; Output_Gap = false; tightness = true; TimeLimit = 60*60;
-T = 10; num = 5;
-cutSelection = "LC"; # "LC", "ShrinkageLC", "ELC"
+MaxIter = 200; ε = 1e-4; M = 500; Output_Gap = false; tightness = false; TimeLimit = 60*60;
+T = 15; num = 10;
+cutSelection = "ELC"; # "LC", "ShrinkageLC", "ELC"
 logger_save = true;
 ℓ1 = .0; ℓ2 = 0.0;
 for cutSelection in ["ELC", "ShrinkageLC" ,"LC"]
@@ -66,7 +66,4 @@ for cutSelection in ["ELC", "ShrinkageLC" ,"LC"]
     end
 end
 
-T = 3; num = 5; cutSelection = "LC"; tightness = true; 
-sddipResults = load("src/GenerationExpansion/numerical_data/testData_stage($T)_real($num)/sddlp_tight($tightness)_$cutSelection.jld2")["sddipResults"]
-sddipResults[:solHistory]
 

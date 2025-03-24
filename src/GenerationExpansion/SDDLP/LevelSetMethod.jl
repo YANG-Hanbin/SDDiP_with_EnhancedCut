@@ -90,8 +90,8 @@ function FuncInfo_LevelSetMethod(
     stageData::StageData = stageData, 
     Ŝ::Dict{Symbol, Any} =  Ŝ, 
     S̃::Union{Dict{Symbol, Any}, Nothing} =  S̃, 
-    ϵ::Float64 = ϵ, 
-    binaryInfo::BinaryInfo = binaryInfo
+    binaryInfo::BinaryInfo = binaryInfo,
+    param::NamedTuple = param
 )::CurrentInfo
 
     if cutSelection == "ELC"
@@ -111,19 +111,30 @@ function FuncInfo_LevelSetMethod(
         );
 
         optimize!(backwardInfo.model);
-        F_solution = ( 
-            F = JuMP.objective_value(backwardInfo.model), 
-            negative_∇F = Dict(
-                :St => JuMP.value.(backwardInfo.Sc) - Ŝ[:St], 
-                :sur => Dict(
-                    g => Dict(k => JuMP.value(backwardInfo.model[:sur_copy][g, k]) - Ŝ[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d)
-                )
-        );           
+        if param.tightness
+            F_solution = ( 
+                F = JuMP.objective_value(backwardInfo.model), 
+                negative_∇F = Dict(
+                    :St => round.(JuMP.value.(backwardInfo.Sc), digits = 2) - Ŝ[:St], 
+                    :sur => Dict(
+                        g => Dict(k => round(JuMP.value(backwardInfo.model[:sur_copy][g, k]), digits = 2) - Ŝ[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d)
+                    )
+            );    
+        else
+            F_solution = ( 
+                F = JuMP.objective_value(backwardInfo.model), 
+                negative_∇F = Dict(
+                    :St => JuMP.value.(backwardInfo.Sc) - Ŝ[:St], 
+                    :sur => Dict(
+                        g => Dict(k => JuMP.value(backwardInfo.model[:sur_copy][g, k]) - Ŝ[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d)
+                    )
+            );   
+        end
                         
         currentInfo  = CurrentInfo(
             x₀, 
             - F_solution.F - x₀[:St]' * (S̃[:St] .-  Ŝ[:St]) + sum(sum(x₀[:sur][g][k] * (S̃[:sur][g][k] - Ŝ[:sur][g][k]) for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d),
-            Dict(1 => (1 - ϵ) * f_star_value - F_solution.F ),
+            Dict(1 => f_star_value - F_solution.F - param.ε),
             Dict( :St => JuMP.value.(backwardInfo.Sc) .- S̃[:St], 
             :sur => Dict(g => Dict(k => JuMP.value(backwardInfo.model[:sur_copy][g, k]) - S̃[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d)),
             Dict(1 => F_solution.negative_∇F),
@@ -141,17 +152,31 @@ function FuncInfo_LevelSetMethod(
             x₀[:St]' * backwardInfo.Sc - sum(sum(x₀[:sur][g][k] * backwardInfo.model[:sur_copy][g, k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d) 
         );
         optimize!(backwardInfo.model);
-        F_solution = ( 
-            F = JuMP.objective_value(backwardInfo.model), 
-            negative_∇F = Dict( 
-                :St => JuMP.value.(backwardInfo.Sc), 
-                :sur => Dict(g => Dict(k => JuMP.value(backwardInfo.model[:sur_copy][g, k]) for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d)
-            ),
-            zero_∇F = Dict( 
-                :St => JuMP.value.(backwardInfo.Sc) .* 0, 
-                :sur => Dict(g => Dict(k => 0.0 for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d)
-            )
-        );           
+        if param.tightness
+            F_solution = ( 
+                F = JuMP.objective_value(backwardInfo.model), 
+                negative_∇F = Dict( 
+                    :St => round.(JuMP.value.(backwardInfo.Sc), digits = 2), 
+                    :sur => Dict(g => Dict(k => round(JuMP.value(backwardInfo.model[:sur_copy][g, k]), digits = 2) for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d)
+                ),
+                zero_∇F = Dict( 
+                    :St => round.(JuMP.value.(backwardInfo.Sc), digits = 2) .* 0, 
+                    :sur => Dict(g => Dict(k => 0.0 for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d)
+                )
+            );           
+        else
+            F_solution = ( 
+                F = JuMP.objective_value(backwardInfo.model), 
+                negative_∇F = Dict( 
+                    :St => JuMP.value.(backwardInfo.Sc), 
+                    :sur => Dict(g => Dict(k => JuMP.value(backwardInfo.model[:sur_copy][g, k]) for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d)
+                ),
+                zero_∇F = Dict( 
+                    :St => JuMP.value.(backwardInfo.Sc) .* 0, 
+                    :sur => Dict(g => Dict(k => 0.0 for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d)
+                )
+            );           
+        end        
                         
         currentInfo  = CurrentInfo(
             x₀, 
@@ -177,17 +202,27 @@ function FuncInfo_LevelSetMethod(
         );
 
         optimize!(backwardInfo.model);
-        F_solution = ( 
-            F = JuMP.objective_value(backwardInfo.model), 
-            negative_∇F = Dict( 
-                :St => JuMP.value.(backwardInfo.Sc) - Ŝ[:St], 
-                :sur => Dict(g => Dict(k => JuMP.value(backwardInfo.model[:sur_copy][g, k]) - Ŝ[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d))
-        );           
+        if param.tightness
+            F_solution = ( 
+                F = JuMP.objective_value(backwardInfo.model), 
+                negative_∇F = Dict( 
+                    :St => round.(JuMP.value.(backwardInfo.Sc), digits = 2) - Ŝ[:St], 
+                    :sur => Dict(g => Dict(k => round(JuMP.value(backwardInfo.model[:sur_copy][g, k]), digits = 2) - Ŝ[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d)
+                )
+            );           
+        else
+            F_solution = ( 
+                F = JuMP.objective_value(backwardInfo.model), 
+                negative_∇F = Dict( 
+                    :St => JuMP.value.(backwardInfo.Sc) - Ŝ[:St], 
+                    :sur => Dict(g => Dict(k => JuMP.value(backwardInfo.model[:sur_copy][g, k]) - Ŝ[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d))
+            );   
+        end        
                         
         currentInfo  = CurrentInfo(
             x₀, 
             1/2 * sum(x₀[:St] .* x₀[:St]) + 1/2 * sum(sum(x₀[:sur][g][k] * x₀[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d),                
-            Dict(1 => (1 - ϵ) * f_star_value - F_solution.F ),
+            Dict(1 => f_star_value - F_solution.F - param.ε),
             Dict( 
                 :St => x₀[:St], 
                 :sur => Dict(g => Dict(k => x₀[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d)),    
@@ -206,19 +241,16 @@ function setupLevelsetPara(
     forwardInfo::ForwardModelInfo, 
     stageData::StageData, 
     demand::Vector{Float64}, 
-    stateInfo::Any;                            
-    cutSelection::String = "ELC",                  
+    stateInfo::Any,
+    param::NamedTuple;                                            
     binaryInfo::BinaryInfo = binaryInfo,   
     Output_Gap::Bool = false, 
-    max_iter::Int64 = 100,
-    λ::Union{Float64, Nothing} = .3, 
-    ℓ1::Real = 1., 
-    ℓ2::Real = 1.
+    λ::Union{Float64, Nothing} = .3
 )
 
     L̂ = stateInfo.stageSolution; sur = stateInfo.stageSur; 
     Ŝ = Dict( :St => L̂, :sur => Dict(g => Dict(k => sur[g][k] for k in keys(sur[g])) for g in 1:binaryInfo.d));
-    if cutSelection == "ELC"
+    if param.cutSelection == "ELC"
         forward_modify_constraints!(
             forwardInfo,                   
             stageData,                
@@ -242,16 +274,16 @@ function setupLevelsetPara(
             λ, 
             threshold,                            
             1e14, 
-            max_iter, 
+            param.MaxIter, 
             Output, Output_Gap,                               
             Ŝ, 
-            cutSelection, 
+            param.cutSelection, 
             L̃, 
             f_star_value
         );
 
 
-    elseif cutSelection == "ShrinkageLC" 
+    elseif param.cutSelection == "ShrinkageLC" 
         forward_modify_constraints!(
             forwardInfo,                 
             stageData,                
@@ -266,20 +298,20 @@ function setupLevelsetPara(
             λ, 
             threshold, 
             1e14, 
-            max_iter, 
+            param.MaxIter, 
             Output, 
             Output_Gap,
             Ŝ,  
-            cutSelection, 
+            param.cutSelection, 
             nothing, 
             f_star_value
         );
 
     elseif cutSelection == "ELCwithoutConstraint" 
         L̃ = Dict( 
-            :St => L̂ .* ℓ1 .- ℓ1 ./ 2,             
+            :St => L̂ .* param.ℓ1 .- param.ℓ1 ./ 2,             
             :sur => Dict(
-                g => Dict(k => sur[g][k] .* ℓ1 .- ℓ1 ./ 2 for k in keys(sur[g])) for g in 1:binaryInfo.d
+                g => Dict(k => sur[g][k] .* param.ℓ1 .- param.ℓ1 ./ 2 for k in keys(sur[g])) for g in 1:binaryInfo.d
             )
         );
         Output = 0; threshold = 1.0; f_star_value = 0.0;
@@ -288,16 +320,16 @@ function setupLevelsetPara(
             λ, 
             threshold, 
             1e14, 
-            max_iter, 
+            param.MaxIter, 
             Output, 
             Output_Gap,
             Ŝ,  
-            cutSelection, 
+            param.cutSelection, 
             L̃, 
             f_star_value
         );
 
-    elseif cutSelection == "LC" 
+    elseif param.cutSelection == "LC" 
         f_star_value = 0.0;
         Output = 0; threshold = 1.0; 
         levelSetMethodParam = LevelSetMethodParam(
@@ -305,11 +337,11 @@ function setupLevelsetPara(
             λ, 
             threshold, 
             1e14, 
-            max_iter, 
+            param.MaxIter, 
             Output, 
             Output_Gap, 
             Ŝ,  
-            cutSelection, 
+            param.cutSelection, 
             nothing, 
             f_star_value
         );
@@ -335,9 +367,9 @@ function LevelSetMethod_optimization!(
     backwardInfo::BackwardModelInfo, 
     x₀::Dict{Symbol, Any}; 
     levelSetMethodParam::LevelSetMethodParam = levelSetMethodParam,   
-    stageData::StageData = stageData,                  
-    ϵ::Float64 = 1e-4,                             
-    binaryInfo::BinaryInfo = binaryInfo
+    stageData::StageData = stageData,                         
+    binaryInfo::BinaryInfo = binaryInfo,
+    param::NamedTuple = param
 )::Any 
     
     ######################################################################################################################
@@ -361,8 +393,8 @@ function LevelSetMethod_optimization!(
         stageData = stageData, 
         Ŝ = Ŝ, 
         S̃ = S̃, 
-        ϵ = ϵ, 
-        binaryInfo = binaryInfo
+        binaryInfo = binaryInfo,
+        param = param
     );
 
     functionHistory = FunctionHistory(  
@@ -446,7 +478,12 @@ function LevelSetMethod_optimization!(
             oracleInfo = ModelInfo(oracleModel, x, x_sur, y, z);
             add_constraint(currentInfo, oracleInfo);
             optimize!(oracleModel);
-            f_star = JuMP.objective_value(oracleModel)
+            st = termination_status(oracleModel)
+            if st == MOI.OPTIMAL
+                f_star = JuMP.objective_value(oracleModel)
+            else
+                return cutInfo
+            end
         end
 
         # f_star = JuMP.objective_value(oracleModel)
@@ -538,7 +575,16 @@ function LevelSetMethod_optimization!(
 
         ## ==================================================== end ============================================== ##
         ## save the trajectory
-        currentInfo = FuncInfo_LevelSetMethod(x_nxt, cutSelection = cutSelection, backwardInfo = backwardInfo, f_star_value = f_star_value, stageData = stageData, Ŝ = Ŝ, S̃ = S̃, ϵ = ϵ, binaryInfo = binaryInfo);
+        currentInfo = FuncInfo_LevelSetMethod(
+            x_nxt, 
+            cutSelection = cutSelection, 
+            backwardInfo = backwardInfo, 
+            f_star_value = f_star_value, 
+            stageData = stageData, 
+            Ŝ = Ŝ, 
+            S̃ = S̃, 
+            binaryInfo = binaryInfo,
+            param = param);
         iter = iter + 1;
         
         functionHistory.f_his[iter] = currentInfo.f;

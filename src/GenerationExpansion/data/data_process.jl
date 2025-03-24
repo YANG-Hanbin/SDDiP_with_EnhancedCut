@@ -29,7 +29,7 @@ algorithm = "SDDiP";
 tightness = false;
 result_df = DataFrame(cut=String[], T=Int[], num=Int[], best_LB=Float64[], 
                       final_gap=Float64[], total_iter=Int[], avg_iter_time=String[], 
-                      best_LB_time=Float64[], best_LB_iter=Int[])
+                      best_LB_time=Int64[], best_LB_iter=Int[])
 
 for cut in ["LC", "ELC", "ShrinkageLC"]
     for T in [10, 15]
@@ -39,19 +39,18 @@ for cut in ["LC", "ELC", "ShrinkageLC"]
                 file_path = "/Users/aaron/SDDiP_with_EnhancedCut/src/GenerationExpansion/logger/Periods$T-Real$num/$algorithm-$cut-$tightness.jld2"
                 solHistory = load(file_path)["sddpResults"][:solHistory]
 
-                # 计算所需的统计数据
                 best_LB, best_LB_idx = findmax(solHistory.LB)  # 最优LB及其索引
                 final_gap = parse(Float64, replace(solHistory.gap[end], "%" => ""))  # 最终gap
                 total_iter = solHistory.iter[end]  # 总迭代数
                 iter_times = diff(solHistory.Time)  # 计算每次迭代的时间间隔
                 avg_time = mean(iter_times)  # 计算平均迭代时间
                 std_time = std(iter_times)   # 计算标准差
-                avg_iter_time = @sprintf "%.2f (%.2f)" avg_time std_time  # 格式化字符串
+                avg_iter_time = @sprintf "%.1f (%.1f)" avg_time std_time  # 格式化字符串
                 best_LB_time = solHistory.Time[best_LB_idx]  # 到达best LB的时间
                 best_LB_iter = solHistory.iter[best_LB_idx]  # 到达best LB的迭代数
 
                 # 添加到DataFrame
-                push!(result_df, (cut, T, num, round(best_LB, digits = 1), round(final_gap, digits = 1), total_iter, avg_iter_time, round(best_LB_time, digits = 0), best_LB_iter))
+                push!(result_df, (cut, T, num, round(best_LB, digits = 1), round(final_gap, digits = 1), total_iter, avg_iter_time, Int(round(best_LB_time, digits = 0)), best_LB_iter))
             catch e
                 @warn "Error processing file: $file_path" exception=(e, catch_backtrace())
             end
@@ -254,7 +253,7 @@ for T in [10, 15]
 
         df |> @vlplot(
             :line,
-            transform=[{filter="datum.Time <= 600"}],
+            transform=[{filter="datum.Time <= 50"}],
             x={:Time, axis={title="Time (sec.)", titleFontSize=25, labelFontSize=25}},
             y={:Bound, axis={title="Bounds (× 10³)", titleFontSize=25, labelFontSize=25}},
             color={
@@ -282,7 +281,7 @@ for T in [10, 15]
         #  Lower/upper Bounds vs Iter
         df |> @vlplot(
             :line,
-            transform=[{filter="datum.Iter <= 50"}],
+            transform=[{filter="datum.Iter <= 20"}],
             x={:Iter, axis={title="Iteration", titleFontSize=25, labelFontSize=25}},
             y={:Bound, axis={title="Bounds (× 10³)", titleFontSize=25, labelFontSize=25}},
             color={

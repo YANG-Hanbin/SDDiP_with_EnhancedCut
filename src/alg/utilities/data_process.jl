@@ -42,7 +42,7 @@ for cut in [:LC, :PLC, :SMC]
             try
                 # 加载数据
                 
-                file_path = "/Users/aaron/SDDiP_with_EnhancedCut/src/alg/new_logger/numericalResults-case30pwl/Periods$T-Real$num/SDDP-$cut.jld2"
+                file_path = "/Users/aaron/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/Periods$T-Real$num/SDDP-$cut.jld2"
                 solHistory = load(file_path)["sddpResults"][:solHistory]
 
                 # 计算所需的统计数据
@@ -86,28 +86,6 @@ latex_table = pretty_table(
 
 # 输出 LaTeX 代码
 println(latex_table)
-
-# ## ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- ##
-# ## ------------------------------------------------------------------------------------ TO MODIFY DATA ------------------------------------------------------------------------------------ ##
-# ## ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- ##
-# T = 12; # 6, 8, 12
-# num = 10; # 3, 5, 10
-# cut = :PLC;
-# tightness = true;
-# file_path = "/Users/aaron/SDDiP_with_EnhancedCut/src/alg/new_logger/numericalResults-case30pwl/Periods$T-Real$num/SDDP-$cut.jld2"
-# data = load(file_path)
-# solHistory = data["sddpResults"][:solHistory]
-
-# solHistory.LB[32:end] .= 199106.4
-
-# for i in 1:size(solHistory, 1)
-#     solHistory.gap[i] = string(round((solHistory.UB[i] - solHistory.LB[i]) / solHistory.UB[i] * 100, digits=2)) * "%"
-# end
-
-
-# data["sddpResults"][:solHistory] = solHistory
-# data["sddpResults"][:gapHistory] = solHistory.gap
-# save(file_path, data)
 
 ## ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- ##
 ## ----------------------------------------------------------------------- the same instance with different cuts -------------------------------------------------------------------------- ##
@@ -516,7 +494,7 @@ for cut in [:LC, :PLC, :SMC]
             try
                 # 加载数据
                 
-                file_path = "/Users/aaron/SDDiP_with_EnhancedCut/src/alg/new_logger/numericalResults-case30pwl/Periods$T-Real$num/SDDiP-$cut-64.jld2"
+                file_path = "/Users/aaron/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/Periods$T-Real$num/SDDiP-$cut-64.jld2"
                 solHistory = load(file_path)["sddpResults"][:solHistory]
 
                 # 计算所需的统计数据
@@ -560,3 +538,121 @@ latex_table = pretty_table(
 
 # 输出 LaTeX 代码
 println(latex_table)
+
+
+## ---------------------------------------------------------------------------------------------------------------------------------------- ##
+## ------------------------------------------------------- Core Point Selection  ---------------------------------------------------------- ##
+## ---------------------------------------------------------------------------------------------------------------------------------------- ##
+
+colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd"]  
+
+sddlpResult0 = load("/Users/aaron/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/Periods6-Real5/SDDPL-PLC-IntervalMed-0.0.jld2")["sddpResults"][:solHistory]
+sddlpResult2 = load("/Users/aaron/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/Periods6-Real5/SDDPL-PLC-IntervalMed-0.2.jld2")["sddpResults"][:solHistory]
+sddlpResult4 = load("/Users/aaron/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/Periods6-Real5/SDDPL-PLC-IntervalMed-0.4.jld2")["sddpResults"][:solHistory]
+sddlpResult6 = load("/Users/aaron/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/Periods6-Real5/SDDPL-PLC-IntervalMed-0.6.jld2")["sddpResults"][:solHistory]
+sddlpResult8 = load("/Users/aaron/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/Periods6-Real5/SDDPL-PLC-IntervalMed-0.8.jld2")["sddpResults"][:solHistory]
+
+# 处理 gap 数据
+for res in [sddlpResult0, sddlpResult2, sddlpResult4, sddlpResult6, sddlpResult8]
+    res.gap_float = parse.(Float64, replace.(res.gap, "%" => ""))
+end
+
+# 统一数据格式
+df_0 = DataFrame(Iter=sddlpResult0.Iter, Time=sddlpResult0.Time, LB=sddlpResult0.LB ./ 10^3, Param="0")
+df_2 = DataFrame(Iter=sddlpResult2.Iter, Time=sddlpResult2.Time, LB=sddlpResult2.LB ./ 10^3, Param="2")
+df_4 = DataFrame(Iter=sddlpResult4.Iter, Time=sddlpResult4.Time, LB=sddlpResult4.LB ./ 10^3, Param="4")
+df_6 = DataFrame(Iter=sddlpResult6.Iter, Time=sddlpResult6.Time, LB=sddlpResult6.LB ./ 10^3, Param="6")
+df_8 = DataFrame(Iter=sddlpResult8.Iter, Time=sddlpResult8.Time, LB=sddlpResult8.LB ./ 10^3, Param="8")
+
+# 合并数据
+df = vcat(df_0, df_2, df_4, df_6, df_8)
+
+df |> @vlplot(
+    :line,
+    transform=[{filter="datum.Time <= 100"}],
+    x={:Time, axis={title="Time (sec.)", titleFontSize=25, labelFontSize=25}},
+    y={:LB, 
+    axis={title="Lower bounds (× 10³)", titleFontSize=25, labelFontSize=25},
+    scale={domain=[15, 130]}},
+    color={
+        :Param, 
+        legend={title=nothing, orient="top", columns=5}, 
+        scale={domain=["0", "2", "4", "6", "8"], range=colors}  # 绑定颜色到参数
+    },  
+    strokeDash={
+        :Param, 
+        scale={domain=["0", "2", "4", "6", "8"], 
+            range=[[5, 3], [10, 2], [10, 5, 2, 5], [8, 4, 2, 4], [12, 6]]}  # 自定义虚线样式
+    },  
+    shape={
+        :Param, 
+        scale={domain=["0", "2", "4", "6", "8"], 
+            range=["circle", "diamond", "cross", "triangle", "square"]}  # 形状
+    },  
+    strokeWidth={
+        :Param, 
+        scale={domain=["0", "2", "4", "6", "8"], 
+            range=[1, 1, 1, 1, 1]}  # 线条粗细
+    },  
+    width=500,
+    height=450,
+    config={ 
+        axis={
+            labelFont="Times New Roman", 
+            titleFont="Times New Roman"
+        }, 
+        legend={
+            labelFont="Times New Roman", 
+            titleFont="Times New Roman",
+            labelFontSize=25,  
+            symbolSize=150,      
+            symbolStrokeWidth=3  
+        }, 
+        title={font="Times New Roman"} 
+    }
+) |> save("$(homedir())/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/Periods6-Real5/core_point_time.pdf")
+
+
+df |> @vlplot(
+    :line,
+    transform=[{filter="datum.Iter <= 15"}],
+    x={:Iter, axis={title="Iteration", titleFontSize=25, labelFontSize=25}},
+    y={:LB, axis={title="Lower bounds (× 10³)", titleFontSize=25, labelFontSize=25},
+    scale={domain=[15, 130]}},
+    color={
+        :Param, 
+        legend={title=nothing, orient="top", columns=5}, 
+        scale={domain=["0", "2", "4", "6", "8"], range=colors}  # 绑定颜色到参数
+    },  
+    strokeDash={
+        :Param, 
+        scale={domain=["0", "2", "4", "6", "8"], 
+            range=[[5, 3], [10, 2], [10, 5, 2, 5], [8, 4, 2, 4], [12, 6]]}  # 自定义虚线样式
+    },  
+    shape={
+        :Param, 
+        scale={domain=["0", "2", "4", "6", "8"], 
+            range=["circle", "diamond", "cross", "triangle", "square"]}  # 形状
+    },  
+    strokeWidth={
+        :Param, 
+        scale={domain=["0", "2", "4", "6", "8"], 
+            range=[1, 1, 1, 1, 1]}  # 线条粗细
+    },  
+    width=500,
+    height=450,
+    config={ 
+        axis={
+            labelFont="Times New Roman", 
+            titleFont="Times New Roman"
+        }, 
+        legend={
+            labelFont="Times New Roman", 
+            titleFont="Times New Roman",
+            labelFontSize=25,  
+            symbolSize=150,      
+            symbolStrokeWidth=3  
+        }, 
+        title={font="Times New Roman"} 
+    }
+) |> save("$(homedir())/SDDiP_with_EnhancedCut/src/alg/logger/numericalResults-case30pwl/Periods6-Real5/core_point_Iter.pdf")

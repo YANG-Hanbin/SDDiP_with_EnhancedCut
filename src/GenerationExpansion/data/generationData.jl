@@ -63,7 +63,7 @@ initial_demand = 5.685e8
 
 ## data modification due to the large gap between generation capability and demand
 initial_demand = 5.68e6;
-s₀ = [1, 0, 0, 0, 0, 0];
+s₀ = [1, 0, 0, 0, 1, 0];
 
 T = 5; num_Ω = 10; Ω = nothing;
 for T in [10, 15]

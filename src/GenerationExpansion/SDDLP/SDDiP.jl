@@ -30,7 +30,7 @@ function SDDiP_algorithm(
         leaf = Dict{Int, Vector{Int64}}(g => [1] for g in 1:binaryInfo.d);
         StateVarList[t] = StateVar(var, sur, leaf);
 
-        backwardInfoList[t] = backwardModel!(stageDataList[t], binaryInfo = binaryInfo, timelimit = 10, mipGap = 1e-4, tightness = tightness);
+        backwardInfoList[t] = backwardModel!(stageDataList[t], binaryInfo = binaryInfo, timelimit = 10, mipGap = 1e-4, tightness = param.tightness);
     end 
     initial = now(); iter_time = 0.; total_Time = 0.; t0 = 0.0;
 
@@ -62,7 +62,7 @@ function SDDiP_algorithm(
                 optimize!(forwardInfo.model);
 
                 solCollection[t, k] = ( stageSolution = round.(JuMP.value.(forwardInfo.St), digits = 3), 
-                                        stageSur = Dict{Int64, Dict{Int64, Float64}}(g => Dict(i => JuMP.value(forwardInfo.model[:sur][g, i]) for i in StateVarList[t].leaf[g]) for g in 1:binaryInfo.d),
+                                        stageSur = Dict{Int64, Dict{Int64, Float64}}(g => Dict(i => round.(JuMP.value(forwardInfo.model[:sur][g, i]), digits = 3) for i in StateVarList[t].leaf[g]) for g in 1:binaryInfo.d),
                                         stageValue = JuMP.objective_value(forwardInfo.model) - JuMP.value(forwardInfo.θ),
                                         OPT = JuMP.objective_value(forwardInfo.model)
                                         );
@@ -99,17 +99,17 @@ function SDDiP_algorithm(
             ) 
         end
 
-                ####################################################### Adding Binary Variables ###########################################################
+        ####################################################### Adding Binary Variables ###########################################################
         for t in 1:param.T-1 
             for ω in [1]#keys(Ξ̃)
                 dev = Dict()
                 for g in 1:binaryInfo.d
                     k = maximum([k for (k, v) in solCollection[t, ω].stageSur[g] if v == maximum(values(solCollection[t, ω].stageSur[g]))])
                     info = StateVarList[t].sur[g][k]
-                    dev[g] = minimum([(info[:ub] - solCollection[t, ω].stageSolution[g])/(info[:ub] - info[:lb] + 1e-7), (solCollection[t, ω].stageSolution[g] - info[:lb])/(info[:ub] - info[:lb] + 1e-7)])
+                    dev[g] = minimum([(info[:ub] - solCollection[t, ω].stageSolution[g])/(info[:ub] - info[:lb] + 1e-6), (solCollection[t, ω].stageSolution[g] - info[:lb])/(info[:ub] - info[:lb] + 1e-6)])
                 end
                 g = [k for (k, v) in dev if v == maximum(values(dev))][1]
-                if dev[g] ≥ 1e-7
+                if dev[g] ≥ 1e-8
                     # find the active leaf node 
                     keys_with_value_1 = maximum([k for (k, v) in solCollection[t, ω].stageSur[g] if v == 1])
                     # find the lb and ub of this leaf node 
@@ -195,23 +195,20 @@ function SDDiP_algorithm(
                         forwardInfoList[t], 
                         stageDataList[t], 
                         Ω[t][j].d, 
-                        solCollection[t-1,k];
-                        cutSelection = cutSelection,  # "ShrinkageLC", "ELCwithoutConstraint", "LC", "ELC"
+                        solCollection[t-1,k], 
+                        param;
                         binaryInfo = binaryInfo, 
                         Output_Gap = Output_Gap,
-                        max_iter = param.MaxIter,
-                        λ = .3, 
-                        ℓ1 = param.ℓ1, 
-                        ℓ2 = 1.
+                        λ = .3
                     );
 
                     cutInfo = LevelSetMethod_optimization!(
                         backwardInfo, 
                         x₀; 
                         levelSetMethodParam = levelSetMethodParam, 
-                        stageData = stageDataList[t], 
-                        ϵ = param.ε,      
-                        binaryInfo = binaryInfo
+                        stageData = stageDataList[t],     
+                        binaryInfo = binaryInfo,
+                        param = param
                     ); 
 
                     λ₀ = λ₀ + probList[t][j] * cutInfo[1];
@@ -248,61 +245,6 @@ function SDDiP_algorithm(
             end
         end
 
-        # ####################################################### Adding Binary Variables ###########################################################
-        # for t in 1:param.T-1 
-        #     for ω in [1]#keys(Ξ̃)
-        #         dev = Dict()
-        #         for g in 1:binaryInfo.d
-        #             k = maximum([k for (k, v) in solCollection[t, ω].stageSur[g] if v == maximum(values(solCollection[t, ω].stageSur[g]))])
-        #             info = StateVarList[t].sur[g][k]
-        #             dev[g] = round(minimum([(info[:ub] - solCollection[t, ω].stageSolution[g])/(info[:ub] - info[:lb] + 1e-6), (solCollection[t, ω].stageSolution[g] - info[:lb])/(info[:ub] - info[:lb] + 1e-6)]), digits = 5)
-        #         end
-        #         g = [k for (k, v) in dev if v == maximum(values(dev))][1]
-        #         if dev[g] >= 1e-6
-        #             # find the active leaf node 
-        #             keys_with_value_1 = maximum([k for (k, v) in solCollection[t, ω].stageSur[g] if v == 1])
-        #             # find the lb and ub of this leaf node 
-        #             (lb, ub) = StateVarList[t].sur[g][keys_with_value_1][:lb], StateVarList[t].sur[g][keys_with_value_1][:ub]; med = solCollection[t, ω].stageSolution[g]; # solCollection[i, t, ω].stageSolution[:s][g];# (lb + ub)/2; #round(solCollection[i, t, ω].stageSolution[:s][g], digits = 3); 
-        #             # create two new leaf nodes, and update their info (lb, ub)
-        #             left = length(StateVarList[t].sur[g]) + 1; right = length(StateVarList[t].sur[g]) + 2;
-        #             forwardInfoList[t].model[:sur][g, left] = @variable(forwardInfoList[t].model, base_name = "sur[$g, $left]", binary = true); 
-        #             forwardInfoList[t].model[:sur][g, right] = @variable(forwardInfoList[t].model, base_name = "sur[$g, $right]", binary = true);
-        #             StateVarList[t].sur[g][left] = Dict(:lb => lb, :ub => med, :var => forwardInfoList[t].model[:sur][g, left])
-        #             StateVarList[t].sur[g][right] =  Dict(:lb => med, :ub => ub, :var => forwardInfoList[t].model[:sur][g, right])
-        #             # pop and push new leaf nodes
-        #             deleteat!(StateVarList[t].leaf[g], findall(x -> x == keys_with_value_1, StateVarList[t].leaf[g])); push!(StateVarList[t].leaf[g], left); push!(StateVarList[t].leaf[g], right);
-
-        #             # add logic constraints
-        #             ## for forward models
-        #             ### Parent-Child relationship
-        #             @constraint(forwardInfoList[t].model, forwardInfoList[t].model[:sur][g, left] + forwardInfoList[t].model[:sur][g, right] == forwardInfoList[t].model[:sur][g, keys_with_value_1])
-        #             ### bounding constraints
-        #             @constraint(forwardInfoList[t].model, forwardInfoList[t].St[g] ≥ sum(StateVarList[t].sur[g][k][:lb] * forwardInfoList[t].model[:sur][g, k] for k in StateVarList[t].leaf[g]))
-        #             @constraint(forwardInfoList[t].model, forwardInfoList[t].St[g] ≤ sum(StateVarList[t].sur[g][k][:ub] * forwardInfoList[t].model[:sur][g, k] for k in StateVarList[t].leaf[g]))
-        #             ## for backward models
-        #             ### Parent-Child relationship
-        #             if tightness
-        #                 backwardInfoList[t+1].model[:sur_copy][g, left] = @variable(backwardInfoList[t+1].model, base_name = "sur_copy[$g, $left]", binary = true); 
-        #                 backwardInfoList[t+1].model[:sur_copy][g, right] = @variable(backwardInfoList[t+1].model, base_name = "sur_copy[$g, $left]", binary = true); 
-        #                 backwardInfoList[t].model[:sur][g, left] = @variable(backwardInfoList[t].model, base_name = "sur[$g, $left]", binary = true); 
-        #                 backwardInfoList[t].model[:sur][g, right] = @variable(backwardInfoList[t].model, base_name = "sur[$g, $left]", binary = true); 
-        #             else
-        #                 backwardInfoList[t+1].model[:sur_copy][g, left] = @variable(backwardInfoList[t+1].model, base_name = "sur_copy[$g, $left]", lower_bound = 0, upper_bound = 1); 
-        #                 backwardInfoList[t+1].model[:sur_copy][g, right] = @variable(backwardInfoList[t+1].model, base_name = "sur_copy[$g, $left]", lower_bound = 0, upper_bound = 1); 
-        #                 backwardInfoList[t].model[:sur][g, left] = @variable(backwardInfoList[t].model, base_name = "sur[$g, $left]", lower_bound = 0, upper_bound = 1); 
-        #                 backwardInfoList[t].model[:sur][g, right] = @variable(backwardInfoList[t].model, base_name = "sur[$g, $left]", lower_bound = 0, upper_bound = 1); 
-        #             end
-        #             @constraint(backwardInfoList[t+1].model, backwardInfoList[t+1].model[:sur_copy][g, left] + backwardInfoList[t+1].model[:sur_copy][g, right] == backwardInfoList[t+1].model[:sur_copy][g, keys_with_value_1]);
-        #             @constraint(backwardInfoList[t].model, backwardInfoList[t].model[:sur][g, left] + backwardInfoList[t].model[:sur][g, right] == backwardInfoList[t].model[:sur][g, keys_with_value_1]);
-        #             ### bounding constraints
-        #             @constraint(backwardInfoList[t+1].model, backwardInfoList[t+1].model[:Sc][g] ≥ sum(StateVarList[t].sur[g][k][:lb] * backwardInfoList[t+1].model[:sur_copy][g, k] for k in StateVarList[t].leaf[g]));
-        #             @constraint(backwardInfoList[t+1].model, backwardInfoList[t+1].model[:Sc][g] ≤ sum(StateVarList[t].sur[g][k][:ub] * backwardInfoList[t+1].model[:sur_copy][g, k] for k in StateVarList[t].leaf[g]));
-        #             @constraint(backwardInfoList[t].model, backwardInfoList[t].St[g] ≥ sum(StateVarList[t].sur[g][k][:lb] * backwardInfoList[t].model[:sur][g, k] for k in StateVarList[t].leaf[g]));
-        #             @constraint(backwardInfoList[t].model, backwardInfoList[t].St[g] ≤ sum(StateVarList[t].sur[g][k][:ub] * backwardInfoList[t].model[:sur][g, k] for k in StateVarList[t].leaf[g]));
-        #         end
-        #     end
-        # end
-
         t1 = now();
         iter_time = (t1 - t0).value/1000;
         total_Time = (t1 - initial).value/1000;
@@ -310,19 +252,3 @@ function SDDiP_algorithm(
     end
 
 end
-
-# using DataFrames
-# using Latexify
-# df = DataFrame(A = 'x':'z', B = ["M", "F", "F"])
-# latexify(df; env=:table, latex=false)
-
-# save("src/GenerationExpansion/3.0version/testData_5/sddipResult_LCinterval.jld2", "sddipResult", sddipResult)
-# save("src/GenerationExpansion/3.0version/testData_5/sddipResult_LCbinary.jld2", "sddipResult", sddipResult)
-# save("src/GenerationExpansion/3.0version/testData_5/sddipResult_ELCinterval0.jld2", "sddipResult", sddipResult)
-# save("src/GenerationExpansion/3.0version/testData_5/sddipResult_ELCbinary0.jld2", "sddipResult", sddipResult)
-
-
-
-## ------------------------- review --------------------- ##
-# 1. if we set the interior point is close the center, when need lambda to be close to 1
-# 2. ...

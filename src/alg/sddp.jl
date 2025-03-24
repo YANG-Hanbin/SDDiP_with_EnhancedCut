@@ -116,6 +116,7 @@ function stochastic_dual_dynamic_programming_algorithm(
         print_iteration_info(i, LB, UB, gap, iter_time, LM_iter, total_Time); 
         save_info(
             param, 
+            param_cut,
             Dict(
                 :solHistory => solHistory, 
                 # :solution => stateInfoCollection, 

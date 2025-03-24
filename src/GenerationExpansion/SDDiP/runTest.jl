@@ -26,7 +26,7 @@ include("src/GenerationExpansion/SDDiP/SDDiP.jl")
 #############################################################################################
 ####################################    main function   #####################################
 #############################################################################################
-MaxIter = 200; ε = 1e-3; M = 500; Output_Gap = false; tightness = false; TimeLimit = 60*60.;
+MaxIter = 200; ε = 1e-4; M = 500; Output_Gap = false; tightness = false; TimeLimit = 60*60.;
 cutSelection = "ELC"; # "LC", "ShrinkageLC", "ELC"
 T = 10; 
 num = 5; 

@@ -26,8 +26,8 @@ include(joinpath(project_root, "src", "GenerationExpansion", "SDDP", "SDDiP.jl")
 #############################################################################################
 ####################################    main function   #####################################
 #############################################################################################
-MaxIter = 200; ε = 5e-2; M = 500; Output_Gap = false; tightness = true; TimeLimit = 60*60; 
-T = 10; num = 5;
+MaxIter = 200; ε = 1e-4; M = 500; Output_Gap = false; tightness = false; TimeLimit = 60*60; 
+T = 15; num = 10;
 cutSelection = "ELC"; # "LC", "ShrinkageLC", "ELC"
 FeasibilityTol  = 1e-6;
 MIPFocus        = 0;

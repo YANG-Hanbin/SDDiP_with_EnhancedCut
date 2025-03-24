@@ -85,17 +85,27 @@ end
 
 function save_info(
     param::NamedTuple, 
+    param_cut::NamedTuple,
     sddpResults::Dict;
     logger_save::Bool = true
 )::Nothing
     if logger_save == true
-        case = param.case; cutSelection = param.cutSelection; num = param.num; T = param.T; algorithm = param.algorithm; med_method = param.med_method; ε = param.ε;
+        case = param.case; cutSelection = param.cutSelection; num = param.num; T = param.T; algorithm = param.algorithm; med_method = param.med_method; ε = param.ε; ℓ = param_cut.ℓ;
         if algorithm == :SDDPL
-            save(
-                "/Users/aaron/SDDiP_with_EnhancedCut/src/alg/new_logger/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$med_method.jld2", 
-                "sddpResults", 
-                sddpResults
-            );
+            if cutSelection == :PLC
+                save(
+                    "/Users/aaron/SDDiP_with_EnhancedCut/src/alg/new_logger/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$med_method-$ℓ.jld2", 
+                    "sddpResults", 
+                    sddpResults
+                );
+            else
+                save(
+                    "/Users/aaron/SDDiP_with_EnhancedCut/src/alg/new_logger/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$med_method.jld2", 
+                    "sddpResults", 
+                    sddpResults
+                );
+            end
+            
         elseif algorithm == :SDDP
             save(
                 "/Users/aaron/SDDiP_with_EnhancedCut/src/alg/new_logger/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection.jld2", 
