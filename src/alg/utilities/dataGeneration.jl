@@ -15,7 +15,7 @@ branchInfo = CSV.read("src/alg/data/case_RTS_GMLC/branch.csv", DataFrame);
 
 T = 6; numRealization = 3;
 for T in [6, 8, 12]
-    for numRealization in [3, 5, 10]
+    for numRealization in [5, 10]
         (indexSets, paramOPF, paramDemand) = prepareIndexSets(T = T, network_data = network_data);
 
         scenarioTree = scenario_tree_generation(T = T, numRealization = numRealization, indexSets = indexSets)

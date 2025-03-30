@@ -24,10 +24,12 @@ function RemoveContVarNonAnticipative!(
         unregister(model, :BinVarNonAnticipative);
     else
         for g in indexSets.G
+            delete(model, model[:BinVarNonAnticipative][g]);
             for i in 1:param.κ[g]
                 delete(model, model[:BinarizationNonAnticipative][g, i]);
             end
         end
+        unregister(model, :BinVarNonAnticipative);
         unregister(model, :BinarizationNonAnticipative);
     end
     

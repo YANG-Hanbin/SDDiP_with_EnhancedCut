@@ -246,6 +246,13 @@ function ModelModification!(
                 model[:λ_copy][g, i] == stateInfo.ContStateBin[:s][g][i]
             );
         end
+        if :BinVarNonAnticipative ∉ keys(model.obj_dict) 
+            @constraint(
+                model, 
+                BinVarNonAnticipative[g in indexSets.G], 
+                model[:y_copy][g] == stateInfo.BinVar[:y][g]
+            );
+        end
     end
 
     # power balance constraints
@@ -267,9 +274,6 @@ function ModelModification!(
     );
     return
 end
-
-
-
 
 """
 forwardPass(ξ): function for forward pass in parallel computing

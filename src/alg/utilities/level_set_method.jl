@@ -522,12 +522,6 @@ function LevelSetMethod_optimization!(
                 ContVar = Dict{Any, Dict{Any, Any}}(:s => Dict{Any, Any}(
                     g => JuMP.value(xs[g]) for g in indexSets.G)
                 );
-                BinVar = Dict{Any, Dict{Any, Any}}(:y => Dict{Any, Any}(
-                    g => JuMP.value(xy[g]) for g in indexSets.G)
-                );
-                ContVar = Dict{Any, Dict{Any, Any}}(:s => Dict{Any, Any}(
-                    g => JuMP.value(xs[g]) for g in indexSets.G)
-                );
                 if param.algorithm == :SDDP
                     ContAugState = nothing; 
                     ContStateBin = nothing;

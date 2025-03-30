@@ -195,7 +195,13 @@ function scenario_tree_generation(; T::Int64 = 10, numRealization::Int64 = 3, in
         for n in 1:numRealization
             deviation = Dict{Int64, Float64}()
             for d in indexSets.D
-                deviation[d] = rand(Uniform(0.8, 1.6))
+                if 8 <= (t % 24) < 20   # peak time 8AM - 8PM
+                    base_demand = 1.5
+                else                    # non-peak time 8AM - 8PM
+                    base_demand = 0.9
+                end
+                fluctuation = rand(Uniform(0.9, 1.1))  # ±10% fluctuation
+                deviation[d] = base_demand * fluctuation
             end
             nodes[n] = RandomVariables(deviation)
         end

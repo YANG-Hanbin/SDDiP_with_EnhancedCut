@@ -90,7 +90,7 @@ function save_info(
     logger_save::Bool = true
 )::Nothing
     if logger_save == true
-        case = param.case; cutSelection = param.cutSelection; num = param.num; T = param.T; algorithm = param.algorithm; med_method = param.med_method; ε = param.ε; ℓ = param_cut.ℓ;
+        case = param.case; cutSelection = param.cutSelection; num = param.num; T = param.T; algorithm = param.algorithm; med_method = param.med_method; ε = Int(round(1/param.ε)); ℓ = param_cut.ℓ;
         if algorithm == :SDDPL
             if cutSelection == :PLC
                 save(
@@ -130,6 +130,8 @@ function param_setup(;
     TimeLimit::Any = 10,
     terminate_threshold::Float64 = 1e-3,
     ε::Float64 = 0.125,
+    verbose::Bool = false,
+    MIPGap::Float64 = 1e-4,
     MaxIter::Int64 = 3000,
     tightness::Bool = true,
     numScenarios::Int64 = 3,
@@ -146,8 +148,8 @@ function param_setup(;
 )::NamedTuple
 
     return (
-        verbose             = false,
-        MIPGap              = 1e-4,
+        verbose             = verbose,
+        MIPGap              = MIPGap,
         TimeLimit           = TimeLimit,
         terminate_time      = terminate_time,
         terminate_threshold = terminate_threshold,
