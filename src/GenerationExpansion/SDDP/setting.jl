@@ -231,6 +231,8 @@ function param_setup(;
     TimeLimit::Any                  = 10,
     MIPFocus::Int64                 = 1, ## 1, 2, 3
     FeasibilityTol::Float64         = 1e-6,
+    Output_Gap::Bool                = false,
+    nxt_bound::Float64              = 1e8,
     NumericFocus::Int64             = 3,
     M::Int64                        = 5, 
     ε::Float64                      = 0.125,
@@ -238,6 +240,8 @@ function param_setup(;
     cutSelection::String            = "LC", 
     T::Int64                        = 12,
     num::Int64                      = 10,
+    ℓ1::Float64                     = 0.0,
+    ℓ2::Float64                     = 0.0,
     logger_save::Bool               = true,
     algorithm::Symbol               = :SDDP
 )::NamedTuple
@@ -255,8 +259,12 @@ function param_setup(;
         ε                   = ε,
         tightness           = tightness,
         cutSelection        = cutSelection, 
+        Output_Gap          = Output_Gap,
+        nxt_bound           = nxt_bound,
         T                   = T, 
         num                 = num, 
+        ℓ1                  = ℓ1,
+        ℓ2                  = ℓ2,
         logger_save         = logger_save,
         algorithm           = algorithm  
     )

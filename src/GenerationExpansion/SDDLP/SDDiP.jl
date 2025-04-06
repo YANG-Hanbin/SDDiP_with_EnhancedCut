@@ -2,11 +2,9 @@ function SDDiP_algorithm(
     Ω::Dict{Int64,Dict{Int64,RandomVariables}}, 
     probList::Dict{Int64,Vector{Float64}}, 
     stageDataList::Dict{Int64, StageData}; 
-    Output_Gap::Bool = false, 
     binaryInfo::BinaryInfo = binaryInfo,
     param::NamedTuple = param
 )
-    cutSelection = param.cutSelection; tightness = param.tightness;
     OPT = Inf;
     # @time gurobiResult = gurobiOptimize!(Ω, 
     #                                 probList, 
@@ -20,18 +18,20 @@ function SDDiP_algorithm(
     named_tuple = (; zip(col_names, type[] for type in col_types )...);
     sddipResult = DataFrame(named_tuple); # 0×7 DataFrame
     gapList = [];
-    forwardInfoList = Dict{Int, ForwardModelInfo}();
-    backwardInfoList = Dict{Int, BackwardModelInfo}();
-    StateVarList = Dict(); 
-    for t in 1:param.T
-        forwardInfoList[t] = forwardModel!(stageDataList[t], binaryInfo = binaryInfo, timelimit = 10, mipGap = 1e-4);
-        var = Dict{Symbol, Dict{Int, VariableRef}}(:St => Dict(g => forwardInfoList[t].model[:St][g] for g in 1:binaryInfo.d)); 
-        sur = Dict{Int, Dict{Int, Dict{Symbol, Any}}}(g => Dict(1 => Dict(:lb => 0., :ub => stageDataList[t].ū[g], :var =>forwardInfoList[t].model[:sur][g, 1])) for g in 1:binaryInfo.d); 
-        leaf = Dict{Int, Vector{Int64}}(g => [1] for g in 1:binaryInfo.d);
-        StateVarList[t] = StateVar(var, sur, leaf);
+    @everywhere begin
+        forwardInfoList = Dict{Int, ForwardModelInfo}();
+        backwardInfoList = Dict{Int, BackwardModelInfo}();
+        StateVarList = Dict(); 
+        for t in 1:param.T
+            forwardInfoList[t] = forwardModel!(stageDataList[t], binaryInfo = binaryInfo, timelimit = 10, mipGap = 1e-4);
+            var = Dict{Symbol, Dict{Int, VariableRef}}(:St => Dict(g => forwardInfoList[t].model[:St][g] for g in 1:binaryInfo.d)); 
+            sur = Dict{Int, Dict{Int, Dict{Symbol, Any}}}(g => Dict(1 => Dict(:lb => 0., :ub => stageDataList[t].ū[g], :var =>forwardInfoList[t].model[:sur][g, 1])) for g in 1:binaryInfo.d); 
+            leaf = Dict{Int, Vector{Int64}}(g => [1] for g in 1:binaryInfo.d);
+            StateVarList[t] = StateVar(var, sur, leaf);
 
-        backwardInfoList[t] = backwardModel!(stageDataList[t], binaryInfo = binaryInfo, timelimit = 10, mipGap = 1e-4, tightness = param.tightness);
-    end 
+            backwardInfoList[t] = backwardModel!(stageDataList[t], binaryInfo = binaryInfo, timelimit = 10, mipGap = 1e-4, tightness = param.tightness);
+        end 
+    end
     initial = now(); iter_time = 0.; total_Time = 0.; t0 = 0.0;
 
     while true
@@ -45,35 +45,24 @@ function SDDiP_algorithm(
             M = param.M
         );
         
-        ## Forward Step
-        for k in 1:param.M
-             Ŝ = [0.0 for i in 1:binaryInfo.d];  ## for the first-stage subproblem, we create a zero vector as 'x_ancestor'
-            for t in 1:param.T
-                forwardInfo = forwardInfoList[t];
-                ## realization of k-th scenario at stage t
-                ω = Scenarios[k][t];
-                ## the following function is used to (1). change the problem coefficients for different node within the same stage t.
-                forward_modify_constraints!(forwardInfo, 
-                                                stageDataList[t], 
-                                                Ω[t][ω].d, 
-                                                Ŝ, 
-                                                binaryInfo = binaryInfo
-                                                );
-                optimize!(forwardInfo.model);
+        ## Forward pass
+        forwardPassResult = pmap(1:param.M) do k
+            forwardPass(
+                k, 
+                Scenarios;
+            )
+        end;
 
-                solCollection[t, k] = ( stageSolution = round.(JuMP.value.(forwardInfo.St), digits = 3), 
-                                        stageSur = Dict{Int64, Dict{Int64, Float64}}(g => Dict(i => round.(JuMP.value(forwardInfo.model[:sur][g, i]), digits = 3) for i in StateVarList[t].leaf[g]) for g in 1:binaryInfo.d),
-                                        stageValue = JuMP.objective_value(forwardInfo.model) - JuMP.value(forwardInfo.θ),
-                                        OPT = JuMP.objective_value(forwardInfo.model)
-                                        );
-                Ŝ  = solCollection[t, k].stageSolution;
+        for k in 1:param.M
+            for t in 1:param.T
+                solCollection[t, k] = forwardPassResult[k][t, k]
             end
             u[k] = sum(solCollection[t, k].stageValue for t in 1:param.T);
         end
-
+        
         ## compute the upper bound
         LB = solCollection[1, 1].OPT;
-        μ̄ = mean(u); UB = μ̄;
+        μ̄ = mean(u);
         σ̂² = var(u);
         UB = μ̄ + 1.96 * sqrt(σ̂²/param.M); # minimum([μ̄ + 1.96 * sqrt(σ̂²/M), UB]);
         gap = round((UB-LB)/UB * 100 ,digits = 2);
@@ -116,8 +105,11 @@ function SDDiP_algorithm(
                     (lb, ub) = StateVarList[t].sur[g][keys_with_value_1][:lb], StateVarList[t].sur[g][keys_with_value_1][:ub]; med = solCollection[t, ω].stageSolution[g]; # solCollection[i, t, ω].stageSolution[:s][g];# (lb + ub)/2; #round(solCollection[i, t, ω].stageSolution[:s][g], digits = 3); 
                     # create two new leaf nodes, and update their info (lb, ub)
                     left = length(StateVarList[t].sur[g]) + 1; right = length(StateVarList[t].sur[g]) + 2;
-                    forwardInfoList[t].model[:sur][g, left] = @variable(forwardInfoList[t].model, base_name = "sur[$g, $left]", binary = true); 
-                    forwardInfoList[t].model[:sur][g, right] = @variable(forwardInfoList[t].model, base_name = "sur[$g, $right]", binary = true);
+                    @everywhere begin
+                        t = $t; left = $left; right = $right; g = $g; 
+                        forwardInfoList[t].model[:sur][g, left] = @variable(forwardInfoList[t].model, base_name = "sur[$g, $left]", binary = true); 
+                        forwardInfoList[t].model[:sur][g, right] = @variable(forwardInfoList[t].model, base_name = "sur[$g, $right]", binary = true);
+                    end
                     StateVarList[t].sur[g][left] = Dict(:lb => lb, :ub => med, :var => forwardInfoList[t].model[:sur][g, left])
                     StateVarList[t].sur[g][right] =  Dict(:lb => med, :ub => ub, :var => forwardInfoList[t].model[:sur][g, right])
                     # pop and push new leaf nodes
@@ -126,31 +118,43 @@ function SDDiP_algorithm(
                     # add logic constraints
                     ## for forward models
                     ### Parent-Child relationship
-                    @constraint(forwardInfoList[t].model, forwardInfoList[t].model[:sur][g, left] + forwardInfoList[t].model[:sur][g, right] == forwardInfoList[t].model[:sur][g, keys_with_value_1])
-                    ### bounding constraints
-                    @constraint(forwardInfoList[t].model, forwardInfoList[t].St[g] ≥ sum(StateVarList[t].sur[g][k][:lb] * forwardInfoList[t].model[:sur][g, k] for k in StateVarList[t].leaf[g]))
-                    @constraint(forwardInfoList[t].model, forwardInfoList[t].St[g] ≤ sum(StateVarList[t].sur[g][k][:ub] * forwardInfoList[t].model[:sur][g, k] for k in StateVarList[t].leaf[g]))
-                    ## for backward models
-                    ### Parent-Child relationship
-                    if tightness
-                        backwardInfoList[t+1].model[:sur_copy][g, left] = @variable(backwardInfoList[t+1].model, base_name = "sur_copy[$g, $left]", binary = true); 
-                        backwardInfoList[t+1].model[:sur_copy][g, right] = @variable(backwardInfoList[t+1].model, base_name = "sur_copy[$g, $left]", binary = true); 
-                        backwardInfoList[t].model[:sur][g, left] = @variable(backwardInfoList[t].model, base_name = "sur[$g, $left]", binary = true); 
-                        backwardInfoList[t].model[:sur][g, right] = @variable(backwardInfoList[t].model, base_name = "sur[$g, $left]", binary = true); 
-                    else
-                        backwardInfoList[t+1].model[:sur_copy][g, left] = @variable(backwardInfoList[t+1].model, base_name = "sur_copy[$g, $left]", lower_bound = 0, upper_bound = 1); 
-                        backwardInfoList[t+1].model[:sur_copy][g, right] = @variable(backwardInfoList[t+1].model, base_name = "sur_copy[$g, $left]", lower_bound = 0, upper_bound = 1); 
-                        backwardInfoList[t].model[:sur][g, left] = @variable(backwardInfoList[t].model, base_name = "sur[$g, $left]", lower_bound = 0, upper_bound = 1); 
-                        backwardInfoList[t].model[:sur][g, right] = @variable(backwardInfoList[t].model, base_name = "sur[$g, $left]", lower_bound = 0, upper_bound = 1); 
+                    @everywhere begin
+                        t = $t; left = $left; right = $right; g = $g; keys_with_value_1 = $keys_with_value_1; StateVarList = $StateVarList;
+                        @constraint(
+                            forwardInfoList[t].model, 
+                            forwardInfoList[t].model[:sur][g, left] + forwardInfoList[t].model[:sur][g, right] == forwardInfoList[t].model[:sur][g, keys_with_value_1]
+                        );
+                        ### bounding constraints
+                        @constraint(
+                            forwardInfoList[t].model, 
+                            forwardInfoList[t].St[g] ≥ sum(StateVarList[t].sur[g][k][:lb] * forwardInfoList[t].model[:sur][g, k] for k in StateVarList[t].leaf[g])
+                        );
+                        @constraint(
+                            forwardInfoList[t].model, 
+                            forwardInfoList[t].St[g] ≤ sum(StateVarList[t].sur[g][k][:ub] * forwardInfoList[t].model[:sur][g, k] for k in StateVarList[t].leaf[g])
+                        );
+                    
+                        ## for backward models
+                        ### Parent-Child relationship
+                        if param.tightness
+                            backwardInfoList[t+1].model[:sur_copy][g, left] = @variable(backwardInfoList[t+1].model, base_name = "sur_copy[$g, $left]", binary = true); 
+                            backwardInfoList[t+1].model[:sur_copy][g, right] = @variable(backwardInfoList[t+1].model, base_name = "sur_copy[$g, $left]", binary = true); 
+                            backwardInfoList[t].model[:sur][g, left] = @variable(backwardInfoList[t].model, base_name = "sur[$g, $left]", binary = true); 
+                            backwardInfoList[t].model[:sur][g, right] = @variable(backwardInfoList[t].model, base_name = "sur[$g, $left]", binary = true); 
+                        else
+                            backwardInfoList[t+1].model[:sur_copy][g, left] = @variable(backwardInfoList[t+1].model, base_name = "sur_copy[$g, $left]", lower_bound = 0, upper_bound = 1); 
+                            backwardInfoList[t+1].model[:sur_copy][g, right] = @variable(backwardInfoList[t+1].model, base_name = "sur_copy[$g, $left]", lower_bound = 0, upper_bound = 1); 
+                            backwardInfoList[t].model[:sur][g, left] = @variable(backwardInfoList[t].model, base_name = "sur[$g, $left]", lower_bound = 0, upper_bound = 1); 
+                            backwardInfoList[t].model[:sur][g, right] = @variable(backwardInfoList[t].model, base_name = "sur[$g, $left]", lower_bound = 0, upper_bound = 1); 
+                        end
+                        @constraint(backwardInfoList[t+1].model, backwardInfoList[t+1].model[:sur_copy][g, left] + backwardInfoList[t+1].model[:sur_copy][g, right] == backwardInfoList[t+1].model[:sur_copy][g, keys_with_value_1]);
+                        @constraint(backwardInfoList[t].model, backwardInfoList[t].model[:sur][g, left] + backwardInfoList[t].model[:sur][g, right] == backwardInfoList[t].model[:sur][g, keys_with_value_1]);
+                        ### bounding constraints
+                        @constraint(backwardInfoList[t+1].model, backwardInfoList[t+1].model[:Sc][g] ≥ sum(StateVarList[t].sur[g][k][:lb] * backwardInfoList[t+1].model[:sur_copy][g, k] for k in StateVarList[t].leaf[g]));
+                        @constraint(backwardInfoList[t+1].model, backwardInfoList[t+1].model[:Sc][g] ≤ sum(StateVarList[t].sur[g][k][:ub] * backwardInfoList[t+1].model[:sur_copy][g, k] for k in StateVarList[t].leaf[g]));
+                        @constraint(backwardInfoList[t].model, backwardInfoList[t].St[g] ≥ sum(StateVarList[t].sur[g][k][:lb] * backwardInfoList[t].model[:sur][g, k] for k in StateVarList[t].leaf[g]));
+                        @constraint(backwardInfoList[t].model, backwardInfoList[t].St[g] ≤ sum(StateVarList[t].sur[g][k][:ub] * backwardInfoList[t].model[:sur][g, k] for k in StateVarList[t].leaf[g]));
                     end
-                    @constraint(backwardInfoList[t+1].model, backwardInfoList[t+1].model[:sur_copy][g, left] + backwardInfoList[t+1].model[:sur_copy][g, right] == backwardInfoList[t+1].model[:sur_copy][g, keys_with_value_1]);
-                    @constraint(backwardInfoList[t].model, backwardInfoList[t].model[:sur][g, left] + backwardInfoList[t].model[:sur][g, right] == backwardInfoList[t].model[:sur][g, keys_with_value_1]);
-                    ### bounding constraints
-                    @constraint(backwardInfoList[t+1].model, backwardInfoList[t+1].model[:Sc][g] ≥ sum(StateVarList[t].sur[g][k][:lb] * backwardInfoList[t+1].model[:sur_copy][g, k] for k in StateVarList[t].leaf[g]));
-                    @constraint(backwardInfoList[t+1].model, backwardInfoList[t+1].model[:Sc][g] ≤ sum(StateVarList[t].sur[g][k][:ub] * backwardInfoList[t+1].model[:sur_copy][g, k] for k in StateVarList[t].leaf[g]));
-                    @constraint(backwardInfoList[t].model, backwardInfoList[t].St[g] ≥ sum(StateVarList[t].sur[g][k][:lb] * backwardInfoList[t].model[:sur][g, k] for k in StateVarList[t].leaf[g]));
-                    @constraint(backwardInfoList[t].model, backwardInfoList[t].St[g] ≤ sum(StateVarList[t].sur[g][k][:ub] * backwardInfoList[t].model[:sur][g, k] for k in StateVarList[t].leaf[g]));
-
                     stageDecision = deepcopy(solCollection[t, ω]);
                     stageDecision.stageSur[g] = Dict{Int64, Float64}()
                     for k in StateVarList[t].leaf[g]
@@ -171,6 +175,18 @@ function SDDiP_algorithm(
         ####################################################### Cut Generation Processes ###########################################################
         for t = reverse(2:param.T)
             for k in [1] 
+                backwardNodeInfoList = Dict{Int64, Tuple}(); 
+                for j in keys(Ω[t]) 
+                    backwardNodeInfoList[j] = (t, j, k) 
+                end
+
+                backwardPassResult = pmap(values(backwardNodeInfoList)) do backwardNodeInfo
+                    backwardPass(
+                        backwardNodeInfo, 
+                        solCollection; 
+                    )
+                end;
+
                 L̂ = solCollection[t-1,k].stageSolution; 
                 sur = solCollection[t-1,k].stageSur;
                 (λ₀, λ₁) = (
@@ -185,63 +201,40 @@ function SDDiP_algorithm(
                     )
                 );
                 for j in keys(Ω[t])
-                    # @info "$t, $k, $j"
-                    backwardInfo = backwardInfoList[t]
-                    backward_Constraint_Modification!(
-                        backwardInfo, 
-                        Ω[t][j].d 
-                    );
-                    (levelSetMethodParam, x₀) = setupLevelsetPara(
-                        forwardInfoList[t], 
-                        stageDataList[t], 
-                        Ω[t][j].d, 
-                        solCollection[t-1,k], 
-                        param;
-                        binaryInfo = binaryInfo, 
-                        Output_Gap = Output_Gap,
-                        λ = .3
-                    );
-
-                    cutInfo = LevelSetMethod_optimization!(
-                        backwardInfo, 
-                        x₀; 
-                        levelSetMethodParam = levelSetMethodParam, 
-                        stageData = stageDataList[t],     
-                        binaryInfo = binaryInfo,
-                        param = param
-                    ); 
-
-                    λ₀ = λ₀ + probList[t][j] * cutInfo[1];
+                    λ₀ = λ₀ + probList[t][j] * backwardPassResult[j][1];
                     λ₁ = Dict(
-                        :St => λ₁[:St] .+ probList[t][j] * cutInfo[2][:St],
+                        :St => λ₁[:St] .+ probList[t][j] * backwardPassResult[j][2][:St],
                         :sur => Dict(
                             g => Dict(
-                                k => λ₁[:sur][g][k] + probList[t][j] * cutInfo[2][:sur][g][k] for k in keys(sur[g]) 
+                                k => λ₁[:sur][g][k] + probList[t][j] * backwardPassResult[j][2][:sur][g][k] for k in keys(sur[g]) 
                             ) for g in 1:binaryInfo.d 
                         )
                     );
                 end
                 # # add cut to both backward models and forward models
-                @constraint(
-                    forwardInfoList[t-1].model, 
-                    forwardInfoList[t-1].θ ≥ λ₀ + 
-                    λ₁[:St]' * forwardInfoList[t-1].St + 
-                    sum(
+                @everywhere begin
+                    t = $t; λ₁ = $λ₁; λ₀ = $λ₀;
+                    @constraint(
+                        forwardInfoList[t-1].model, 
+                        forwardInfoList[t-1].θ ≥ λ₀ + 
+                        λ₁[:St]' * forwardInfoList[t-1].St + 
                         sum(
-                            λ₁[:sur][g][k] * forwardInfoList[t-1].model[:sur][g, k] for k in StateVarList[t-1].leaf[g]
-                        ) for g in 1:binaryInfo.d
-                    ) 
-                );
-                @constraint(
-                    backwardInfoList[t-1].model, 
-                    backwardInfoList[t-1].θ ≥ λ₀ + 
-                    λ₁[:St]' * backwardInfoList[t-1].St + 
-                    sum(
+                            sum(
+                                λ₁[:sur][g][k] * forwardInfoList[t-1].model[:sur][g, k] for k in StateVarList[t-1].leaf[g]
+                            ) for g in 1:binaryInfo.d
+                        ) 
+                    );
+                    @constraint(
+                        backwardInfoList[t-1].model, 
+                        backwardInfoList[t-1].θ ≥ λ₀ + 
+                        λ₁[:St]' * backwardInfoList[t-1].St + 
                         sum(
-                            λ₁[:sur][g][k] * backwardInfoList[t-1].model[:sur][g, k] for k in StateVarList[t-1].leaf[g]
-                        ) for g in 1:binaryInfo.d
-                    ) 
-                );           
+                            sum(
+                                λ₁[:sur][g][k] * backwardInfoList[t-1].model[:sur][g, k] for k in StateVarList[t-1].leaf[g]
+                            ) for g in 1:binaryInfo.d
+                        ) 
+                    );  
+                end         
             end
         end
 

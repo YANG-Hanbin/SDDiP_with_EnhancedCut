@@ -21,7 +21,9 @@ N = [
 
 ū = [4.0, 10, 10, 1, 45, 4]
 
-function intergerBinarization(ū::Vector{Float64})
+function intergerBinarization(
+    ū::Vector{Float64}
+)::BinaryInfo
     row_num = size(ū)[1];
 
     var_num = floor.(Int, log.(2,ū)) .+ 1; 
@@ -111,12 +113,15 @@ end
 
 
 
-function recursion_scenario_tree(pathList::Vector{Int64}, 
-                                P::Float64, 
-                                scenario_sequence::Dict{Int64, Dict{Int64, Any}}, 
-                                t::Int64;   
-                                Ω::Dict{Int64,Dict{Int64,RandomVariables}} = Ω, prob::Dict{Int64,Vector{Float64}} = prob, T::Int64 = 2)
-
+function recursion_scenario_tree(
+    pathList::Vector{Int64}, 
+    P::Float64, 
+    scenario_sequence::Dict{Int64, Dict{Int64, Any}}, 
+    t::Int64;   
+    Ω::Dict{Int64,Dict{Int64,RandomVariables}} = Ω, 
+    prob::Dict{Int64,Vector{Float64}} = prob, 
+    T::Int64 = 2
+)
     if t ≤ T
         for ω_key in keys(Ω[t])
 

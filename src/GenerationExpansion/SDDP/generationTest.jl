@@ -21,7 +21,9 @@ N = [
 
 ū = [4.0, 10, 10, 1, 45, 4]
 
-function intergerBinarization(ū::Vector{Float64})
+function intergerBinarization(
+    ū::Vector{Float64}
+)::BinaryInfo
     row_num = size(ū)[1];
 
     var_num = floor.(Int, log.(2,ū)) .+ 1; 
@@ -147,38 +149,3 @@ P = 1.0
 
 recursion_scenario_tree(pathList, P, scenario_sequence, 2, T = T, prob = probList)
 scenario_tree = scenario_sequence
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -17,18 +17,14 @@ function intergerBinarization(ū::Vector{Float64})
     return BinaryInfo(A, col_num, row_num)
 end
 
-
-
-
-
-
 ################### nonanticipativity for multistage problem #######################
-
-function recursion_scenario_tree(pathList::Vector{Int64}, 
-                                P::Float64, 
-                                scenario_sequence::Dict{Int64, Dict{Int64, Any}}, 
-                                t::Int64;   
-                                Ω::Dict{Int64,Dict{Int64,RandomVariables}} = Ω, prob::Dict{Int64,Vector{Float64}} = prob, T::Int64 = 2)
+function recursion_scenario_tree(
+    pathList::Vector{Int64}, 
+    P::Float64, 
+    scenario_sequence::Dict{Int64, Dict{Int64, Any}}, 
+    t::Int64;   
+    Ω::Dict{Int64,Dict{Int64,RandomVariables}} = Ω, prob::Dict{Int64,Vector{Float64}} = prob, T::Int64 = 2
+)
 
     if t ≤ T
         for ω_key in keys(Ω[t])
@@ -63,7 +59,9 @@ end
 
 
 ## sampling function 
-function DrawSamples(scenario_sequence::Dict{Int64, Dict{Int64, Any}})
+function DrawSamples(
+    scenario_sequence::Dict{Int64, Dict{Int64, Any}}
+)
     # draw f, A, B, C, b from Ωₜ according to distribution P
     P = Vector{Float64}()
     for key in keys(scenario_sequence)
@@ -117,19 +115,23 @@ end
 
 
 ## setup coefficients
-function dataGeneration(;   T::Int64 = 2, num_Ω::Int64 = num_Ω, seed::Int64 = 1234,
-                            r::Float64 = r, ## the annualized interest rate
-                            N::Matrix{Float64} = N, ## Generator rating
-                            ū::Vector{Float64} = ū, ## maximum number of each type of generators
-                            c::Vector{Float64} = c, # c_g from table 4, cost/MW to build a generator of type g
-                            mg::Vector{Int64} = mg,
-                            fuel_price::Vector{Float64} = fuel_price,
-                            heat_rate::Vector{Int64} = heat_rate,
-                            eff::Vector{Float64} = eff,
-                            om_cost::Vector{Float64} = om_cost, 
-                            s₀::Vector{Int64} = s₀,
-                            penalty::Float64 = penalty, 
-                            initial_demand::Float64 = initial_demand)
+function dataGeneration(;   
+    T::Int64 = 2, 
+    num_Ω::Int64 = num_Ω, 
+    seed::Int64 = 1234,
+    r::Float64 = r, ## the annualized interest rate
+    N::Matrix{Float64} = N, ## Generator rating
+    ū::Vector{Float64} = ū, ## maximum number of each type of generators
+    c::Vector{Float64} = c, # c_g from table 4, cost/MW to build a generator of type g
+    mg::Vector{Int64} = mg,
+    fuel_price::Vector{Float64} = fuel_price,
+    heat_rate::Vector{Int64} = heat_rate,
+    eff::Vector{Float64} = eff,
+    om_cost::Vector{Float64} = om_cost, 
+    s₀::Vector{Int64} = s₀,
+    penalty::Float64 = penalty, 
+    initial_demand::Float64 = initial_demand
+)::NamedTuple
 
     binaryInfo = intergerBinarization(ū)
 
@@ -228,8 +230,10 @@ function param_setup(;
     cutSelection::String            = "LC", 
     T::Int64                        = 12,
     num::Int64                      = 10,
+    Output_Gap::Bool                = false,
     ℓ1::Float64                     = 1.0,
     ℓ2::Float64                     = 1.0,
+    nxt_bound::Float64              = 1e8,
     logger_save::Bool               = true,
     algorithm::Symbol               = :SDDiP
 )::NamedTuple
@@ -241,10 +245,12 @@ function param_setup(;
         ε                   = ε,
         tightness           = tightness,
         cutSelection        = cutSelection, 
+        Output_Gap          = Output_Gap,
         T                   = T, 
         num                 = num, 
         ℓ1                  = ℓ1,
         ℓ2                  = ℓ2,
+        nxt_bound           = nxt_bound,
         logger_save         = logger_save,
         algorithm           = algorithm  
     )

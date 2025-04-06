@@ -6,7 +6,12 @@
 This function is to constraint the model for solving gap and alpha
 """
 
-function Δ_model_formulation(functionHistory::FunctionHistory, f_star::Float64, iter::Int64; Output::Int64 = 0)
+function Δ_model_formulation(
+    functionHistory::FunctionHistory, 
+    f_star::Float64, 
+    iter::Int64; 
+    Output::Int64 = 0
+)::Dict{Int64, Float64}
     
     alphaModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                                                 "OutputFlag" => Output, 
@@ -17,7 +22,11 @@ function Δ_model_formulation(functionHistory::FunctionHistory, f_star::Float64,
 
     @variable(alphaModel, z)
     @variable(alphaModel, 0 ≤ α ≤ 1)
-    @constraint(alphaModel, con[j = 1:iter], z ≤  α * ( functionHistory.f_his[j] - f_star) + (1 - α) * functionHistory.G_max_his[j] )
+    @constraint(
+        alphaModel, 
+        con[j = 1:iter], 
+        z ≤  α * ( functionHistory.f_his[j] - f_star) + (1 - α) * functionHistory.G_max_his[j] 
+    );
     
     # we first compute gap Δ
     @objective(alphaModel, Max, z)
@@ -38,7 +47,11 @@ function Δ_model_formulation(functionHistory::FunctionHistory, f_star::Float64,
     optimize!(alphaModel)
     a_max = JuMP.value(α)
 
-    return Dict(1 => Δ, 2 => a_min, 3 => a_max)
+    return Dict(
+        1 => Δ, 
+        2 => a_min, 
+        3 => a_max
+    )
 
 end
 
@@ -46,86 +59,105 @@ end
 """
     This function is to add constraints for the model f_star and nxt pt.
 """
-function add_constraint(currentInfo::CurrentInfo, modelInfo::ModelInfo)
+function add_constraint(
+    currentInfo::CurrentInfo, 
+    modelInfo::ModelInfo
+)::Nothing
     m = length(currentInfo.G)
 
     xⱼ = currentInfo.x
     # add constraints     
-    @constraint(modelInfo.model, modelInfo.z .≥ currentInfo.f + currentInfo.df' * (modelInfo.x .- xⱼ) 
-                                                                    )
+    @constraint(
+        modelInfo.model, 
+        modelInfo.z .≥ currentInfo.f + currentInfo.df' * (modelInfo.x .- xⱼ)                                                                 
+    );
 
-    @constraint(modelInfo.model, [k = 1:m], modelInfo.y .≥ currentInfo.G[k] + sum(currentInfo.dG[k] .* (modelInfo.x .- xⱼ))
-                                                                                 ) 
+    @constraint(
+        modelInfo.model, 
+        [k = 1:m], 
+        modelInfo.y .≥ currentInfo.G[k] + sum(currentInfo.dG[k] .* (modelInfo.x .- xⱼ))                                                                                 
+    );
+    return
 end
 
 
 """
     This function is to collect the information from the objecive f, and constraints G
 """
-function FuncInfo_LevelSetMethod(x₀::Vector{Float64}; 
-                                        backwardInfo::BackwardModelInfo = backwardInfo,
-                                            cutSelection::String = cutSelection, 
-                                                f_star_value::Union{Float64, Nothing} = f_star_value, 
-                                                    stageData::StageData = stageData, 
-                                                        L̂::Vector{Float64} =  L̂, L̃::Union{Vector{Float64}, Nothing} =  L̃, 
-                                                            ϵ::Float64 = ϵ )
+function FuncInfo_LevelSetMethod(
+    x₀::Vector{Float64}; 
+    backwardInfo::BackwardModelInfo = backwardInfo,
+    cutSelection::String = cutSelection, 
+    f_star_value::Union{Float64, Nothing} = f_star_value, 
+    stageData::StageData = stageData, 
+    L̂::Vector{Float64} =  L̂, 
+    L̃::Union{Vector{Float64}, Nothing} =  L̃,             
+    ϵ::Float64 = ϵ
+)::CurrentInfo
 
     if cutSelection == "ELC"
-        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
-                                                            x₀' * ( L̂ .- backwardInfo.Lc) );
+        @objective(
+            backwardInfo.model, 
+            Min, 
+            stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack +                                                     
+            x₀' * ( L̂ .- backwardInfo.Lc) 
+        );
         optimize!(backwardInfo.model);
-        F_solution = ( F = JuMP.objective_value(backwardInfo.model), 
-                            ∇F = L̂ .- JuMP.value.(backwardInfo.Lc) );
+        F_solution = ( 
+            F = JuMP.objective_value(backwardInfo.model),                     
+            ∇F = L̂ .- JuMP.value.(backwardInfo.Lc) 
+        );
 
-        currentInfo  = CurrentInfo(x₀, 
-                                    - F_solution.F - x₀' * ( L̃ .-  L̂),
-                                    Dict(1 => f_star_value - F_solution.F - ϵ),
-                                    - F_solution.∇F - ( L̃ .-  L̂),
-                                    Dict(1 => - F_solution.∇F), 
-                                    F_solution.F
-                                    )                                        
+        currentInfo  = CurrentInfo(
+            x₀, 
+            - F_solution.F - x₀' * ( L̃ .-  L̂),
+            Dict(1 => f_star_value - F_solution.F - ϵ),
+            - F_solution.∇F - ( L̃ .-  L̂),
+            Dict(1 => - F_solution.∇F),             
+            F_solution.F                          
+        );                                        
     elseif cutSelection == "LC"
-        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack - 
-                                                            x₀' * backwardInfo.Lc );
+        @objective(
+            backwardInfo.model, 
+            Min, 
+            stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack +                                                     
+            x₀' * ( L̂ .- backwardInfo.Lc) 
+        );
         optimize!(backwardInfo.model);
-        F_solution = (F = JuMP.objective_value(backwardInfo.model), 
-                                ∇F = - JuMP.value.(backwardInfo.Lc) );
+        F_solution = ( 
+            F = JuMP.objective_value(backwardInfo.model),                     
+            ∇F = L̂ .- JuMP.value.(backwardInfo.Lc) 
+        );
 
-        currentInfo  = CurrentInfo(x₀, 
-                                    - F_solution.F - x₀' *  L̂, 
-                                    Dict(1 => 0.0),
-                                    - F_solution.∇F -  L̂,
-                                    Dict(1 => - F_solution.∇F * 0), 
-                                    F_solution.F
-                                    );
-    elseif cutSelection == "ELCwithoutConstraint"
-        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
-                                                            x₀' * ( L̂ .- backwardInfo.Lc) );
-        optimize!(backwardInfo.model);
-        F_solution = ( F = JuMP.objective_value(backwardInfo.model), 
-                        ∇F = L̂ .- JuMP.value.(backwardInfo.Lc) );
-
-        currentInfo  = CurrentInfo(x₀, 
-                                    - F_solution.F - x₀' * ( L̃ .-  L̂),
-                                    Dict(1 => 0.0 ),
-                                    - F_solution.∇F - ( L̃ .-  L̂),
-                                    Dict(1 => - F_solution.∇F * 0), 
-                                    F_solution.F
-                                    ) 
+        currentInfo  = CurrentInfo(
+            x₀, 
+            - F_solution.F,
+            Dict(1 => 0.0),
+            - F_solution.∇F,
+            Dict(1 => - F_solution.∇F * 0.),             
+            F_solution.F                          
+        );             
     elseif cutSelection == "ShrinkageLC"
-        @objective(backwardInfo.model, Min, stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack + 
-                                                            x₀' * ( L̂ .- backwardInfo.Lc) );
+        @objective(
+            backwardInfo.model, 
+            Min, 
+            stageData.c1' * backwardInfo.x + stageData.c2' * backwardInfo.y + backwardInfo.θ + stageData.penalty * backwardInfo.slack +                                                     
+            x₀' * ( L̂ .- backwardInfo.Lc) 
+        );
         optimize!(backwardInfo.model);
-        F_solution = ( F = JuMP.objective_value(backwardInfo.model), 
-                        ∇F = L̂ .- JuMP.value.(backwardInfo.Lc) );
+        F_solution = ( 
+            F = JuMP.objective_value(backwardInfo.model),                 
+            ∇F = L̂ .- JuMP.value.(backwardInfo.Lc) 
+        );
 
-        currentInfo  = CurrentInfo(x₀, 
-                                    1/2 * sum(x₀ .* x₀),
-                                    Dict(1 => f_star_value - F_solution.F - ϵ),
-                                    x₀,
-                                    Dict(1 => - F_solution.∇F), 
-                                    F_solution.F
-                                    ) 
+        currentInfo  = CurrentInfo(
+            x₀,     
+            1/2 * sum(x₀ .* x₀),
+            Dict(1 => f_star_value - F_solution.F - ϵ),                     
+            x₀,
+            Dict(1 => - F_solution.∇F),             
+            F_solution.F                            
+        );
 
     end
 
@@ -136,51 +168,86 @@ end
 ## -------------------------------------------------- Main Function -------------------------------------------- ##
 ######################################################################################################################
 
-function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Vector{Float64}; 
-                                        levelSetMethodParam::LevelSetMethodParam = levelSetMethodParam, 
-                                        stageData::StageData = stageData, 
-                                        ϵ::Float64 = 1e-4, 
-                                        binaryInfo::BinaryInfo = binaryInfo) 
+function LevelSetMethod_optimization!( 
+    backwardInfo::BackwardModelInfo, x₀::Vector{Float64}; 
+    levelSetMethodParam::LevelSetMethodParam = levelSetMethodParam,   
+    stageData::StageData = stageData,                  
+    ϵ::Float64 = 1e-4,          
+    binaryInfo::BinaryInfo = binaryInfo
+)
     
     ######################################################################################################################
     ###############################   auxiliary function for function information   ######################################
     ######################################################################################################################
     ##  μ larger is better
-    (μ, λ, threshold, nxt_bound, max_iter, Output, Output_Gap) = (levelSetMethodParam.μ, levelSetMethodParam.λ, levelSetMethodParam.threshold, levelSetMethodParam.nxt_bound, levelSetMethodParam.max_iter, levelSetMethodParam.Output,levelSetMethodParam.Output_Gap);
-    (L̂, cutSelection, L̃, f_star_value) = (levelSetMethodParam.L̂, levelSetMethodParam.cutSelection, levelSetMethodParam.L̃, levelSetMethodParam.f_star_value)
-    (A, n, d) = (binaryInfo.A, binaryInfo.n, binaryInfo.d);
+    (μ, λ, threshold, nxt_bound, max_iter, Output, Output_Gap) = (
+        levelSetMethodParam.μ, 
+        levelSetMethodParam.λ, 
+        levelSetMethodParam.threshold, 
+        levelSetMethodParam.nxt_bound, 
+        levelSetMethodParam.max_iter, 
+        levelSetMethodParam.Output,
+        levelSetMethodParam.Output_Gap
+    );
+    (L̂, cutSelection, L̃, f_star_value) = (
+        levelSetMethodParam.L̂, 
+        levelSetMethodParam.cutSelection, 
+        levelSetMethodParam.L̃, 
+        levelSetMethodParam.f_star_value
+    );
+    (A, n, d) = (
+        binaryInfo.A, 
+        binaryInfo.n, 
+        binaryInfo.d
+    );
     
     ## ==================================================== Levelset Method ============================================== ##
     iter = 1;
     α = 1/2;
 
     ## trajectory
-    currentInfo = FuncInfo_LevelSetMethod(x₀, cutSelection = cutSelection, backwardInfo = backwardInfo, f_star_value = f_star_value, stageData = stageData, L̂ = L̂, L̃ = L̃, ϵ = ϵ);
+    currentInfo = FuncInfo_LevelSetMethod(
+        x₀, 
+        cutSelection = cutSelection, 
+        backwardInfo = backwardInfo, 
+        f_star_value = f_star_value, 
+        stageData = stageData, 
+        L̂ = L̂, 
+        L̃ = L̃, 
+        ϵ = ϵ
+    );
 
-    functionHistory = FunctionHistory(  Dict(1 => currentInfo.f), 
-                                            Dict(1 => maximum(currentInfo.G[k] for k in keys(currentInfo.G)) )
-                                            );
+    functionHistory = FunctionHistory(  
+        Dict(1 => currentInfo.f), 
+        Dict(1 => maximum(currentInfo.G[k] for k in keys(currentInfo.G)) )                                        
+    );
 
     ## model for oracle
-    oracleModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-                                        "OutputFlag" => Output, 
-                                        "Threads" => 0)); 
+    oracleModel = Model(
+        optimizer_with_attributes(
+            ()->Gurobi.Optimizer(GRB_ENV), 
+            "OutputFlag" => Output, 
+            "Threads" => 0
+        )
+    ); 
     MOI.set(oracleModel, MOI.Silent(), true);
     set_optimizer_attribute(oracleModel, "MIPGap", 1e-4);
     set_optimizer_attribute(oracleModel, "TimeLimit", 5);
 
-    para_oracle_bound = abs(currentInfo.f);
-    z_rhs = 10 * 10^(ceil(log10(para_oracle_bound)));
-    @variable(oracleModel, z  ≥  - z_rhs);
+    @variable(oracleModel, z  ≥  - nxt_bound);
     @variable(oracleModel, x[i = 1:n]);
     @variable(oracleModel, y ≤ 0);
 
     @objective(oracleModel, Min, z);
     oracleInfo = ModelInfo(oracleModel, x, y, z);
 
-    nxtModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-                                                "OutputFlag" => Output, 
-                                                "Threads" => 0)); 
+    nxtModel = Model(
+        optimizer_with_attributes(
+            ()->Gurobi.Optimizer(GRB_ENV),             
+            "OutputFlag" => Output,            
+            "Threads" => 0
+        )
+    ); 
     MOI.set(nxtModel, MOI.Silent(), true);
     set_optimizer_attribute(nxtModel, "MIPGap", 1e-4);
     set_optimizer_attribute(nxtModel, "TimeLimit", 5);
@@ -193,16 +260,10 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
 
     Δ = Inf; τₖ = 1; τₘ = .5; μₖ = 1;
 
-    if cutSelection == "ELC" || cutSelection == "ELCwithoutConstraint"
-        cutInfo =  [ - currentInfo.f - currentInfo.x' *  L̃,  
-                                                                    currentInfo.x] 
-    elseif cutSelection == "LC"
-        cutInfo = [ - currentInfo.f - currentInfo.x' *  L̂,  
-                                                                    currentInfo.x] 
-    elseif cutSelection == "ShrinkageLC"
-        cutInfo = [ currentInfo.L_at_x̂ - currentInfo.x' *  L̂,  
-                                                                    currentInfo.x] 
-    end 
+    cutInfo = [ 
+        currentInfo.L_at_x̂ - currentInfo.x' *  L̂, 
+        currentInfo.x
+    ];
 
     while true
         add_constraint(currentInfo, oracleInfo);
@@ -215,13 +276,10 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
             return cutInfo
         end
 
-        f_star = JuMP.objective_value(oracleModel)
-
         # formulate alpha model
         result = Δ_model_formulation(functionHistory, f_star, iter, Output = Output);
         previousΔ = Δ;
         Δ, a_min, a_max = result[1], result[2], result[3];
-        
 
         if Output_Gap # && (iter % 30 == 0)
             if iter == 1
@@ -235,16 +293,10 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
         x₀ = currentInfo.x;
         if round(previousΔ) > round(Δ)
             x₀ = currentInfo.x; τₖ = μₖ * τₖ;
-            if cutSelection == "ELC" || cutSelection == "ELCwithoutConstraint"
-                cutInfo =  [ - currentInfo.f - currentInfo.x' *  L̃,  
-                                                                            currentInfo.x];
-            elseif cutSelection == "LC"
-                cutInfo = [ - currentInfo.f - currentInfo.x' *  L̂,  
-                                                                            currentInfo.x];
-            elseif cutSelection == "ShrinkageLC"
-                cutInfo = [ currentInfo.L_at_x̂ - currentInfo.x' *  L̂,  
-                                                                            currentInfo.x];
-            end 
+                cutInfo = [ 
+                currentInfo.L_at_x̂ - currentInfo.x' *  L̂, 
+                currentInfo.x
+            ];
         else
             τₖ = (τₖ + τₘ) / 2;
         end
@@ -271,7 +323,6 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
         
         level = round(w + λ * (W - w), digits = 6);
         
-
         ## ==================================================== next iteration point ============================================== ##
         # obtain the next iteration point
         if iter == 1
@@ -335,7 +386,7 @@ function LevelSetMethod_optimization!( backwardInfo::BackwardModelInfo, x₀::Ve
         end
 
         ## stop rule: gap ≤ .07 * function-value && constraint ≤ 0.05 * LagrangianFunction
-        if Δ ≤ threshold * 100 || iter > max_iter
+        if Δ ≤ threshold || iter > max_iter
             # @info "yes"
             return cutInfo
         end

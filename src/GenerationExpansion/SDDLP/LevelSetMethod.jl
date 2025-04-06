@@ -5,19 +5,31 @@
 """
 This function is to constraint the model for solving gap and alpha
 """
-
-function Δ_model_formulation(functionHistory::FunctionHistory, f_star::Float64, iter::Int64; Output::Int64 = 0)
+function Δ_model_formulation(
+    functionHistory::FunctionHistory, 
+    f_star::Float64, 
+    iter::Int64; 
+    Output::Int64 = 0
+)::Dict{Int64, Float64}
     
-    alphaModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-                                                "OutputFlag" => Output, 
-                                                "Threads" => 0)); 
+    alphaModel = Model(
+        optimizer_with_attributes(
+            ()->Gurobi.Optimizer(GRB_ENV), 
+            "OutputFlag" => Output, 
+            "Threads" => 0
+        )
+    ); 
     MOI.set(alphaModel, MOI.Silent(), true);
     set_optimizer_attribute(alphaModel, "MIPGap", 1e-4);
     set_optimizer_attribute(alphaModel, "TimeLimit", 5);
 
     @variable(alphaModel, z)
     @variable(alphaModel, 0 ≤ α ≤ 1)
-    @constraint(alphaModel, con[j = 1:iter], z ≤  α * ( functionHistory.f_his[j] - f_star) + (1 - α) * functionHistory.G_max_his[j] )
+    @constraint(
+        alphaModel, 
+        con[j = 1:iter], 
+        z ≤  α * ( functionHistory.f_his[j] - f_star) + (1 - α) * functionHistory.G_max_his[j] 
+    );
     
     # we first compute gap Δ
     @objective(alphaModel, Max, z)
@@ -38,8 +50,11 @@ function Δ_model_formulation(functionHistory::FunctionHistory, f_star::Float64,
     optimize!(alphaModel)
     a_max = JuMP.value(α)
 
-    return Dict(1 => Δ, 2 => a_min, 3 => a_max)
-
+    return Dict(
+        1 => Δ, 
+        2 => a_min, 
+        3 => a_max
+    )
 end
 
 
@@ -133,10 +148,12 @@ function FuncInfo_LevelSetMethod(
                         
         currentInfo  = CurrentInfo(
             x₀, 
-            - F_solution.F - x₀[:St]' * (S̃[:St] .-  Ŝ[:St]) + sum(sum(x₀[:sur][g][k] * (S̃[:sur][g][k] - Ŝ[:sur][g][k]) for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d),
+            - F_solution.F - x₀[:St]' * (S̃[:St] .-  Ŝ[:St]) - sum(sum(x₀[:sur][g][k] * (S̃[:sur][g][k] - Ŝ[:sur][g][k]) for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d),
             Dict(1 => f_star_value - F_solution.F - param.ε),
-            Dict( :St => JuMP.value.(backwardInfo.Sc) .- S̃[:St], 
-            :sur => Dict(g => Dict(k => JuMP.value(backwardInfo.model[:sur_copy][g, k]) - S̃[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d)),
+            Dict( 
+                :St => JuMP.value.(backwardInfo.Sc) .- S̃[:St], 
+                :sur => Dict(g => Dict(k => JuMP.value(backwardInfo.model[:sur_copy][g, k]) - S̃[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d)
+            ),
             Dict(1 => F_solution.negative_∇F),
             F_solution.F 
         );
@@ -185,8 +202,8 @@ function FuncInfo_LevelSetMethod(
             Dict( 
                 :St => JuMP.value.(backwardInfo.Sc) .- Ŝ[:St],                  
                 :sur => Dict(g => Dict(k => JuMP.value(backwardInfo.model[:sur_copy][g, k]) - Ŝ[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d)),
-                Dict(1 => F_solution.zero_∇F), 
-                F_solution.F
+            Dict(1 => F_solution.zero_∇F), 
+            F_solution.F
         );
 
     elseif cutSelection == "ShrinkageLC"
@@ -246,8 +263,7 @@ function setupLevelsetPara(
     binaryInfo::BinaryInfo = binaryInfo,   
     Output_Gap::Bool = false, 
     λ::Union{Float64, Nothing} = .3
-)
-
+)::NamedTuple
     L̂ = stateInfo.stageSolution; sur = stateInfo.stageSur; 
     Ŝ = Dict( :St => L̂, :sur => Dict(g => Dict(k => sur[g][k] for k in keys(sur[g])) for g in 1:binaryInfo.d));
     if param.cutSelection == "ELC"
@@ -259,9 +275,10 @@ function setupLevelsetPara(
             binaryInfo = binaryInfo                         
         );
 
-        optimize!(forwardInfo.model); f_star_value = JuMP.objective_value(forwardInfo.model);
+        optimize!(forwardInfo.model); 
+        f_star_value = JuMP.objective_value(forwardInfo.model);
         L̃ = Dict( 
-            :St => L̂ ./ 2,    
+            :St => L̂ .* 0 .+ .5,    
             :sur => Dict(
                 g => Dict(k => .5 for k in keys(sur[g])) for g in 1:binaryInfo.d
             )
@@ -273,7 +290,7 @@ function setupLevelsetPara(
             0.95, 
             λ, 
             threshold,                            
-            1e14, 
+            param.nxt_bound, 
             param.MaxIter, 
             Output, Output_Gap,                               
             Ŝ, 
@@ -281,8 +298,6 @@ function setupLevelsetPara(
             L̃, 
             f_star_value
         );
-
-
     elseif param.cutSelection == "ShrinkageLC" 
         forward_modify_constraints!(
             forwardInfo,                 
@@ -297,7 +312,7 @@ function setupLevelsetPara(
             0.95, 
             λ, 
             threshold, 
-            1e14, 
+            param.nxt_bound, 
             param.MaxIter, 
             Output, 
             Output_Gap,
@@ -306,29 +321,6 @@ function setupLevelsetPara(
             nothing, 
             f_star_value
         );
-
-    elseif cutSelection == "ELCwithoutConstraint" 
-        L̃ = Dict( 
-            :St => L̂ .* param.ℓ1 .- param.ℓ1 ./ 2,             
-            :sur => Dict(
-                g => Dict(k => sur[g][k] .* param.ℓ1 .- param.ℓ1 ./ 2 for k in keys(sur[g])) for g in 1:binaryInfo.d
-            )
-        );
-        Output = 0; threshold = 1.0; f_star_value = 0.0;
-        levelSetMethodParam = LevelSetMethodParam(
-            0.95, 
-            λ, 
-            threshold, 
-            1e14, 
-            param.MaxIter, 
-            Output, 
-            Output_Gap,
-            Ŝ,  
-            param.cutSelection, 
-            L̃, 
-            f_star_value
-        );
-
     elseif param.cutSelection == "LC" 
         f_star_value = 0.0;
         Output = 0; threshold = 1.0; 
@@ -336,7 +328,7 @@ function setupLevelsetPara(
             0.95, 
             λ, 
             threshold, 
-            1e14, 
+            param.nxt_bound, 
             param.MaxIter, 
             Output, 
             Output_Gap, 
@@ -352,17 +344,19 @@ function setupLevelsetPara(
         :sur => Dict(
             g => Dict(
                 k => 0.0 for k in keys(sur[g])
-                ) for g in 1:binaryInfo.d
+            ) for g in 1:binaryInfo.d
         )
     );
 
-    return (levelSetMethodParam = levelSetMethodParam, x₀ = x₀)
+    return (
+        levelSetMethodParam = levelSetMethodParam, 
+        x₀ = x₀
+    )
 end
 
 ######################################################################################################################
 ## -------------------------------------------------- Main Function -------------------------------------------- ##
 ######################################################################################################################
-
 function LevelSetMethod_optimization!( 
     backwardInfo::BackwardModelInfo, 
     x₀::Dict{Symbol, Any}; 
@@ -407,11 +401,11 @@ function LevelSetMethod_optimization!(
                                         "OutputFlag" => Output, 
                                         "Threads" => 0)); 
     MOI.set(oracleModel, MOI.Silent(), true);
-    set_optimizer_attribute(oracleModel, "MIPGap", 1e-3);
+    set_optimizer_attribute(oracleModel, "MIPGap", 1e-4);
     set_optimizer_attribute(oracleModel, "TimeLimit", 5);
 
     para_oracle_bound = abs(currentInfo.f);
-    z_rhs = 10 * 10^(ceil(log10(para_oracle_bound)));
+    z_rhs = 20 * 10^(ceil(log10(para_oracle_bound)));
     @variable(oracleModel, z  ≥  - z_rhs);
     @variable(oracleModel, x[i = 1:d]);
     @variable(oracleModel, x_sur[g in 1:d, k in keys(x₀[:sur][g])]);
@@ -420,9 +414,13 @@ function LevelSetMethod_optimization!(
     @objective(oracleModel, Min, z);
     oracleInfo = ModelInfo(oracleModel, x, x_sur, y, z);
 
-    nxtModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-                                                "OutputFlag" => Output, 
-                                                "Threads" => 0)); 
+    nxtModel = Model(
+        optimizer_with_attributes(
+            ()->Gurobi.Optimizer(GRB_ENV), 
+            "OutputFlag" => Output, 
+            "Threads" => 0
+        )
+    ); 
     MOI.set(nxtModel, MOI.Silent(), true);
     set_optimizer_attribute(nxtModel, "MIPGap", 1e-3);
     set_optimizer_attribute(nxtModel, "TimeLimit", 5);
@@ -436,15 +434,27 @@ function LevelSetMethod_optimization!(
 
     Δ = Inf; τₖ = 1; τₘ = .5; μₖ = 1;
 
-    if cutSelection == "ELC" || cutSelection == "ELCwithoutConstraint"
-        cutInfo =  [ - currentInfo.f - currentInfo.x[:St]' *  S̃[:St] - sum(sum(currentInfo.x[:sur][g][k] * S̃[:sur][g][k] for k in keys(S̃[:sur][g])) for g in 1:binaryInfo.d),  
-                                                                    currentInfo.x] 
+    if cutSelection == "ELC" 
+        cutInfo =  [ 
+            - currentInfo.f - 
+            currentInfo.x[:St]' *  S̃[:St] - 
+            sum(sum(currentInfo.x[:sur][g][k] * S̃[:sur][g][k] for k in keys(S̃[:sur][g])) for g in 1:binaryInfo.d),                                                              
+            currentInfo.x
+        ];
     elseif cutSelection == "LC"
-        cutInfo = [ - currentInfo.f - currentInfo.x[:St]' *  Ŝ[:St] -  sum(sum(currentInfo.x[:sur][g][k] * Ŝ[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d),  
-                                                                    currentInfo.x] 
+        cutInfo = [ 
+            - currentInfo.f - 
+            currentInfo.x[:St]' *  Ŝ[:St] -  
+            sum(sum(currentInfo.x[:sur][g][k] * Ŝ[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d),                                                              
+            currentInfo.x
+        ];
     elseif cutSelection == "ShrinkageLC"
-        cutInfo = [ currentInfo.S_at_x̂ - currentInfo.x[:St]' *  Ŝ[:St] -  sum(sum(currentInfo.x[:sur][g][k] * Ŝ[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d),  
-                                                                    currentInfo.x] 
+        cutInfo = [ 
+            currentInfo.S_at_x̂ - 
+            currentInfo.x[:St]' *  Ŝ[:St] -  
+            sum(sum(currentInfo.x[:sur][g][k] * Ŝ[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d),  
+            currentInfo.x
+        ] 
     end 
 
     while true
@@ -460,34 +470,8 @@ function LevelSetMethod_optimization!(
         if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
             f_star = JuMP.objective_value(oracleModel)
         else
-            oracleModel = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-                                                "OutputFlag" => Output, 
-                                                "Threads" => 0)); 
-            MOI.set(oracleModel, MOI.Silent(), true);
-            set_optimizer_attribute(oracleModel, "MIPGap", 1e-4);
-            set_optimizer_attribute(oracleModel, "TimeLimit", 5);
-
-            para_oracle_bound = abs(currentInfo.f);
-            z_rhs = 10 * 10^(ceil(log10(para_oracle_bound)));
-            @variable(oracleModel, z  ≥  - z_rhs);
-            @variable(oracleModel, x[i = 1:d]);
-            @variable(oracleModel, x_sur[g in 1:d, k in keys(x₀[:sur][g])]);
-            @variable(oracleModel, y ≤ 0);
-
-            @objective(oracleModel, Min, z);
-            oracleInfo = ModelInfo(oracleModel, x, x_sur, y, z);
-            add_constraint(currentInfo, oracleInfo);
-            optimize!(oracleModel);
-            st = termination_status(oracleModel)
-            if st == MOI.OPTIMAL
-                f_star = JuMP.objective_value(oracleModel)
-            else
-                return cutInfo
-            end
+            return cutInfo
         end
-
-        # f_star = JuMP.objective_value(oracleModel)
-
         # formulate alpha model
         result = Δ_model_formulation(functionHistory, f_star, iter, Output = Output);
         previousΔ = Δ;
@@ -506,15 +490,27 @@ function LevelSetMethod_optimization!(
         x₀ = currentInfo.x;
         if round(previousΔ) > round(Δ)
             x₀ = currentInfo.x; τₖ = μₖ * τₖ;
-            if cutSelection == "ELC" || cutSelection == "ELCwithoutConstraint"
-                cutInfo =  [ - currentInfo.f - currentInfo.x[:St]' *  S̃[:St] - sum(sum(currentInfo.x[:sur][g][k] * S̃[:sur][g][k] for k in keys(S̃[:sur][g])) for g in 1:binaryInfo.d),  
-                                                                            currentInfo.x] 
+            if cutSelection == "ELC" 
+                cutInfo =  [ 
+                    - currentInfo.f - 
+                    currentInfo.x[:St]' *  S̃[:St] - 
+                    sum(sum(currentInfo.x[:sur][g][k] * S̃[:sur][g][k] for k in keys(S̃[:sur][g])) for g in 1:binaryInfo.d),                                                              
+                    currentInfo.x
+                ];
             elseif cutSelection == "LC"
-                cutInfo = [ - currentInfo.f - currentInfo.x[:St]' *  Ŝ[:St] -  sum(sum(currentInfo.x[:sur][g][k] * Ŝ[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d),  
-                                                                            currentInfo.x] 
+                cutInfo = [ 
+                    - currentInfo.f - 
+                    currentInfo.x[:St]' *  Ŝ[:St] -  
+                    sum(sum(currentInfo.x[:sur][g][k] * Ŝ[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d),                                                              
+                    currentInfo.x
+                ];
             elseif cutSelection == "ShrinkageLC"
-                cutInfo = [ currentInfo.S_at_x̂ - currentInfo.x[:St]' *  Ŝ[:St] -  sum(sum(currentInfo.x[:sur][g][k] * Ŝ[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d),  
-                                                                            currentInfo.x] 
+                cutInfo = [ 
+                    currentInfo.S_at_x̂ - 
+                    currentInfo.x[:St]' *  Ŝ[:St] -  
+                    sum(sum(currentInfo.x[:sur][g][k] * Ŝ[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d),                                                            
+                    currentInfo.x
+                ]; 
             end 
         else
             τₖ = (τₖ + τₘ) / 2;
@@ -568,7 +564,7 @@ function LevelSetMethod_optimization!(
         end
 
         ## stop rule: gap ≤ .07 * function-value && constraint ≤ 0.05 * LagrangianFunction
-        if Δ ≤ (abs(f_star_value) * 1e-5 + 5) || iter > max_iter
+        if Δ ≤ abs(f_star_value) * 1e-5 || iter > max_iter
             # @info "yes"
             return cutInfo
         end

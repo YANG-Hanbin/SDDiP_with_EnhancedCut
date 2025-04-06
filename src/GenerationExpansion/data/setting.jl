@@ -96,19 +96,22 @@ end
 
 
 ## setup coefficients
-function dataGeneration(;   T::Int64 = 2, num_Ω::Int64 = num_Ω, seed::Int64 = 1234,
-                            r::Float64 = r, ## the annualized interest rate
-                            N::Matrix{Float64} = N, ## Generator rating
-                            ū::Vector{Float64} = ū, ## maximum number of each type of generators
-                            c::Vector{Float64} = c, # c_g from table 4, cost/MW to build a generator of type g
-                            mg::Vector{Int64} = mg,
-                            fuel_price::Vector{Float64} = fuel_price,
-                            heat_rate::Vector{Int64} = heat_rate,
-                            eff::Vector{Float64} = eff,
-                            om_cost::Vector{Float64} = om_cost, 
-                            s₀::Vector{Int64} = s₀,
-                            penalty::Float64 = penalty, 
-                            initial_demand::Float64 = initial_demand)
+function dataGeneration(;   
+    T::Int64 = 2, num_Ω::Int64 = num_Ω, seed::Int64 = 1234,
+    r::Float64 = r, ## the annualized interest rate
+    N::Matrix{Float64} = N, ## Generator rating
+    ū::Vector{Float64} = ū, ## maximum number of each type of generators
+    c::Vector{Float64} = c, # c_g from table 4, cost/MW to build a generator of type g
+    mg::Vector{Int64} = mg,
+    fuel_price::Vector{Float64} = fuel_price,
+    heat_rate::Vector{Int64} = heat_rate,
+    eff::Vector{Float64} = eff,
+    om_cost::Vector{Float64} = om_cost, 
+    s₀::Vector{Int64} = s₀,
+    penalty::Float64 = penalty, 
+    total_hours::Float64 = 8760., ## total hours in a year
+    initial_demand::Float64 = initial_demand
+)::NamedTuple
 
     binaryInfo = intergerBinarization(ū)
 
@@ -120,7 +123,7 @@ function dataGeneration(;   T::Int64 = 2, num_Ω::Int64 = num_Ω, seed::Int64 = 
 
     stageDataList = Dict{Int64,StageData}()
     for t in 1:T 
-        stageDataList[t] = StageData(c1[t], c2[t], ū, 8760., N, s₀, penalty/1e5)
+        stageDataList[t] = StageData(c1[t], c2[t], ū, total_hours, N, s₀, penalty/1e5)
     end
 
     ##########################################################################################
@@ -141,7 +144,7 @@ function dataGeneration(;   T::Int64 = 2, num_Ω::Int64 = num_Ω, seed::Int64 = 
                 Ω[t][i]= RandomVariables([initial_demand])
             else
                 # Ω[t][i]= RandomVariables( rand(Uniform(1.05, 1.2))*Ω[t-1][i].d )
-                Ω[t][i]= RandomVariables( rand(Uniform(1.15, 1.2))*Ω[1][1].d )
+                Ω[t][i]= RandomVariables( 1.05^t * rand(Uniform(1.0, 1.2))*Ω[1][1].d )
             end
         end
     end
@@ -154,8 +157,10 @@ function dataGeneration(;   T::Int64 = 2, num_Ω::Int64 = num_Ω, seed::Int64 = 
         probList[t] = [1/N_rv[t] for i in 1:N_rv[t]]
     end
 
-    return (probList = probList, 
-            stageDataList = stageDataList, 
-            Ω = Ω, 
-            binaryInfo = binaryInfo)
+    return (
+        probList = probList, 
+        stageDataList = stageDataList, 
+        Ω = Ω, 
+        binaryInfo = binaryInfo
+    )
 end

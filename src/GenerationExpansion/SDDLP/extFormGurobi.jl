@@ -1,16 +1,16 @@
-using JuMP, Gurobi, Random
-
-const GRB_ENV = Gurobi.Env()
-include("def.jl")
-
-## input data
-# include("generationTest.jl")
-
 ########################################################################################################################################################
 ############################################  auxiliary function: nonanticipativity for multistage problem #############################################
 ########################################################################################################################################################
-function recursion_scenario_constraint(pathList::Vector{Int64}, P::Float64, scenario_sequence::Dict{Int64, Dict{Int64, Any}}, t::Int64;   
-                    Ω::Dict{Int64,Dict{Int64,RandomVariables}} = Ω, probList::Dict{Int64,Vector{Float64}} = probList, T::Int64 = 2, gurobiModelInfo::GurobiModelInfo = gurobiModelInfo)
+function recursion_scenario_constraint(
+    pathList::Vector{Int64}, 
+    P::Float64, 
+    scenario_sequence::Dict{Int64, Dict{Int64, Any}}, 
+    t::Int64;                    
+    Ω::Dict{Int64,Dict{Int64,RandomVariables}} = Ω, 
+    probList::Dict{Int64,Vector{Float64}} = probList, 
+    T::Int64 = 2, 
+    gurobiModelInfo::GurobiModelInfo = gurobiModelInfo
+)
 
     if t <= T
         for ω_key in keys(Ω[t])
@@ -52,20 +52,26 @@ end
 ################################################################################################################################################
 ############################################################     Gurobi function   #############################################################
 ################################################################################################################################################
-function gurobiOptimize!(Ω::Dict{Int64,Dict{Int64,RandomVariables}}, 
-                        probList::Dict{Int64,Vector{Float64}}, 
-                        stageDataList::Dict{Int64, StageData}; 
-                        binaryInfo::BinaryInfo = binaryInfo, 
-                        mipGap::Float64 = 1e-2, timeLimit::Float64 = 1e4, outputFlag::Int64 = 0)
+function gurobiOptimize!(
+    Ω::Dict{Int64,Dict{Int64,RandomVariables}}, 
+    probList::Dict{Int64,Vector{Float64}}, 
+    stageDataList::Dict{Int64, StageData}; 
+    binaryInfo::BinaryInfo = binaryInfo, 
+    mipGap::Float64 = 1e-2, 
+    timeLimit::Float64 = 1e4, 
+    outputFlag::Int64 = 0
+)::NamedTuple
 
     (A, n, d) = (binaryInfo.A, binaryInfo.n, binaryInfo.d)
     T = length(Ω); num_Ω = length(Ω[1]);
     W = num_Ω^(T-1) # number of scenarios
 
 
-    model = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-                                                "OutputFlag" => outputFlag, 
-                                                "Threads" => 0)); 
+    model = Model(optimizer_with_attributes(
+        ()->Gurobi.Optimizer(GRB_ENV), 
+        "OutputFlag" => outputFlag, 
+        "Threads" => 0)
+    ); 
     MOI.set(model, MOI.Silent(), true);
     set_optimizer_attribute(model, "MIPGap", mipGap);
     set_optimizer_attribute(model, "TimeLimit", timeLimit);
@@ -91,31 +97,16 @@ function gurobiOptimize!(Ω::Dict{Int64,Dict{Int64,RandomVariables}},
     #############################################################################################################################
     @constraint(model, [t in 1:T, ω in 1:W], sum(y[i, t, ω] for i in 1:d) + slack[t, ω] ≥ Ω[t][scenario_tree[ω][1][t]].d[1] );
 
-    @objective(model, Min, sum( sum( scenario_tree[ω][2] * (stageDataList[t].c1' * x[:, t, ω] + stageDataList[t].c2' * y[:, t, ω] + stageDataList[t].penalty * slack[t, ω]) for t in 1:T ) for ω in 1:W) );
+    @objective(
+        model, 
+        Min, 
+        sum( sum( scenario_tree[ω][2] * (stageDataList[t].c1' * x[:, t, ω] + stageDataList[t].c2' * y[:, t, ω] + stageDataList[t].penalty * slack[t, ω]) for t in 1:T ) for ω in 1:W) 
+    );
     optimize!(model)
-    ####################################################### solve the model and display the result ###########################################################
 
-    # JuMP.objective_value(model)
-    # JuMP.value.(x[:, 1, :])
-    # JuMP.value.(x[:, 2, :])
-    # JuMP.value.(x[:, 3, :])
-
-    # JuMP.value.(y[:, 2, :])
-
-    # JuMP.value.(slack)
-    gurobiResult = (OPT = JuMP.objective_value(model), 
-                        statevariable_x = JuMP.value.(x[:, 1, 1]), 
-                            statevariable_y = JuMP.value.(y[:, 1, 1])
-                        )
-
-    return gurobiResult
+    return (
+        OPT = JuMP.objective_value(model), 
+        statevariable_x = JuMP.value.(x[:, 1, 1]), 
+        statevariable_y = JuMP.value.(y[:, 1, 1])
+    )
 end
-
-
-# sum( sum( scenario_tree[ω][2] * (stageDataList[t].c1' * value.(x[:, t, ω]) + stageDataList[t].c2' * value.(y[:, t, ω])) for t in 1:T ) for ω in 1:W)
-
-# sum( sum( scenario_tree[ω][2] * (stageDataList[t].c1' * value.(x[:, t, ω])) for t in 1:T ) for ω in 1:W)
-
-# sum( sum( scenario_tree[ω][2] * (stageDataList[t].c2' * value.(y[:, t, ω])) for t in 1:T ) for ω in 1:W)
-# gurobiOptimize!(Ω, probList, stageDataList,
-#                         binaryInfo = binaryInfo)

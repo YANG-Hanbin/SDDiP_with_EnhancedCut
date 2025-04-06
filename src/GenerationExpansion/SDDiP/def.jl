@@ -6,14 +6,9 @@ struct CutCoefficient
     π               ::Dict{Int64,Dict{Int64, Vector{Float64}}}  # [[1.,2.,3.],[1.,2.,3.]]  -- push!(Π, π) to add a new element
 end
 
-
-
-
 struct RandomVariables
     d   ::Vector{Float64}
 end
-
-
 
 struct StageData ## with the assumption that only b has stochasticity
     c1       ::Vector{Float64}
@@ -25,8 +20,6 @@ struct StageData ## with the assumption that only b has stochasticity
     penalty  ::Float64
 end
 
-
-
 struct ForwardModelInfo
     model           :: Model
     x               :: Vector{VariableRef} ## for current state, x is the number of generators
@@ -37,8 +30,6 @@ struct ForwardModelInfo
     slack           :: VariableRef
     # sum_generator   :: Vector{Float64}
 end
-
-
 
 struct BackwardModelInfo
     model           :: Model
@@ -52,8 +43,6 @@ struct BackwardModelInfo
     # sum_generator   :: Vector{Float64}
 end
 
-
-
 struct GurobiModelInfo
     model           :: Model
     x               :: Array{VariableRef} ## for current state, x is the number of generators
@@ -62,14 +51,12 @@ struct GurobiModelInfo
     num_Ω           :: Int64
 end
 
-
 ## data structure for levelset method
 ## data structure for levelset method
 mutable struct FunctionHistory
     f_his        :: Dict{Int64, Float64}          ## record f(x_j)     
     G_max_his    :: Dict{Int64, Float64}          ## record max(g[k] for k in 1:m)(x_j)   
 end
-
 
 mutable struct CurrentInfo
     x            :: Vector{Float64}                 ## record x point
@@ -80,9 +67,6 @@ mutable struct CurrentInfo
     L_at_x̂       :: Float64                         ## only for solving dual problem
 end
 
-
-
-
 struct ModelInfo
     model :: Model
     x     :: Vector{VariableRef}
@@ -90,19 +74,11 @@ struct ModelInfo
     z     :: VariableRef
 end
 
-
-
-
 struct BinaryInfo
     A     ::Matrix{Int64}
     n     ::Int64
     d     ::Int64
 end
-
-
-
-
-
 
 struct LevelSetMethodParam
     μ             ::Float64                     ## param for adjust α
@@ -118,5 +94,3 @@ struct LevelSetMethodParam
     L̃             ::Union{Vector{Float64}, Nothing} ## interior point
     f_star_value  ::Union{Float64, Nothing}         ## subproblem optimal value
 end
-
-

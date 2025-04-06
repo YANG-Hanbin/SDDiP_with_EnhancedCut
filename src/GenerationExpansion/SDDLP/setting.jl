@@ -24,11 +24,15 @@ end
 
 ################### nonanticipativity for multistage problem #######################
 
-function recursion_scenario_tree(pathList::Vector{Int64}, 
-                                P::Float64, 
-                                scenario_sequence::Dict{Int64, Dict{Int64, Any}}, 
-                                t::Int64;   
-                                Ω::Dict{Int64,Dict{Int64,RandomVariables}} = Ω, prob::Dict{Int64,Vector{Float64}} = prob, T::Int64 = 2)
+function recursion_scenario_tree(
+    pathList::Vector{Int64},                                 
+    P::Float64,                                 
+    scenario_sequence::Dict{Int64, Dict{Int64, Any}},                                 
+    t::Int64;                                   
+    Ω::Dict{Int64,Dict{Int64,RandomVariables}} = Ω, 
+    prob::Dict{Int64,Vector{Float64}} = prob, 
+    T::Int64 = 2
+)
 
     if t ≤ T
         for ω_key in keys(Ω[t])
@@ -77,7 +81,11 @@ end
 
 
 ## form scenarios
-function SampleScenarios(scenario_sequence::Dict{Int64, Dict{Int64, Any}}; T::Int64 = 5, M::Int64 = 30)
+function SampleScenarios(
+    scenario_sequence::Dict{Int64, Dict{Int64, Any}}; 
+    T::Int64 = 5, 
+    M::Int64 = 30
+)
     ## a dict to store realization for each stage t in scenario k
     scenarios = Dict{Int64, Int64}()
     for k in 1:M
@@ -117,21 +125,22 @@ end
 
 
 ## setup coefficients
-function dataGeneration(; T::Int64 = 2, 
-                            r::Float64 = 0.08, ## the annualized interest rate
-                            N::Matrix{Float64} = N, ## Generator rating
-                            ū::Vector{Float64} = ū, ## maximum number of each type of generators
-                            c::Vector{Float64} = c, # c_g from table 4, cost/MW to build a generator of type g
-                            mg::Vector{Int64} = mg,
-                            fuel_price::Vector{Float64} = fuel_price,
-                            heat_rate::Vector{Int64} = heat_rate,
-                            eff::Vector{Float64} = eff,
-                            om_cost::Vector{Float64} = om_cost, 
-                            s₀::Vector{Int64} = s₀,
-                            penalty::Float64 = 1e10, 
-                            initial_demand::Float64 = 1e7, 
-                            seed::Int64 = 1234, num_Ω::Int64 = 10
-                            )
+function dataGeneration(; 
+    T::Int64 = 2, 
+    r::Float64 = 0.08, ## the annualized interest rate
+    N::Matrix{Float64} = N, ## Generator rating
+    ū::Vector{Float64} = ū, ## maximum number of each type of generators
+    c::Vector{Float64} = c, # c_g from table 4, cost/MW to build a generator of type g
+    mg::Vector{Int64} = mg,
+    fuel_price::Vector{Float64} = fuel_price,
+    heat_rate::Vector{Int64} = heat_rate,
+    eff::Vector{Float64} = eff,
+    om_cost::Vector{Float64} = om_cost, 
+    s₀::Vector{Int64} = s₀,
+    penalty::Float64 = 1e10, 
+    initial_demand::Float64 = 1e7, 
+    seed::Int64 = 1234, num_Ω::Int64 = 10
+)::NamedTuple
 
     binaryInfo = intergerBinarization(ū)
     (A, n, d) = (binaryInfo.A, binaryInfo.n, binaryInfo.d)
@@ -233,10 +242,12 @@ function param_setup(;
     cutSelection::String            = "LC", 
     T::Int64                        = 12,
     num::Int64                      = 10,
+    Output_Gap::Bool                = false,
     ℓ1::Float64                     = 1.0,
     ℓ2::Float64                     = 1.0,
+    nxt_bound::Float64              = 1e8,
     logger_save::Bool               = true,
-    algorithm::Symbol               = :SDDLP
+    algorithm::Symbol               = :SDDiP
 )::NamedTuple
     return (
         terminate_time      = terminate_time,
@@ -246,10 +257,12 @@ function param_setup(;
         ε                   = ε,
         tightness           = tightness,
         cutSelection        = cutSelection, 
+        Output_Gap          = Output_Gap,
         T                   = T, 
         num                 = num, 
         ℓ1                  = ℓ1,
         ℓ2                  = ℓ2,
+        nxt_bound           = nxt_bound,
         logger_save         = logger_save,
         algorithm           = algorithm  
     )

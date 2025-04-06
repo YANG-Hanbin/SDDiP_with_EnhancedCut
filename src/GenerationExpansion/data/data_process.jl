@@ -19,17 +19,27 @@ T = 10; # 10, 15
 num = 5; # 5, 10
 algorithm = "SDDLP";
 cutSelection = "ELC";
-tightness = true;
+tightness = false;
 
 ## ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- ##
 ## ---------------------------------------------------------------------------------- TO GENERATE TABLES ---------------------------------------------------------------------------------- ##
 ## ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- ##
 # 初始化DataFrame
-algorithm = "SDDiP";
+algorithm = "SDDLP";
 tightness = false;
-result_df = DataFrame(cut=String[], T=Int[], num=Int[], best_LB=Float64[], 
-                      final_gap=Float64[], total_iter=Int[], avg_iter_time=String[], 
-                      best_LB_time=Int64[], best_LB_iter=Int[])
+result_df = DataFrame(
+    cut=String[], 
+    T=Int[], 
+    num=Int[], 
+    best_LB=Float64[],         
+    final_gap=Float64[], 
+    total_iter=Int[], 
+    avg_iter_time=String[],         
+    # best_LB_time=Float64[], 
+    # best_LB_iter=Int[],
+    gap_under_1_time=Union{Missing, Float64}[],
+    gap_under_1_iter=Union{Missing, Int}[]
+);
 
 for cut in ["LC", "ELC", "ShrinkageLC"]
     for T in [10, 15]
@@ -49,8 +59,29 @@ for cut in ["LC", "ELC", "ShrinkageLC"]
                 best_LB_time = solHistory.Time[best_LB_idx]  # 到达best LB的时间
                 best_LB_iter = solHistory.iter[best_LB_idx]  # 到达best LB的迭代数
 
+                # 将 gap 列（字符串）转换为 Float64 含义的百分数
+                gap_vals = parse.(Float64, replace.(solHistory.gap, "%" => ""))
+
+                # 找到 gap 第一次小于 1.0 的位置
+                below1_idx = findfirst(<(1), gap_vals)
+
+                # 初始化默认值
+                gap_under_1_iter = missing
+                gap_under_1_time = missing
+
+                if below1_idx !== nothing
+                    gap_under_1_iter = solHistory.iter[below1_idx]
+                    gap_under_1_time = solHistory.Time[below1_idx]
+                end
+
                 # 添加到DataFrame
-                push!(result_df, (cut, T, num, round(best_LB, digits = 1), round(final_gap, digits = 1), total_iter, avg_iter_time, Int(round(best_LB_time, digits = 0)), best_LB_iter))
+                push!(result_df, (
+                    cut, T, num, best_LB, final_gap, total_iter, 
+                    avg_iter_time, 
+                    # best_LB_time, best_LB_iter,
+                    gap_under_1_time, gap_under_1_iter
+                    )
+                );
             catch e
                 @warn "Error processing file: $file_path" exception=(e, catch_backtrace())
             end
@@ -84,7 +115,7 @@ println(latex_table)
 ## ----------------------------------------------------------------------- the same instance with different cuts -------------------------------------------------------------------------- ##
 ## ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- ## 
 algorithm = :SDDLP;
-tightness = true;
+tightness = false;
 for T in [10, 15]
     for num in [5, 10]
         colors = ["#1f77b4", "#ff7f0e", "#2ca02c"]  # 蓝色、橙色、绿色
@@ -112,7 +143,7 @@ for T in [10, 15]
                 # Lower Bound (LB) 线，虚线
                 {
                     :line,
-                    transform=[{filter="datum.Time <= 600"}],
+                    transform=[{filter="datum.Time <= 300"}],
                     x={:Time, axis={title="Time (sec.)", titleFontSize=25, labelFontSize=25}},
                     y={:LB, axis={title="Bounds", titleFontSize=25, labelFontSize=25}},  
                     color={
@@ -133,7 +164,7 @@ for T in [10, 15]
                 # Upper Bound (UB) 线，实线 & 加粗
                 {
                     :line,
-                    transform=[{filter="datum.Time <= 600"}],
+                    transform=[{filter="datum.Time <= 300"}],
                     x=:Time,
                     y=:UB,  
                     color={
@@ -162,7 +193,7 @@ for T in [10, 15]
                 }, 
                 title={font="Times New Roman"} 
             }
-        ) |> save("$(homedir())/SDDiP_with_EnhancedCut/src/GenerationExpansion/logger/Periods$T-Real$num/bounds_Time_Period$T-Real$num.pdf")
+        ) |> save("$(homedir())/SDDiP_with_EnhancedCut/src/GenerationExpansion/logger/Periods$T-Real$num/$algorithm-bounds_Time_Period$T-Real$num.pdf")
 
         # 绘制 Lower Bound (LB) 随迭代次数变化
         df |> @vlplot(
@@ -170,7 +201,7 @@ for T in [10, 15]
                 # Lower Bound (LB) 线，虚线
                 {
                     :line,
-                    transform=[{filter="datum.Iter <= 50"}],
+                    transform=[{filter="datum.Iter <= 30"}],
                     x={:Iter, axis={title="Iteration", titleFontSize=25, labelFontSize=25}},
                     y={:LB, axis={title="Bounds", titleFontSize=25, labelFontSize=25}},  
                     color={
@@ -191,7 +222,7 @@ for T in [10, 15]
                 # Upper Bound (UB) 线，实线 & 加粗
                 {
                     :line,
-                    transform=[{filter="datum.Iter <= 50"}],
+                    transform=[{filter="datum.Iter <= 30"}],
                     x=:Iter,
                     y=:UB,  
                     color={
@@ -220,12 +251,12 @@ for T in [10, 15]
                 }, 
                 title={font="Times New Roman"} 
             }
-        ) |> save("$(homedir())/SDDiP_with_EnhancedCut/src/GenerationExpansion/logger/Periods$T-Real$num/bounds_Iter_Period$T-Real$num.pdf")
+        ) |> save("$(homedir())/SDDiP_with_EnhancedCut/src/GenerationExpansion/logger/Periods$T-Real$num/$algorithm-bounds_Iter_Period$T-Real$num.pdf")
     end
 end
 
 
-
+algorithm = :SDDiP;
 for T in [10, 15]
     for num in [5, 10]  
         # color setup
@@ -276,7 +307,7 @@ for T in [10, 15]
                 }, 
                 title={font="Times New Roman"} 
             }
-        ) |> save("$(homedir())/SDDiP_with_EnhancedCut/src/GenerationExpansion/logger/Periods$T-Real$num/bounds_Time_Period$T-Real$num.pdf")
+        ) |> save("$(homedir())/SDDiP_with_EnhancedCut/src/GenerationExpansion/logger/Periods$T-Real$num/$algorithm-bounds_Time_Period$T-Real$num.pdf")
 
         #  Lower/upper Bounds vs Iter
         df |> @vlplot(
@@ -304,7 +335,7 @@ for T in [10, 15]
                 }, 
                 title={font="Times New Roman"} 
             }
-        ) |> save("$(homedir())/SDDiP_with_EnhancedCut/src/GenerationExpansion/logger/Periods$T-Real$num/bounds_Iter_Period$T-Real$num.pdf")
+        ) |> save("$(homedir())/SDDiP_with_EnhancedCut/src/GenerationExpansion/logger/Periods$T-Real$num/$algorithm-bounds_Iter_Period$T-Real$num.pdf")
     end
 end
 

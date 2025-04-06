@@ -52,23 +52,19 @@ penalty = 100000.  # $/MWh
 
 # Average hourly demand for 2008 (d0 / 8760 hours in a year)
 initial_demand = 5.685e8
-
-# # Number of hours in stage t (ht), can be calculated from Table 2
-# ht = [271, 6556, 1933]
-
-# # Electricity demand at stage t (dt), can be calculated using the multipliers from Table 2
-# λt = [1.38, 1.04, 0.80]
-# d0 = 5.685e8 / 8760  # Average hourly demand for 2008
-# dt = λt .* d0
-
-## data modification due to the large gap between generation capability and demand
-initial_demand = 5.68e6;
-s₀ = [1, 0, 0, 0, 1, 0];
+total_hours = 8760.
+s₀ = [1, 0, 0, 0, 0, 0];
 
 T = 5; num_Ω = 10; Ω = nothing;
 for T in [10, 15]
     for num_Ω in [5, 10]
-        (probList, stageDataList, Ω, binaryInfo) = dataGeneration(; T = T , initial_demand = initial_demand, seed = 1234, num_Ω = num_Ω);
+        (probList, stageDataList, Ω, binaryInfo) = dataGeneration(; 
+            T = T , 
+            initial_demand = initial_demand/100, 
+            total_hours = total_hours/100,
+            seed = 1234, 
+            num_Ω = num_Ω
+        );
 
         # scenario_sequence = Dict{Int64, Dict{Int64, Any}}();  ## the first index is for scenario index, the second one is for stage
         # pathList = Vector{Int64}();

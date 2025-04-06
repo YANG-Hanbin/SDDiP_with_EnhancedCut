@@ -1,106 +1,194 @@
 #############################################################################################
 ##########################    auxiliary functions for backward   ############################
 #############################################################################################
+function add_generator_constraint(
+    stageData::StageData, 
+    modelInfo::BackwardModelInfo;
+    binaryInfo::BinaryInfo = binaryInfo
+)::Nothing
+    ## no more than max num of generators
+    @constraint(
+        modelInfo.model, 
+        binaryInfo.A * modelInfo.Lc + modelInfo.x .≤ stageData.ū 
+    );
+    # satisfy demand
+    @constraint(
+        modelInfo.model, 
+        sum(modelInfo.y) + modelInfo.slack .≥ modelInfo.demand 
+    );
+    # no more than capacity  
+    @constraint(
+        modelInfo.model, 
+        stageData.h * stageData.N * (binaryInfo.A * modelInfo.Lc + modelInfo.x + stageData.s₀ ) .≥ modelInfo.y 
+    );  
 
-function add_generator_constraint(stageData::StageData, modelInfo::BackwardModelInfo;
-                                                        binaryInfo::BinaryInfo = binaryInfo)
-
-    @constraint(modelInfo.model, binaryInfo.A * modelInfo.Lc + modelInfo.x .≤ stageData.ū )  ## no more than max num of generators
-    @constraint(modelInfo.model, sum(modelInfo.y) + modelInfo.slack .≥ modelInfo.demand )  # satisfy demand
-    @constraint(modelInfo.model, stageData.h * stageData.N 
-                            * (binaryInfo.A * modelInfo.Lc + modelInfo.x + stageData.s₀ ) .≥ modelInfo.y )  # no more than capacity
-
+    return 
 end
 
+function add_generator_cut(
+    cutCoefficient::CutCoefficient, 
+    modelInfo::BackwardModelInfo
+)::Nothing
+    iter = length(keys(cutCoefficient.v));  ## iter num
+    k = length(keys(cutCoefficient.v[1]));  ## scenario num
 
-
-
-function add_generator_cut(cutCoefficient::CutCoefficient, modelInfo::BackwardModelInfo)
-
-
-    iter = length(keys(cutCoefficient.v))  ## iter num
-    k = length(keys(cutCoefficient.v[1]))  ## scenario num
-
-    @constraint(modelInfo.model, cut[i in 1:iter-1, m in 1:k], modelInfo.θ ≥ cutCoefficient.v[i][m] + 
-                                                cutCoefficient.π[i][m]' * modelInfo.Lt )
-                                                
+    @constraint(
+        modelInfo.model, 
+        cut[i in 1:iter-1, m in 1:k], 
+        modelInfo.θ ≥ cutCoefficient.v[i][m] + cutCoefficient.π[i][m]' * modelInfo.Lt 
+    );
+    return                               
 end
-
-
-
-
-
 
 #############################################################################################
 ###################################  function: backward pass ################################
 #############################################################################################
 
 """
-    This is the oracle in level set method, and it will return [F, dF]
+backwardModel!(stageData::StageData; 
+    θ_bound::Real = 0.0, 
+    binaryInfo::BinaryInfo = binaryInfo, 
+    timelimit::Int64 = 3, 
+    mipGap::Real = 1e-4, 
+    tightness::Bool = false
+)
 """
-function backwardModel!(             stageData::StageData; 
-                                            θ_bound::Real = 0.0,
-                                            binaryInfo::BinaryInfo = binaryInfo, 
-                                            timelimit::Int64 = 3, mipGap::Real = 1e-4, tightness::Bool = false)
+function backwardModel!(             
+    stageData::StageData; 
+    θ_bound::Real = 0.0,
+    binaryInfo::BinaryInfo = binaryInfo, 
+    timelimit::Int64 = 3, 
+    mipGap::Real = 1e-4, 
+    tightness::Bool = false
+)::BackwardModelInfo
 
-    F = Model(optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-                                                "OutputFlag" => 0, 
-                                                "Threads" => 0)); 
-    MOI.set(F, MOI.Silent(), true);
-    set_optimizer_attribute(F, "MIPGap", mipGap);
-    set_optimizer_attribute(F, "TimeLimit", timelimit);
 
-    @variable(F, x[i = 1:binaryInfo.d] ≥ 0, Int)                   # the number of generators will be built in this stage
+    model = Model(optimizer_with_attributes(
+        ()->Gurobi.Optimizer(GRB_ENV), 
+        "OutputFlag" => 0, 
+        "Threads" => 0)
+    ); 
+    MOI.set(model, MOI.Silent(), true);
+    set_optimizer_attribute(model, "MIPGap", mipGap);
+    set_optimizer_attribute(model, "TimeLimit", timelimit);
+
+    # the number of generators will be built in this stage
+    @variable(model, x[i = 1:binaryInfo.d] ≥ 0, Int);                   
     # auxiliary variable (copy variable)
     if tightness
-        @variable(F, Lc[i = 1:binaryInfo.n], Bin)             
+        @variable(model, Lc[i = 1:binaryInfo.n], Bin);          
     else
-        @variable(F, 0 ≤ Lc[i = 1:binaryInfo.n]≤ 1)                      
+        @variable(model, 0 ≤ Lc[i = 1:binaryInfo.n]≤ 1);                      
     end
-    @variable(F, Lt[i = 1:binaryInfo.n], Bin)                      # stage variable, A * Lt is total number of generators built after this stage
-    @variable(F, y[i = 1:binaryInfo.d] ≥ 0)
-    @variable(F, slack ≥ 0 )
-    @variable(F, θ ≥ θ_bound)
+    # stage variable, A * Lt is total number of generators built after this stage
+    @variable(model, Lt[i = 1:binaryInfo.n], Bin);                      
+    @variable(model, y[i = 1:binaryInfo.d] ≥ 0);
+    @variable(model, slack ≥ 0);
+    @variable(model, θ ≥ θ_bound);
+    ## no more than max num of generators
+    @constraint(
+        model, 
+        binaryInfo.A * Lc + x .≤ stageData.ū
+    );           
+    ## no more than capacity            
+    @constraint(
+        model, 
+        stageData.h * stageData.N * (binaryInfo.A * Lc + x + stageData.s₀ ) .≥ y 
+    );   
 
-    @constraint(F, binaryInfo.A * Lc + x .≤ stageData.ū )                       ## no more than max num of generators
-    @constraint(F, stageData.h * stageData.N 
-                * (binaryInfo.A * Lc + x + stageData.s₀ ) .≥ y )                ## no more than capacity
-
-    @constraint(F, demandConstraint, sum(y) + slack .≥ 0)
-
-    # @constraint(F, hierarchicalConstriant, stageData.h * stageData.N 
-    #                         * (binaryInfo.A * Lc + stageData.s₀ ) .≥ y)         ## constraints from last-stage: to restrict the region of local copy
-    @constraint(F, binaryInfo.A * Lc + x .== binaryInfo.A * Lt )                ## to ensure pass a binary variable for next stage
+    @constraint(
+        model, 
+        demandConstraint, 
+        sum(y) + slack .≥ 0
+    );
+    ## to ensure pass a binary variable for next stage
+    @constraint(
+        model, 
+        binaryInfo.A * Lc + x .== binaryInfo.A * Lt 
+    );                
     
 
-    return BackwardModelInfo(F, x, Lt, Lc, y, θ, slack)
+    return BackwardModelInfo(model, x, Lt, Lc, y, θ, slack)
 end
 
 
-function backward_Constraint_Modification!(backwardInfo::BackwardModelInfo, 
-                                        demand::Vector{Float64}                 
-                                        )
+function backward_Constraint_Modification!(
+    backwardInfo::BackwardModelInfo,                                     
+    demand::Vector{Float64}                 
+)::Nothing
 
     delete(backwardInfo.model, backwardInfo.model[:demandConstraint])
     unregister(backwardInfo.model, :demandConstraint)
-
     # satisfy demand
-    @constraint(backwardInfo.model, demandConstraint, sum(backwardInfo.y) + backwardInfo.slack .≥ demand )
+    @constraint(
+        backwardInfo.model, 
+        demandConstraint, 
+        sum(backwardInfo.y) + backwardInfo.slack .≥ demand 
+    );
+    return 
 end
 
-function copyVariable_Constraint!(backwardInfo::BackwardModelInfo, 
-                                        stageData::StageData, 
-                                        pdemand::Vector{Float64}; ## last-stage demand!
-                                        binaryInfo::BinaryInfo = binaryInfo                  
-                                        )
+function copyVariable_Constraint!(
+    backwardInfo::BackwardModelInfo, 
+    stageData::StageData, 
+    pdemand::Vector{Float64}; ## last-stage demand!
+    binaryInfo::BinaryInfo = binaryInfo                  
+)::Nothing
 
-    delete(backwardInfo.model, backwardInfo.model[:hierarchicalConstriant])
-    unregister(backwardInfo.model, :hierarchicalConstriant)
-
+    delete(backwardInfo.model, backwardInfo.model[:hierarchicalConstraint])
+    unregister(backwardInfo.model, :hierarchicalConstraint)
     # satisfy demand
-
-    @constraint(backwardInfo.model, hierarchicalConstriant, stageData.h * stageData.N 
-                                                                * (binaryInfo.A * backwardInfo.Lc + stageData.s₀ ) .≥ pdemand)     
+    @constraint(
+        backwardInfo.model, 
+        hierarchicalConstraint, stageData.h * stageData.N * (binaryInfo.A * backwardInfo.Lc + stageData.s₀ ) .≥ pdemand
+    );
+    return  
 end
 
+"""
+    backwardPass(backwardNodeInfo)
 
+    function for backward pass in parallel computing
+"""
+function backwardPass(
+    backwardNodeInfo::Tuple, 
+    solCollection::Dict{Any, Any}; 
+    stageDataList::Dict{Int64, StageData} = stageDataList,
+    backwardInfoList::Dict{Int64, BackwardModelInfo} = backwardInfoList,
+    Ω::Dict{Int64, Dict{Int64, RandomVariables}} = Ω,
+    param::NamedTuple = param,
+    binaryInfo::BinaryInfo = binaryInfo,
+)
+
+    (t, j, k) = backwardNodeInfo; 
+    backwardInfo = backwardInfoList[t]
+    backward_Constraint_Modification!(
+        backwardInfo,                                         
+        Ω[t][j].d 
+    );
+
+    (levelSetMethodParam, x₀) = setupLevelsetPara(
+        forwardInfoList[t], 
+        stageDataList[t], 
+        Ω[t][j].d, 
+        solCollection[t-1,k].stageSolution;
+        cutSelection = param.cutSelection,                    
+        binaryInfo = binaryInfo,                         
+        Output_Gap = param.Output_Gap,                                 
+        λ = .3, 
+        ℓ1 = param.ℓ1,                                              
+        ℓ2 = param.ℓ2,
+        nxt_bound = param.nxt_bound
+    );
+
+    (λ₀, λ₁) = LevelSetMethod_optimization!(
+        backwardInfo, x₀; 
+        levelSetMethodParam = levelSetMethodParam, 
+        stageData = stageDataList[t], 
+        ϵ = param.ε, 
+        binaryInfo = binaryInfo
+    )
+
+                                                    
+    return [λ₀, λ₁]
+end
