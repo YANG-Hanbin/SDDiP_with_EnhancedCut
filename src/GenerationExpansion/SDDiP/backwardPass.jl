@@ -105,9 +105,14 @@ function backwardModel!(
     @constraint(
         model, 
         binaryInfo.A * Lc + x .== binaryInfo.A * Lt 
-    );                
+    );    
     
-
+    # a cap constraint for two generators
+    @constraint(
+        model,
+        [i = 4:5],
+        y[i] ≤ sum(y)/5
+    )
     return BackwardModelInfo(model, x, Lt, Lc, y, θ, slack)
 end
 

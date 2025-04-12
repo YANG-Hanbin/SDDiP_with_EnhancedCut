@@ -78,6 +78,12 @@ function forwardModel!(
         0.0 .+ x .== St
     );
 
+    # a cap constraint for two generators
+    @constraint(
+        model,
+        [i = 4:5],
+        y[i] ≤ sum(y)/5
+    )
     return ForwardModelInfo(model, x, St, y, θ, slack)
 end
 

@@ -168,12 +168,14 @@ function forwardModel!(
     @constraint(
         model, 
         Ramping1[g in indexSets.G], 
-        s[g] - s_copy[g] ≤ paramOPF.M[g] * y_copy[g] + paramOPF.smin[g] * v[g]
+        # s[g] - s_copy[g] ≤ paramOPF.M[g] * y_copy[g] + paramOPF.smin[g] * v[g]
+        s[g] - s_copy[g] ≤ paramOPF.M[g] * (y_copy[g] + v[g])
     );
     @constraint(
         model, 
         Ramping2[g in indexSets.G], 
-        s[g] - s_copy[g] ≥ - paramOPF.M[g] * y[g] - paramOPF.smin[g] * w[g]
+        # s[g] - s_copy[g] ≥ - paramOPF.M[g] * y[g] - paramOPF.smin[g] * w[g]
+        s[g] - s_copy[g] ≥ - paramOPF.M[g] * (y[g] + w[g])
     );
 
     # minimum up and down constraints

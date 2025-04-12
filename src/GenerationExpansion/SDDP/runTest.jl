@@ -41,11 +41,11 @@ nxt_bound = 1e6;
 for cutSelection in ["ELC", "ShrinkageLC" ,"LC"]
     for T in [10, 15]
         for num in [5, 10]
-            stageDataList = load(joinpath(project_root, "src", "GenerationExpansion", "numerical_data_1", "testData_stage($T)_real($num)", "stageDataList.jld2"))["stageDataList"];
-            binaryInfo = load(joinpath(project_root, "src", "GenerationExpansion", "numerical_data_1", "testData_stage($T)_real($num)", "binaryInfo.jld2"))["binaryInfo"];
-            # scenario_sequence = load(joinpath(project_root, "src", "GenerationExpansion", "numerical_data_1", "testData_stage($T)_real($num)", "scenario_sequence.jld2"))["scenario_sequence"];
-            probList = load(joinpath(project_root, "src", "GenerationExpansion", "numerical_data_1", "testData_stage($T)_real($num)", "probList.jld2"))["probList"];
-            Ω = load(joinpath(project_root, "src", "GenerationExpansion", "numerical_data_1", "testData_stage($T)_real($num)", "Ω.jld2"))["Ω"];
+            stageDataList = load(joinpath(project_root, "src", "GenerationExpansion", "numerical_data", "testData_stage($T)_real($num)", "stageDataList.jld2"))["stageDataList"];
+            binaryInfo = load(joinpath(project_root, "src", "GenerationExpansion", "numerical_data", "testData_stage($T)_real($num)", "binaryInfo.jld2"))["binaryInfo"];
+            # scenario_sequence = load(joinpath(project_root, "src", "GenerationExpansion", "numerical_data", "testData_stage($T)_real($num)", "scenario_sequence.jld2"))["scenario_sequence"];
+            probList = load(joinpath(project_root, "src", "GenerationExpansion", "numerical_data", "testData_stage($T)_real($num)", "probList.jld2"))["probList"];
+            Ω = load(joinpath(project_root, "src", "GenerationExpansion", "numerical_data", "testData_stage($T)_real($num)", "Ω.jld2"))["Ω"];
 
             if cutSelection == "LC"
                 nxt_bound = 1e10
