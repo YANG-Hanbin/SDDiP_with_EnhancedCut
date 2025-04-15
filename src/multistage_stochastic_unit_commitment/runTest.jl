@@ -1,29 +1,6 @@
-using Pkg
-Pkg.activate(".")
-using Distributed; addprocs(5); 
-@everywhere begin
-    using JuMP, Gurobi, PowerModels;
-    using Statistics, StatsBase, Random, Dates, Distributions;
-    using Distributed, ParallelDataTransfer;
-    using CSV, DataFrames, Printf;
-    using JLD2, FileIO;
-
-    const GRB_ENV = Gurobi.Env();
-
-    project_root = @__DIR__;
-
-    include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "utilities", "structs.jl"))
-    include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "utilities", "auxiliary.jl"))
-    include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "utilities", "level_set_method.jl"))
-    include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "utilities", "cut_variants.jl"))
-    include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "utils.jl"))
-    include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "forward_pass.jl"))
-    include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "backward_pass.jl"))
-    include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "partition_tree.jl"))
-    include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "sddp.jl"))
-    # include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "utilities", "extForm.jl"))
-end
-
+#############################################################################################
+###################################### Parameter Setup ######################################
+#############################################################################################
 case                = "case30"; # "case_RTS_GMLC", "case30", "case30pwl",
 algorithm           = :SDDPL; 
 cut                 = :LC; 
@@ -35,7 +12,7 @@ med_method          = :IntervalMed; # :IntervalMed, :ExactPoint
 δ                   = 1e-2;
 tightness           = false;
 branch_variable     = :ALL; # :ALL, :MFV
-LiftIterThreshold   = 15;
+LiftIterThreshold   = 2;
 num = 10; T = 12;
 
 for algorithm in [:SDDPL, :SDDP, :SDDiP]

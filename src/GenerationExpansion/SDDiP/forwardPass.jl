@@ -84,7 +84,7 @@ function forwardModel!(
         model,
         [i = 4:5],
         y[i] ≤ sum(y)/5
-    )
+    );
     return ForwardModelInfo(model, x, Lt, y, θ, slack)
 end
 

@@ -1,43 +1,19 @@
-using Pkg
-Pkg.activate(".")
-using Distributed; addprocs(5); 
-@everywhere begin
-    using JuMP, Gurobi, ParallelDataTransfer
-    using Distributions, Statistics, StatsBase, Distributed, Random
-    using Test, Dates, Printf
-    using CSV, DataFrames
-    using JLD2, FileIO
-
-
-    const GRB_ENV = Gurobi.Env();
-
-
-    include("src/GenerationExpansion/SDDiP/def.jl")
-    include("src/GenerationExpansion/SDDiP/backwardPass.jl")
-    include("src/GenerationExpansion/SDDiP/forwardPass.jl")
-    # include("src/GenerationExpansion/SDDiP/extFormGurobi.jl")
-    include("src/GenerationExpansion/SDDiP/LevelSetMethod.jl")
-    include("src/GenerationExpansion/SDDiP/setting.jl")
-    include("src/GenerationExpansion/SDDiP/SDDiP.jl")
-end
-
-# T = 3; num = 5;
 #############################################################################################
-####################################    main function   #####################################
+###################################### Parameter Setup ######################################
 #############################################################################################
 MaxIter         = 200; 
 ε               = 1e-4; 
 M               = 500; 
 Output_Gap      = false; 
 tightness       = false; 
-cutSelection    = "ELC"; # "LC", "ShrinkageLC", "ELC"
+cut             = "ELC"; # "LC", "ShrinkageLC", "ELC"
 logger_save     = true;
 nxt_bound       = 1e8;
 ℓ1              = 0.0; 
 ℓ2              = 0.0;
 T = 10; num = 5; 
 
-for cutSelection in ["ELC", "ShrinkageLC" ,"LC"]
+for cut in ["ELC", "ShrinkageLC" ,"LC"]
     for T in [10, 15]
         for num in [5, 10]
             stageDataList = load("src/GenerationExpansion/numerical_data/testData_stage($T)_real($num)/stageDataList.jld2")["stageDataList"]
@@ -53,7 +29,7 @@ for cutSelection in ["ELC", "ShrinkageLC" ,"LC"]
                 M                      = M, 
                 ε                      = ε,
                 tightness              = tightness,
-                cutSelection           = cutSelection,      ## :PLC, :LC, :SMC, :BC, :MDC
+                cutSelection           = cut,               ## :PLC, :LC, :SMC, :BC, :MDC
                 T                      = T,
                 num                    = num,
                 ℓ1                     = ℓ1,
