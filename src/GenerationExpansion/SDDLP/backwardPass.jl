@@ -25,7 +25,7 @@ function backwardModel!(
 
     @variable(model, x[g = 1:binaryInfo.d] ≥ 0, Int)                   # the number of generators will be built in this stage
     @variable(model, y[g = 1:binaryInfo.d] ≥ 0)
-    @variable(model, St[g = 1:binaryInfo.d] ≥ 0, Int)                      # stage variable, A * Lt is total number of generators built after this stage
+    @variable(model, St[g = 1:binaryInfo.d] ≥ 0, Int)                  # stage variable, A * Lt is total number of generators built after this stage
     @variable(model, slack ≥ 0 )
     @variable(model, θ ≥ θ_bound)
 
@@ -117,6 +117,36 @@ function copyVariable_Constraint!(
     return
 end
 
+function get_Benders_coefficient!(
+    backwardInfo::BackwardModelInfo, 
+    stateInfo::NamedTuple;
+    binaryInfo::BinaryInfo = binaryInfo
+)::Dict
+    @constraint(backwardInfo.model, StateNonAnticipativity, backwardInfo.Sc .== stateInfo.stageSolution);  
+    @constraint(backwardInfo.model, AugNonAnticipativity[g in 1:binaryInfo.d, i in keys(stateInfo.stageSur[g])], backwardInfo.model[:sur_copy][g, i] .== stateInfo.stageSur[g][i]);  
+    lp_model = relax_integrality(backwardInfo.model);
+    optimize!(backwardInfo.model);
+    # obtain the Benders cut coefficients
+    x₀ = Dict( 
+        :St => dual.(backwardInfo.model[:StateNonAnticipativity]),                 
+        :sur => Dict(
+            g => Dict(
+                i => dual.(backwardInfo.model[:AugNonAnticipativity][g, i]) for i in keys(stateInfo.stageSur[g])
+            ) for g in 1:binaryInfo.d
+        )
+    );
+    delete(backwardInfo.model, backwardInfo.model[:StateNonAnticipativity])
+    for g in 1:binaryInfo.d, i in keys(stateInfo.stageSur[g])
+        delete(backwardInfo.model, backwardInfo.model[:AugNonAnticipativity][g, i])
+    end
+    unregister(backwardInfo.model, :StateNonAnticipativity)
+    unregister(backwardInfo.model, :AugNonAnticipativity)
+
+    lp_model();
+
+    return x₀
+end
+
 """
     backwardPass(backwardNodeInfo)
 
@@ -138,8 +168,10 @@ function backwardPass(
         backwardInfo, 
         Ω[t][j].d 
     );
+
     (levelSetMethodParam, x₀) = setupLevelsetPara(
         forwardInfoList[t], 
+        backwardInfo,
         stageDataList[t], 
         Ω[t][j].d, 
         solCollection[t-1,k], 

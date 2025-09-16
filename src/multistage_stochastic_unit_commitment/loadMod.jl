@@ -1,5 +1,8 @@
 using Pkg
 Pkg.activate(".")
+# using BenchmarkTools;
+# BenchmarkTools.DEFAULT_PARAMETERS.samples = 1000;
+# BenchmarkTools.DEFAULT_PARAMETERS.evals = 5;
 using Distributed; addprocs(5); 
 @everywhere begin
     using JuMP, Gurobi, PowerModels;

@@ -11,6 +11,8 @@ using Distributed; addprocs(5);
 
     const GRB_ENV = Gurobi.Env()
 
+    project_root = @__DIR__;
+
     include(joinpath(project_root, "src", "GenerationExpansion", "SDDLP", "def.jl"))
     include(joinpath(project_root, "src", "GenerationExpansion", "SDDLP", "backwardPass.jl"))
     include(joinpath(project_root, "src", "GenerationExpansion", "SDDLP", "forwardPass.jl"))

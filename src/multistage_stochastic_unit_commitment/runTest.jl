@@ -2,21 +2,22 @@
 ###################################### Parameter Setup ######################################
 #############################################################################################
 case                = "case30"; # "case_RTS_GMLC", "case30", "case30pwl",
-algorithm           = :SDDPL; 
-cut                 = :LC; 
+algorithm           = :SDDP; # :SDDPL, :SDDP, :SDDiP
+cut                 = :SBC; # :PLC, :SMC, :LC, :SBC, :BC
 numScenarios        = 500;
 logger_save         = true;
 med_method          = :IntervalMed; # :IntervalMed, :ExactPoint
 ε                   = 1/2^8;
 ℓ                   = 0.0; 
 δ                   = 1e-2;
+sparse_cut          = :sparse; # :sparse, :dense
 tightness           = false;
 branch_variable     = :ALL; # :ALL, :MFV
 LiftIterThreshold   = 2;
-num = 10; T = 12;
+num = 5; T = 6;
 
 for algorithm in [:SDDPL, :SDDP, :SDDiP]
-    for cut in [:PLC, :SMC, :LC]
+    for cut in [:PLC, :SMC, :LC, :SBC, :BC]
         for num in [5, 10]
             for T in [6, 8, 12] 
                 param = param_setup(
@@ -32,6 +33,7 @@ for algorithm in [:SDDPL, :SDDP, :SDDiP]
                     terminate_threshold = 1e-3,
                     branch_threshold = 1e-6,
                     branch_variable = branch_variable, # :ALL, :MFV
+                    sparse_cut = sparse_cut, # true, false
                     T = T,
                     num = num,
                     case = case,
@@ -73,7 +75,6 @@ for algorithm in [:SDDPL, :SDDP, :SDDiP]
                     indexSets = $indexSets; paramOPF = $paramOPF; paramDemand = $paramDemand; scenarioTree = $scenarioTree; initialStateInfo = $initialStateInfo;
                     param_cut = $param_cut; param_levelsetmethod = $param_levelsetmethod; param = $param;
                 end
-
 
                 sddpResults = stochastic_dual_dynamic_programming_algorithm(
                         scenarioTree,                   

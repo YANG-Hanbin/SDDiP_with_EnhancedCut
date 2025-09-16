@@ -157,15 +157,23 @@ function SDDiP_algorithm(
                     end
                     stageDecision = deepcopy(solCollection[t, ω]);
                     stageDecision.stageSur[g] = Dict{Int64, Float64}()
-                    for k in StateVarList[t].leaf[g]
-                        stageDecision.stageSur[g][k] = 0.0
-                    end
-                    if solCollection[t, ω].stageSolution[g] ≤ med
-                        stageDecision.stageSur[g][left] = 1.0
-                        stageDecision.stageSur[g][right] = 0.0
-                    else
-                        stageDecision.stageSur[g][right] = 1.0
-                        stageDecision.stageSur[g][left] = 0.0
+                    if param.sparse_cut 
+                        if solCollection[t, ω].stageSolution[g] ≤ med
+                            stageDecision.stageSur[g][left] = 1.0
+                        else
+                            stageDecision.stageSur[g][right] = 1.0
+                        end
+                    else 
+                        for k in StateVarList[t].leaf[g]
+                            stageDecision.stageSur[g][k] = 0.0
+                        end
+                        if solCollection[t, ω].stageSolution[g] ≤ med
+                            stageDecision.stageSur[g][left] = 1.0
+                            stageDecision.stageSur[g][right] = 0.0
+                        else
+                            stageDecision.stageSur[g][right] = 1.0
+                            stageDecision.stageSur[g][left] = 0.0
+                        end
                     end
                     solCollection[t, ω] = deepcopy(stageDecision);
                 end
@@ -220,7 +228,7 @@ function SDDiP_algorithm(
                         λ₁[:St]' * forwardInfoList[t-1].St + 
                         sum(
                             sum(
-                                λ₁[:sur][g][k] * forwardInfoList[t-1].model[:sur][g, k] for k in StateVarList[t-1].leaf[g]
+                                λ₁[:sur][g][k] * forwardInfoList[t-1].model[:sur][g, k] for k in keys(λ₁[:sur][g])
                             ) for g in 1:binaryInfo.d
                         ) 
                     );
@@ -230,7 +238,7 @@ function SDDiP_algorithm(
                         λ₁[:St]' * backwardInfoList[t-1].St + 
                         sum(
                             sum(
-                                λ₁[:sur][g][k] * backwardInfoList[t-1].model[:sur][g, k] for k in StateVarList[t-1].leaf[g]
+                                λ₁[:sur][g][k] * backwardInfoList[t-1].model[:sur][g, k] for k in keys(λ₁[:sur][g])
                             ) for g in 1:binaryInfo.d
                         ) 
                     );  

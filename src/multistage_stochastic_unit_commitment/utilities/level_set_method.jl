@@ -13,6 +13,45 @@
 
 """
 function SetupLevelSetMethodOracleParam(
+    initial_point::StateInfo;
+    indexSets::IndexSets = indexSets,
+    param::NamedTuple = param,
+    param_levelsetmethod::NamedTuple = param_levelsetmethod
+)::LevelSetMethodOracleParam
+    
+    μ             = get(param_levelsetmethod, :μ, 0.9);
+    λ             = get(param_levelsetmethod, :λ, 0.5);
+    threshold     = get(param_levelsetmethod, :threshold, nothing);
+    nxt_bound     = get(param_levelsetmethod, :nxt_bound, 1e10);
+    MaxIter       = get(param_levelsetmethod, :MaxIter, 1);
+    verbose       = get(param_levelsetmethod, :levelsetmethod_verbose, true);
+
+    return LevelSetMethodOracleParam(
+        μ, 
+        λ, 
+        threshold, 
+        nxt_bound, 
+        MaxIter, 
+        verbose, 
+        initial_point
+    )
+end
+
+"""
+    function SetupLevelSetMethodOracleParam(
+        param::NamedTuple
+    )::LevelSetMethodOracleParam
+
+# Arguments
+
+    1. `param::NamedTuple` : the parameters of the level set method
+
+# Returns
+
+    1. `LevelSetMethodOracleParam` : the parameters of the level set method
+
+"""
+function SetupLevelSetMethodOracleParam(
     stateInfo::StateInfo;
     indexSets::IndexSets = indexSets,
     param::NamedTuple = param,
@@ -219,6 +258,36 @@ function LevelSetMethod_optimization!(
         Dict(1 => maximum(currentInfo.G[k] for k in keys(currentInfo.G)) )
     );
 
+    cutInfo = [
+        currentInfo_f - 
+        sum(
+            (
+                param.algorithm == :SDDiP ?
+                sum(
+                    currentInfo.x.ContStateBin[:s][g][i] * stateInfo.ContStateBin[:s][g][i] for i in 1:param.κ[g]
+                ) : currentInfo.x.ContVar[:s][g] * stateInfo.ContVar[:s][g]
+            ) 
+            + 
+            currentInfo.x.BinVar[:y][g] * stateInfo.BinVar[:y][g] + 
+            currentInfo.x.BinVar[:v][g] * stateInfo.BinVar[:v][g] + 
+            currentInfo.x.BinVar[:w][g] * stateInfo.BinVar[:w][g]
+            for g in G
+        ) - (
+            param.algorithm == :SDDPL ? 
+            sum(
+                sum(
+                    currentInfo.x.ContAugState[:s][g][k] * stateInfo.ContAugState[:s][g][k] 
+                    for k in keys(stateInfo.ContAugState[:s][g]); init = 0.0
+                ) for g in G
+            ) : 0.0
+        ),
+        currentInfo.x
+    ];
+
+    if param.cutSelection == :SBC 
+        return (cutInfo = cutInfo, iter = iter)
+    end
+
     # model for oracle
     oracleModel = Model(optimizer_with_attributes(
         ()->Gurobi.Optimizer(GRB_ENV), 
@@ -271,29 +340,6 @@ function LevelSetMethod_optimization!(
     @variable(nxtModel, z1);
     @variable(nxtModel, y1);
     nxtInfo = ModelInfo(nxtModel, xs, xy, xv, xw, sur, y1, z1);
-
-    cutInfo = [
-        currentInfo_f - 
-        sum(
-            (param.algorithm == :SDDiP ?
-                sum(
-                    currentInfo.x.ContStateBin[:s][g][i] * stateInfo.ContStateBin[:s][g][i] for i in 1:param.κ[g]
-                ) : currentInfo.x.ContVar[:s][g] * stateInfo.ContVar[:s][g]) 
-            + 
-            currentInfo.x.BinVar[:y][g] * stateInfo.BinVar[:y][g] + 
-            currentInfo.x.BinVar[:v][g] * stateInfo.BinVar[:v][g] + 
-            currentInfo.x.BinVar[:w][g] * stateInfo.BinVar[:w][g]
-            for g in G
-        ) - 
-        (param.algorithm == :SDDPL ? 
-            sum(
-                sum(
-                    currentInfo.x.ContAugState[:s][g][k] * stateInfo.ContAugState[:s][g][k] 
-                    for k in keys(stateInfo.ContAugState[:s][g]); init = 0.0
-                ) for g in G
-            ) : 0.0),
-        currentInfo.x
-    ];
 
     while true
         add_constraint(currentInfo, oracleInfo; indexSets = indexSets, param = param);

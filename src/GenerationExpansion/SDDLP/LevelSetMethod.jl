@@ -158,7 +158,7 @@ function FuncInfo_LevelSetMethod(
             F_solution.F 
         );
 
-    elseif cutSelection == "LC"
+    elseif cutSelection ∈ ["LC", "SBC"]
         @objective(
             backwardInfo.model, 
             Min, 
@@ -205,7 +205,6 @@ function FuncInfo_LevelSetMethod(
             Dict(1 => F_solution.zero_∇F), 
             F_solution.F
         );
-
     elseif cutSelection == "ShrinkageLC"
         @objective(
             backwardInfo.model, 
@@ -256,6 +255,7 @@ end
 """
 function setupLevelsetPara(
     forwardInfo::ForwardModelInfo, 
+    backwardInfo::BackwardModelInfo,
     stageData::StageData, 
     demand::Vector{Float64}, 
     stateInfo::Any,
@@ -337,16 +337,39 @@ function setupLevelsetPara(
             nothing, 
             f_star_value
         );
+    elseif param.cutSelection == "SBC" 
+        f_star_value = 0.0;
+        Output = 0; threshold = 1.0; 
+        levelSetMethodParam = LevelSetMethodParam(
+            0.95, 
+            λ, 
+            threshold, 
+            param.nxt_bound, 
+            param.MaxIter, 
+            Output, 
+            Output_Gap, 
+            Ŝ,  
+            param.cutSelection, 
+            nothing, 
+            f_star_value
+        );
     end
 
-    x₀ = Dict( 
-        :St => L̂ .* 0.0,                 
-        :sur => Dict(
-            g => Dict(
-                k => 0.0 for k in keys(sur[g])
-            ) for g in 1:binaryInfo.d
-        )
-    );
+    if param.cutSelection == "SBC"
+        x₀ = get_Benders_coefficient!(
+            backwardInfo, 
+            stateInfo
+        );
+    else
+        x₀ = Dict( 
+            :St => L̂ .* 0.0,                 
+            :sur => Dict(
+                g => Dict(
+                    k => 0.0 for k in keys(sur[g])
+                ) for g in 1:binaryInfo.d
+            )
+        );
+    end
 
     return (
         levelSetMethodParam = levelSetMethodParam, 
@@ -391,6 +414,39 @@ function LevelSetMethod_optimization!(
         param = param
     );
 
+
+    if cutSelection == "ELC" 
+        cutInfo =  [ 
+            - currentInfo.f - 
+            currentInfo.x[:St]' *  S̃[:St] - 
+            sum(sum(currentInfo.x[:sur][g][k] * S̃[:sur][g][k] for k in keys(S̃[:sur][g])) for g in 1:binaryInfo.d),                                                              
+            currentInfo.x
+        ];
+    elseif cutSelection == "LC"
+        cutInfo = [ 
+            - currentInfo.f - 
+            currentInfo.x[:St]' *  Ŝ[:St] -  
+            sum(sum(currentInfo.x[:sur][g][k] * Ŝ[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d),                                                              
+            currentInfo.x
+        ];
+    elseif cutSelection == "ShrinkageLC"
+        cutInfo = [ 
+            currentInfo.S_at_x̂ - 
+            currentInfo.x[:St]' *  Ŝ[:St] -  
+            sum(sum(currentInfo.x[:sur][g][k] * Ŝ[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d),  
+            currentInfo.x
+        ];
+    elseif cutSelection == "SBC"
+        cutInfo = [ 
+            - currentInfo.f - 
+            currentInfo.x[:St]' *  Ŝ[:St] -  
+            sum(sum(currentInfo.x[:sur][g][k] * Ŝ[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d),                                                              
+            currentInfo.x
+        ];
+
+        return cutInfo
+    end
+
     functionHistory = FunctionHistory(  
         Dict(1 => currentInfo.f), 
         Dict(1 => maximum(currentInfo.G[k] for k in keys(currentInfo.G)) )                              
@@ -431,31 +487,7 @@ function LevelSetMethod_optimization!(
     @variable(nxtModel, y1 );
     nxtInfo = ModelInfo(nxtModel, x1, x_sur1, y1, z1);
 
-
     Δ = Inf; τₖ = 1; τₘ = .5; μₖ = 1;
-
-    if cutSelection == "ELC" 
-        cutInfo =  [ 
-            - currentInfo.f - 
-            currentInfo.x[:St]' *  S̃[:St] - 
-            sum(sum(currentInfo.x[:sur][g][k] * S̃[:sur][g][k] for k in keys(S̃[:sur][g])) for g in 1:binaryInfo.d),                                                              
-            currentInfo.x
-        ];
-    elseif cutSelection == "LC"
-        cutInfo = [ 
-            - currentInfo.f - 
-            currentInfo.x[:St]' *  Ŝ[:St] -  
-            sum(sum(currentInfo.x[:sur][g][k] * Ŝ[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d),                                                              
-            currentInfo.x
-        ];
-    elseif cutSelection == "ShrinkageLC"
-        cutInfo = [ 
-            currentInfo.S_at_x̂ - 
-            currentInfo.x[:St]' *  Ŝ[:St] -  
-            sum(sum(currentInfo.x[:sur][g][k] * Ŝ[:sur][g][k] for k in keys(Ŝ[:sur][g])) for g in 1:binaryInfo.d),  
-            currentInfo.x
-        ] 
-    end 
 
     while true
         add_constraint(

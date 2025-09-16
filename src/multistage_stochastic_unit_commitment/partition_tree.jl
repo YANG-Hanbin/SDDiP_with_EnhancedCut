@@ -34,6 +34,7 @@ function update_partition_tree!(
     elseif param.med_method == :ExactPoint
         med = stateInfo.ContVar[:s][g] == nothing ? (lb + ub)/2 : stateInfo.ContVar[:s][g]; # round(stateInfo.ContVar[:s][g], digits = 3); 
     end
+    
     # create two new leaf nodes, and update their info (lb, ub)
     left = maximum(keys(ModelList[t].ContVarLeaf[:s][g])) + 1; 
     right = left + 1; 
@@ -152,15 +153,19 @@ function update_partition_tree!(
         sum(ModelList[t].ContVarLeaf[:s][g][k][:lb] * ModelList[t+1].model[:augmentVar_copy][g, k] for k in keys(ModelList[t].ContVarLeaf[:s][g]))
     );
 
-    ## update the stageDecision
+    ## inherit and update the stageDecision
+    if param.sparse_cut == :sparse
+        stateInfo.ContAugState[:s][g] = Dict{Any, Any}();
+    elseif param.sparse_cut == :dense
+        stateInfo.ContAugState[:s][g] = Dict{Any, Any}(
+            k => 0.0 for k in keys(ModelList[t].ContVarLeaf[:s][g])
+        );
+    end
+
     if stateInfo.ContVar[:s][g] ≤ med
-        stateInfo.ContAugState[:s][g] = Dict{Any, Any}(
-            left => 1.0 for k in keys(ModelList[t].ContVarLeaf[:s][g])
-        );
+        stateInfo.ContAugState[:s][g][left] = 1.0;
     else
-        stateInfo.ContAugState[:s][g] = Dict{Any, Any}(
-            right => 1.0 for k in keys(ModelList[t].ContVarLeaf[:s][g])
-        );
+        stateInfo.ContAugState[:s][g][right] = 1.0;
     end
     return
 end

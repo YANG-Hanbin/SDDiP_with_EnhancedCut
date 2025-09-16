@@ -209,7 +209,9 @@ function stochastic_dual_dynamic_programming_algorithm(
                                     sum(λ₁.ContStateBin[:s][g][i] * ModelList[t-1].model[:λ][g, i] for i in 1:param.κ[g]; init = 0.0) 
                                     : λ₁.ContVar[:s][g] * ModelList[t-1].model[:s][g]
                                 ) + 
-                                λ₁.BinVar[:y][g] * ModelList[t-1].model[:y][g]  + 
+                                λ₁.BinVar[:y][g] * ModelList[t-1].model[:y][g] + 
+                                λ₁.BinVar[:v][g] * ModelList[t-1].model[:v][g] + 
+                                λ₁.BinVar[:w][g] * ModelList[t-1].model[:w][g] + 
                                 (
                                     param.algorithm == :SDDPL ? 
                                     sum(λ₁.ContAugState[:s][g][k] * ModelList[t-1].model[:augmentVar][g, k] for k in keys(stateInfoCollection[i, t-1, ω].ContAugState[:s][g]); init = 0.0) 

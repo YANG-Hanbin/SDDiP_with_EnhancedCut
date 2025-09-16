@@ -223,7 +223,7 @@ function save_info(
     if logger_save == true
         cutSelection = param.cutSelection; num = param.num; T = param.T; tightness = param.tightness; algorithm = param.algorithm;
         save(
-            "/Users/aaron/SDDiP_with_EnhancedCut/src/GenerationExpansion/logger/Periods$T-Real$num/$algorithm-$cutSelection-$tightness.jld2", 
+            "/Users/aaron/SDDiP_with_EnhancedCut/src/GenerationExpansion/new_logger/Periods$T-Real$num/$algorithm-$cutSelection-$tightness.jld2", 
             "sddpResults", 
             sddpResults
         );
@@ -240,6 +240,7 @@ function param_setup(;
     ε::Float64                      = 0.125,
     tightness::Bool                 = true,
     cutSelection::String            = "LC", 
+    sparse_cut::Bool                = true,
     T::Int64                        = 12,
     num::Int64                      = 10,
     Output_Gap::Bool                = false,
@@ -260,6 +261,7 @@ function param_setup(;
         Output_Gap          = Output_Gap,
         T                   = T, 
         num                 = num, 
+        sparse_cut          = sparse_cut,
         ℓ1                  = ℓ1,
         ℓ2                  = ℓ2,
         nxt_bound           = nxt_bound,

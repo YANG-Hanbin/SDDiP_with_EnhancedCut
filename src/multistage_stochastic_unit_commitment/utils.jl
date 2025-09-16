@@ -138,6 +138,7 @@ function param_setup(;
     LiftIterThreshold::Int64 = 10,
     branch_threshold::Float64 = 1e-3,
     branch_variable::Symbol = :ALL, # :ALL, :MFV
+    sparse_cut::Symbol = :sparse, # :sparse, :dense
     cutSelection::Symbol = :PLC, 
     algorithm::Symbol = :SDDPL,
     T::Int64 = 12,
@@ -163,6 +164,7 @@ function param_setup(;
         LiftIterThreshold   = LiftIterThreshold,
         branch_threshold    = branch_threshold,
         branch_variable     = branch_variable, # :ALL, :MFV
+        sparse_cut          = sparse_cut, # :sparse, :dense
         ## "interval_mid", "exact_point"
         med_method          = med_method,   
         ## :PLC, :SMC, :LC

@@ -33,121 +33,132 @@ function forwardModel!(
     set_optimizer_attribute(model, "TimeLimit", param.TimeLimit);
                 
     ## define variables
-    @variable(model, θ_angle[indexSets.B])                                                ## phase angle of the bus i
-    @variable(model, P[indexSets.L])                                                      ## real power flow on line l; elements in L is Tuple (i, j)
-    @variable(model, 0 ≤ s[g in indexSets.G] ≤ paramOPF.smax[g])                          ## real power generation at generator g
-    @variable(model, 0 ≤ x[indexSets.D] ≤ 1)                                              ## load shedding
+    @variable(model, θ_angle[indexSets.B]);                                                ## phase angle of the bus i
+    @variable(model, P[indexSets.L]);                                                      ## real power flow on line l; elements in L is Tuple (i, j)
+    @variable(model, 0 ≤ s[g in indexSets.G] ≤ paramOPF.smax[g]);                          ## real power generation at generator g
+    @variable(model, 0 ≤ x[indexSets.D] ≤ 1);                                              ## load shedding
 
-    @variable(model, y[indexSets.G], Bin)                                                 ## binary variable for generator commitment status
-    @variable(model, v[indexSets.G], Bin)                                                 ## binary variable for generator startup decision
-    @variable(model, w[indexSets.G], Bin)                                                 ## binary variable for generator shutdown decision
+    @variable(model, y[indexSets.G], Bin);                                                 ## binary variable for generator commitment status
+    @variable(model, v[indexSets.G], Bin);                                                 ## binary variable for generator startup decision
+    @variable(model, w[indexSets.G], Bin);                                                 ## binary variable for generator shutdown decision
 
-    @variable(model, h[indexSets.G] ≥ 0);                                                 ## production cost at generator g
+    @variable(model, h[indexSets.G] ≥ 0);                                                  ## production cost at generator g
 
-    @variable(model, θ[keys(stageRealization.prob)] ≥ param.θ̲)                             ## auxiliary variable for approximation of the value function
+    @variable(model, θ[keys(stageRealization.prob)] ≥ param.θ̲);                            ## auxiliary variable for approximation of the value function
 
     if param.algorithm == :SDDPL
         ## augmented variables
         # define the augmented variables for cont. variables
         augmentVar = Dict(
-            (g, k) => @variable(model, base_name = "augmentVar[$g, $k]", binary = true)
-            for g in indexSets.G for k in 1:1
+            (g, k) => @variable(
+                model, 
+                base_name = "augmentVar[$g, $k]", 
+                binary = true
+            ) for g in indexSets.G for k in 1:1
         );
         model[:augmentVar] = augmentVar;
         
         ## define copy variables
-        @variable(model, 0 ≤ s_copy[g in indexSets.G] ≤ paramOPF.smax[g])
+        @variable(model, 0 ≤ s_copy[g in indexSets.G] ≤ paramOPF.smax[g]);
         if param.tightness
-            @variable(model, y_copy[indexSets.G], Bin)        
-            @variable(model, v_copy[indexSets.G], Bin)        
-            @variable(model, w_copy[indexSets.G], Bin)        
+            @variable(model, y_copy[indexSets.G], Bin);        
+            @variable(model, v_copy[indexSets.G], Bin);        
+            @variable(model, w_copy[indexSets.G], Bin);        
             augmentVar_copy = Dict(
-                (g, k) => @variable(model, base_name = "augmentVar_copy[$g, $k]", binary = true)
-                for g in indexSets.G for k in 1:1
+                (g, k) => @variable(
+                    model, 
+                    base_name = "augmentVar_copy[$g, $k]", 
+                    binary = true
+                ) for g in indexSets.G for k in 1:1
             );
             model[:augmentVar_copy] = augmentVar_copy;     
         else
-            @variable(model, 0 ≤ y_copy[indexSets.G] ≤ 1)  
-            @variable(model, 0 ≤ v_copy[indexSets.G] ≤ 1)  
-            @variable(model, 0 ≤ w_copy[indexSets.G] ≤ 1)  
+            @variable(model, 0 ≤ y_copy[indexSets.G] ≤ 1); 
+            @variable(model, 0 ≤ v_copy[indexSets.G] ≤ 1);  
+            @variable(model, 0 ≤ w_copy[indexSets.G] ≤ 1);  
             augmentVar_copy = Dict(
-                (g, k) => @variable(model, base_name = "augmentVar_copy[$g, $k]", lower_bound = 0, upper_bound = 1)
-                for g in indexSets.G for k in 1:1
+                (g, k) => @variable(
+                    model, 
+                    base_name = "augmentVar_copy[$g, $k]", 
+                    lower_bound = 0, 
+                    upper_bound = 1
+                ) for g in indexSets.G for k in 1:1
             );
             model[:augmentVar_copy] = augmentVar_copy;     
         end
 
         # constraints for augmented variables: Choosing one leaf node
-        @constraint(model, [g in indexSets.G, k in [1]], augmentVar[g, k] == 1)
+        @constraint(model, [g in indexSets.G, k in [1]], augmentVar[g, k] == 1);
         ContVarLeaf = Dict(
             :s => Dict{Any, Dict{Any, Dict{Symbol, Any}}}(
-                        g => Dict(
-                            k => Dict(
-                                :lb => 0.0, 
-                                :ub => paramOPF.smax[g], 
-                                :parent => nothing, 
-                                :sibling => nothing, 
-                                :var => augmentVar[g,1]) for k in 1:1
-                                ) for g in indexSets.G
+                g => Dict(
+                    k => Dict(
+                        :lb => 0.0, 
+                        :ub => paramOPF.smax[g], 
+                        :parent => nothing, 
+                        :sibling => nothing, 
+                        :var => augmentVar[g,1]
+                    ) for k in 1:1
+                ) for g in indexSets.G
             )
         );
         ContVarBinaries = nothing;
     elseif param.algorithm == :SDDP 
         ## define copy variables
-        @variable(model, 0 ≤ s_copy[g in indexSets.G] ≤ paramOPF.smax[g])
+        @variable(model, 0 ≤ s_copy[g in indexSets.G] ≤ paramOPF.smax[g]);
         if param.tightness
-            @variable(model, y_copy[indexSets.G], Bin)             
-            @variable(model, v_copy[indexSets.G], Bin)             
-            @variable(model, w_copy[indexSets.G], Bin)             
+            @variable(model, y_copy[indexSets.G], Bin);
+            @variable(model, v_copy[indexSets.G], Bin);
+            @variable(model, w_copy[indexSets.G], Bin);
         else
-            @variable(model, 0 ≤ y_copy[indexSets.G] ≤ 1)    
-            @variable(model, 0 ≤ v_copy[indexSets.G] ≤ 1)    
-            @variable(model, 0 ≤ w_copy[indexSets.G] ≤ 1)    
+            @variable(model, 0 ≤ y_copy[indexSets.G] ≤ 1);
+            @variable(model, 0 ≤ v_copy[indexSets.G] ≤ 1);
+            @variable(model, 0 ≤ w_copy[indexSets.G] ≤ 1);
         end
         ContVarLeaf = nothing;
         ContVarBinaries = nothing;
     elseif param.algorithm == :SDDiP
         ## approximate the continuous state s[g], s[g] = ∑_{i=0}^{κ-1} 2ⁱ * λ[g, i] * ε, κ = log2(paramOPF.smax[g] / ε) + 1
-        @variable(model, λ[g in indexSets.G, i in 1:param.κ[g]], Bin)  
-        @constraint(model, ContiApprox[g in indexSets.G], param.ε * sum(2^(i-1) * λ[g, i] for i in 1:param.κ[g]) == s[g])
+        @variable(model, λ[g in indexSets.G, i in 1:param.κ[g]], Bin);  
+        @constraint(model, ContiApprox[g in indexSets.G], param.ε * sum(2^(i-1) * λ[g, i] for i in 1:param.κ[g]) == s[g]);
         ContVarLeaf = nothing;
         ContVarBinaries = Dict(
             :s => Dict{Any, Dict{Any, VariableRef}}(
-                    g => Dict(
-                        i => λ[g, i] for i in 1:param.κ[g]
-                    ) for g in indexSets.G
-                )
+                g => Dict(
+                    i => λ[g, i] for i in 1:param.κ[g]
+                ) for g in indexSets.G
+            )
         );
-        @variable(model, 0 ≤ s_copy[g in indexSets.G] ≤ paramOPF.smax[g])
+        @variable(model, 0 ≤ s_copy[g in indexSets.G] ≤ paramOPF.smax[g]);
         if param.tightness
-            @variable(model, λ_copy[g in indexSets.G, i in 1:param.κ[g]], Bin)
-            @variable(model, y_copy[indexSets.G], Bin)        
-            @variable(model, v_copy[indexSets.G], Bin)        
-            @variable(model, w_copy[indexSets.G], Bin)        
+            @variable(model, λ_copy[g in indexSets.G, i in 1:param.κ[g]], Bin);
+            @variable(model, y_copy[indexSets.G], Bin);        
+            @variable(model, v_copy[indexSets.G], Bin);        
+            @variable(model, w_copy[indexSets.G], Bin);        
         else
-            @variable(model, 0 ≤ λ_copy[g in indexSets.G, i in 1:param.κ[g]] ≤ 1)       
-            @variable(model, 0 ≤ y_copy[indexSets.G] ≤ 1)    
-            @variable(model, 0 ≤ v_copy[indexSets.G] ≤ 1)    
-            @variable(model, 0 ≤ w_copy[indexSets.G] ≤ 1)       
+            @variable(model, 0 ≤ λ_copy[g in indexSets.G, i in 1:param.κ[g]] ≤ 1);      
+            @variable(model, 0 ≤ y_copy[indexSets.G] ≤ 1);    
+            @variable(model, 0 ≤ v_copy[indexSets.G] ≤ 1);    
+            @variable(model, 0 ≤ w_copy[indexSets.G] ≤ 1);       
         end
-        @constraint(model, [g in indexSets.G], param.ε * sum(2^(i-1) * λ_copy[g, i] for i in 1:param.κ[g]) == s_copy[g])
+        @constraint(model, [g in indexSets.G], param.ε * sum(2^(i-1) * λ_copy[g, i] for i in 1:param.κ[g]) == s_copy[g]);
     end
 
     ## problem constraints:
     # power flow constraints
     for l in indexSets.L
-        i = l[1]
-        j = l[2]
-        @constraint(model, P[l] ≤ - paramOPF.b[l] * (θ_angle[i] - θ_angle[j]))
-        @constraint(model, P[l] ≥ - paramOPF.b[l] * (θ_angle[i] - θ_angle[j]))
+        i = l[1];
+        j = l[2];
+        @constraint(model, P[l] ≤ - paramOPF.b[l] * (θ_angle[i] - θ_angle[j]));
+        @constraint(model, P[l] ≥ - paramOPF.b[l] * (θ_angle[i] - θ_angle[j]));
     end
     
     # power flow limitation
-    @constraint(model, [l in indexSets.L], P[l] ≥ - paramOPF.W[l])
-    @constraint(model, [l in indexSets.L], P[l] ≤   paramOPF.W[l])
+    @constraint(model, [l in indexSets.L], P[l] ≥ - paramOPF.W[l]);
+    @constraint(model, [l in indexSets.L], P[l] ≤   paramOPF.W[l]);
     # generator limitation
-    @constraint(model, [g in indexSets.G], s[g] ≥ paramOPF.smin[g] * y[g])
-    @constraint(model, [g in indexSets.G], s[g] ≤ paramOPF.smax[g] * y[g])
+    @constraint(model, [g in indexSets.G], s[g] ≥ paramOPF.smin[g] * y[g]);
+    @constraint(model, [g in indexSets.G], s[g] ≤ paramOPF.smax[g] * y[g]);
 
     # power balance constraints
     @constraint(
@@ -157,7 +168,7 @@ function forwardModel!(
         sum(P[(i, j)] for j in indexSets.out_L[i]) + 
         sum(P[(j, i)] for j in indexSets.in_L[i]) 
         .== sum(paramDemand.demand[d] * x[d] for d in indexSets.Dᵢ[i]) 
-    )
+    );
     
     # on/off status with startup and shutdown decision
     @constraint(
@@ -260,7 +271,6 @@ function ModelModification!(
                 model[:s_copy][g] == stateInfo.ContVar[:s][g]
             );
         end
-
         if :BinVarNonAnticipative_y ∉ keys(model.obj_dict) 
             @constraint(
                 model, 

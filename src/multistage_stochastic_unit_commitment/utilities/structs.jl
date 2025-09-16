@@ -303,3 +303,6 @@ mutable struct SquareMinimizationCutGeneration{T} <: CutGeneration
     δ                   ::Float64
     primal_bound        ::Union{Nothing, T}
 end
+mutable struct StrengthenedBendersCutGeneration{T} <: CutGeneration 
+
+end

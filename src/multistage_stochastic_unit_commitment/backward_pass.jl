@@ -14,8 +14,8 @@ function RemoveContVarNonAnticipative!(
     indexSets::IndexSets = indexSets,
     param::NamedTuple = param
 )::Nothing
-
     if :λ_copy ∉ keys(model.obj_dict)
+        # For SDDP-L or SDDP algorithms
         for g in indexSets.G
             delete(model, model[:ContVarNonAnticipative][g]);
             delete(model, model[:BinVarNonAnticipative_y][g]);
@@ -27,6 +27,7 @@ function RemoveContVarNonAnticipative!(
         unregister(model, :BinVarNonAnticipative_v);
         unregister(model, :BinVarNonAnticipative_w);
     else
+        # For SDDiP algorithm
         for g in indexSets.G
             delete(model, model[:BinVarNonAnticipative_y][g]);
             delete(model, model[:BinVarNonAnticipative_v][g]);
@@ -109,6 +110,79 @@ function setup_initial_point(
 end
 
 """
+    setup_Benders_warm_start(stateInfo::StateInfo)
+# Arguments
+    stateInfo::StateInfo : the parent's node decisions
+    function for setting up the initial dual variables
+"""
+function setup_Benders_warm_start(
+    model::Model,
+    stateInfo::StateInfo;
+    indexSets::IndexSets = indexSets,
+    param::NamedTuple = param
+)::StateInfo
+    lp_model = relax_integrality(model);
+    optimize!(model);
+
+    BinVar = Dict{Any, Dict{Any, Any}}(
+        :y => Dict{Any, Any}(
+            g => dual(model[:BinVarNonAnticipative_y][g]) for g in indexSets.G
+        ),
+        :v => Dict{Any, Any}(
+            g => dual(model[:BinVarNonAnticipative_v][g]) for g in indexSets.G
+        ),
+        :w => Dict{Any, Any}(
+            g => dual(model[:BinVarNonAnticipative_w][g]) for g in indexSets.G
+        ),
+    );
+    if :ContVarNonAnticipative ∈ keys(model.obj_dict)
+        ContVar = Dict{Any, Dict{Any, Any}}(:s => Dict{Any, Any}(
+            g => dual(model[:ContVarNonAnticipative][g]) for g in indexSets.G)
+        );
+    else
+        ContVar = nothing
+    end
+    if stateInfo.ContAugState == nothing 
+        ContAugState = nothing
+    else
+        ContAugState = Dict{Any, Dict{Any, Dict{Any, Any}}}(
+            :s => Dict{Any, Dict{Any, Any}}(
+                g => Dict{Any, Any}(
+                    k => 0.0 for k in keys(stateInfo.ContAugState[:s][g])
+                ) for g in indexSets.G
+            )
+        );
+    end
+
+    if stateInfo.ContStateBin == nothing 
+        ContStateBin = nothing
+    else
+        ContStateBin = Dict{Any, Dict{Any, Dict{Any, Any}}}(
+            :s => Dict{Any, Dict{Any, Any}}(
+                g => Dict{Any, Any}(
+                    i => dual(model[:BinarizationNonAnticipative][g, i]) for i in 1:param.κ[g]
+                ) for g in indexSets.G
+            )
+        );
+    end
+
+    lp_model()
+    return StateInfo(
+        BinVar, 
+        nothing, 
+        ContVar, 
+        nothing, 
+        nothing, 
+        nothing, 
+        nothing, 
+        nothing, 
+        ContAugState,
+        nothing,
+        ContStateBin
+    );
+end
+
+"""
     backwardPass(backwardNodeInfo)
 
     function for backward pass in parallel computing
@@ -132,6 +206,27 @@ function backwardPass(
         stateInfoCollection[i, t-1, ω];
         indexSets = indexSets
     );
+
+    if cutSelection == :SBC
+        initial_point = setup_Benders_warm_start(
+            ModelList[t].model,
+            stateInfoCollection[i, t-1, ω];
+            indexSets = indexSets,
+            param = param
+        );
+        levelsetmethodOracleParam = SetupLevelSetMethodOracleParam(
+            initial_point;
+            indexSets = indexSets,
+            param_levelsetmethod = param_levelsetmethod
+        );
+    else 
+        levelsetmethodOracleParam = SetupLevelSetMethodOracleParam(
+            stateInfoCollection[i, t-1, ω];
+            indexSets = indexSets,
+            param_levelsetmethod = param_levelsetmethod
+        );
+    end
+
     RemoveContVarNonAnticipative!(
         ModelList[t].model;
         indexSets = indexSets,
@@ -160,20 +255,10 @@ function backwardPass(
             param_cut.δ, 
             stateInfoCollection[i, t, ω].StateValue
         );
-    else
-        @warn "Invalid cutSelection value: $cutSelection. Defaulting to :SMC."
-        CutGenerationInfo = SquareMinimizationCutGeneration{Float64}(
-            param_cut.δ, 
-            stateInfoCollection[i, t, ω].StateValue
-        )
+    elseif cutSelection == :SBC
+        CutGenerationInfo = StrengthenedBendersCutGeneration{Float64}();
     end
 
-    levelsetmethodOracleParam = SetupLevelSetMethodOracleParam(
-        stateInfoCollection[i, t-1, ω];
-        indexSets = indexSets,
-        param_levelsetmethod = param_levelsetmethod
-    );
-    
     ((λ₀, λ₁), LMiter) = LevelSetMethod_optimization!(
         ModelList[t].model, 
         levelsetmethodOracleParam, 
