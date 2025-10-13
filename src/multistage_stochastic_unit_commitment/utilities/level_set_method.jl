@@ -284,7 +284,7 @@ function LevelSetMethod_optimization!(
         currentInfo.x
     ];
 
-    if param.cutSelection == :SBC 
+    if typeof(CutGenerationInfo) == StrengthenedBendersCutGeneration{Float64} 
         return (cutInfo = cutInfo, iter = iter)
     end
 

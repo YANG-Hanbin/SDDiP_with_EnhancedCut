@@ -125,6 +125,137 @@ function save_info(
     return 
 end
 
+function save_info_sparsity(
+    param::NamedTuple, 
+    param_cut::NamedTuple,
+    sddpResults::Dict;
+    logger_save::Bool = true
+)::Nothing
+    if logger_save == true
+        case = param.case; cutSelection = param.cutSelection; num = param.num; T = param.T; algorithm = param.algorithm; med_method = param.med_method; ε = Int(round(1/param.ε)); ℓ = param_cut.ℓ;
+        sparse_cut = param.sparse_cut;
+        if algorithm == :SDDPL
+            if cutSelection == :PLC
+                save(
+                    "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/test_cut_sparsity/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$med_method-$ℓ-$sparse_cut.jld2", 
+                    "sddpResults", 
+                    sddpResults
+                );
+            else
+                save(
+                    "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/test_cut_sparsity/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$med_method-$sparse_cut.jld2", 
+                    "sddpResults", 
+                    sddpResults
+                );
+            end
+            
+        elseif algorithm == :SDDP
+            save(
+                "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/test_cut_sparsity/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection.jld2", 
+                "sddpResults", 
+                sddpResults
+            );
+        elseif algorithm == :SDDiP
+            save(
+                "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/test_cut_sparsity/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$ε.jld2", 
+                "sddpResults", 
+                sddpResults
+            );
+
+        end
+        
+    end
+    return 
+end
+
+function save_info_M(
+    param::NamedTuple, 
+    param_cut::NamedTuple,
+    sddpResults::Dict;
+    logger_save::Bool = true
+)::Nothing
+    if logger_save == true
+        case = param.case; cutSelection = param.cutSelection; num = param.num; T = param.T; algorithm = param.algorithm; med_method = param.med_method; ε = Int(round(1/param.ε)); ℓ = param_cut.ℓ;
+        sparse_cut = param.sparse_cut;
+        M = param.M;
+        if algorithm == :SDDPL
+            if cutSelection == :PLC
+                save(
+                    "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/cut_generation_sample-$M/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$med_method-$ℓ-$sparse_cut.jld2", 
+                    "sddpResults", 
+                    sddpResults
+                );
+            else
+                save(
+                    "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/cut_generation_sample-$M/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$med_method-$sparse_cut.jld2", 
+                    "sddpResults", 
+                    sddpResults
+                );
+            end
+            
+        elseif algorithm == :SDDP
+            save(
+                "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/cut_generation_sample-$M/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection.jld2", 
+                "sddpResults", 
+                sddpResults
+            );
+        elseif algorithm == :SDDiP
+            save(
+                "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/cut_generation_sample-$M/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$ε.jld2", 
+                "sddpResults", 
+                sddpResults
+            );
+
+        end
+        
+    end
+    return 
+end
+
+function save_info_SBC(
+    param::NamedTuple, 
+    param_cut::NamedTuple,
+    sddpResults::Dict;
+    logger_save::Bool = true
+)::Nothing
+    if logger_save == true
+        case = param.case; cutSelection = param.cutSelection; num = param.num; T = param.T; algorithm = param.algorithm; med_method = param.med_method; ε = Int(round(1/param.ε)); ℓ = param_cut.ℓ;
+        sparse_cut = param.sparse_cut;
+        M = param.M;
+        if algorithm == :SDDPL
+            if cutSelection == :PLC
+                save(
+                    "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/StrengthenedBendersCut/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$med_method-$ℓ-$sparse_cut.jld2", 
+                    "sddpResults", 
+                    sddpResults
+                );
+            else
+                save(
+                    "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/StrengthenedBendersCut/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$med_method-$sparse_cut.jld2", 
+                    "sddpResults", 
+                    sddpResults
+                );
+            end
+            
+        elseif algorithm == :SDDP
+            save(
+                "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/StrengthenedBendersCut/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection.jld2", 
+                "sddpResults", 
+                sddpResults
+            );
+        elseif algorithm == :SDDiP
+            save(
+                "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/StrengthenedBendersCut/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$ε.jld2", 
+                "sddpResults", 
+                sddpResults
+            );
+
+        end
+        
+    end
+    return 
+end
+
 function param_setup(;
     terminate_time::Any = 3600,
     TimeLimit::Any = 10,
@@ -135,6 +266,7 @@ function param_setup(;
     MaxIter::Int64 = 3000,
     tightness::Bool = true,
     numScenarios::Int64 = 3,
+    M::Int64 = 1,
     LiftIterThreshold::Int64 = 10,
     branch_threshold::Float64 = 1e-3,
     branch_variable::Symbol = :ALL, # :ALL, :MFV
@@ -161,6 +293,7 @@ function param_setup(;
         κ                   = Dict{Int64, Int64}(),
         tightness           = tightness,
         numScenarios        = numScenarios,
+        M                   = M,
         LiftIterThreshold   = LiftIterThreshold,
         branch_threshold    = branch_threshold,
         branch_variable     = branch_variable, # :ALL, :MFV

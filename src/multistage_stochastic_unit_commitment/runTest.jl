@@ -1,10 +1,11 @@
 #############################################################################################
 ###################################### Parameter Setup ######################################
 #############################################################################################
-case                = "case30"; # "case_RTS_GMLC", "case30", "case30pwl",
-algorithm           = :SDDP; # :SDDPL, :SDDP, :SDDiP
-cut                 = :SBC; # :PLC, :SMC, :LC, :SBC, :BC
+case                = "case30"; # "case30pwl", "case30", "case30pwl",
+algorithm           = :SDDPL; # :SDDPL, :SDDP, :SDDiP
+cut                 = :SBC; # :PLC, :SMC, :LC, :SBC, :BC, :SBCLC, :SBCSMC, :SBCPLC
 numScenarios        = 500;
+M                   = 1; # number of samples for cut generation
 logger_save         = true;
 med_method          = :IntervalMed; # :IntervalMed, :ExactPoint
 ε                   = 1/2^8;
@@ -26,6 +27,7 @@ for algorithm in [:SDDPL, :SDDP, :SDDiP]
                     ε = ε; # 1/32, 1/64, 1/128, 1/256
                     MIPGap = 1e-4,
                     numScenarios = numScenarios,
+                    M = M,
                     tightness = tightness,
                     LiftIterThreshold = LiftIterThreshold,
                     cutSelection = cut, 

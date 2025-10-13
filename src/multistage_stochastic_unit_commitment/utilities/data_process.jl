@@ -578,20 +578,20 @@ colors = ["#1f77b4", "#ff7f0e", "#2ca02c"]  # 蓝色、橙色、绿色
 results |>
 @vlplot(
     :bar,
-    x={"T:n", title="T", axis={labelFont="Times New Roman", labelFontSize=25, titleFontSize=25, labelAngle=0}},
+    x={"T:n", title="T", axis={labelFont="Times New Roman", labelFontSize=15, titleFontSize=15, labelAngle=0}},
     xOffset={"method:n", title="Cut"},
-    y={"avg_time:q", title="Average Iteration Time", axis={labelFontSize=25, titleFontSize=25}},
-    color={"method:n", scale={range=colors}, title=nothing, labelFontSize=25, titleFontSize=25},
+    y={"avg_time:q", title="Average Iteration Time", axis={labelFontSize=15, titleFontSize=15}},
+    color={"method:n", scale={range=colors}, title=nothing, labelFontSize=15, titleFontSize=15},
     column={"num:n", title="R", 
             header={labelFont="Times New Roman", titleFont="Times New Roman", 
-                    labelFontSize=25, titleFontSize=25}},  # 确保 R 也是 Times New Roman
+                    labelFontSize=15, titleFontSize=15}},  # 确保 R 也是 Times New Roman
     tooltip=[{ "T:n"}, {"num:n"}, {"method:n"}, {"avg_time:q"}, {"std_time:q"}],
-    width=300, height=250,
+    width=350, height=200,
     config={ 
         axis={labelFont="Times New Roman", titleFont="Times New Roman"}, 
         legend={
             labelFont="Times New Roman", titleFont="Times New Roman",
-            labelFontSize=25, symbolSize=150, symbolStrokeWidth=3
+            labelFontSize=15, symbolSize=150, symbolStrokeWidth=3
         }, 
         title={font="Times New Roman"},
         bar={width=20}
@@ -608,20 +608,20 @@ results |>
 results |>
 @vlplot(
     :bar,
-    x={"T:n", title="T", axis={labelFont="Times New Roman", labelFontSize=25, titleFontSize=25, labelAngle=0}},
+    x={"T:n", title="T", axis={labelFont="Times New Roman", labelFontSize=15, titleFontSize=15, labelAngle=0}},
     xOffset={"method:n", title="Cut"},
-    y={"avg_LM_iter:q", title="Average Iteration Counts", axis={labelFontSize=25, titleFontSize=25}},
-    color={"method:n", scale={range=colors}, title=nothing, labelFontSize=25, titleFontSize=25},
+    y={"avg_LM_iter:q", title="Average Iteration Counts", axis={labelFontSize=15, titleFontSize=15}},
+    color={"method:n", scale={range=colors}, title=nothing, labelFontSize=15, titleFontSize=15},
     column={"num:n", title="R", 
             header={labelFont="Times New Roman", titleFont="Times New Roman", 
-                    labelFontSize=25, titleFontSize=25}},  # 确保 R 也是 Times New Roman
+                    labelFontSize=15, titleFontSize=15}},  # 确保 R 也是 Times New Roman
     tooltip=[{ "T:n"}, {"num:n"}, {"method:n"}, {"avg_LM_iter:q"}, {"std_LM_iter:q"}],
-    width=300, height=250,
+    width=350, height=200,
     config={ 
         axis={labelFont="Times New Roman", titleFont="Times New Roman"}, 
         legend={
             labelFont="Times New Roman", titleFont="Times New Roman",
-            labelFontSize=25, symbolSize=150, symbolStrokeWidth=3
+            labelFontSize=15, symbolSize=150, symbolStrokeWidth=3
         }, 
         title={font="Times New Roman"},
         bar={width=20}
@@ -703,17 +703,17 @@ colors = ["#1f77b4", "#ff7f0e", "#2ca02c"]  # 蓝色、橙色、绿色
 results |>
 @vlplot(
     :bar,
-    x={"alg:n", title = nothing, axis={labelFont="Times New Roman", labelFontSize=25, titleFontSize=25, labelAngle=0}},
+    x={"alg:n", title = nothing, axis={labelFont="Times New Roman", labelFontSize=15, titleFontSize=15, labelAngle=0}},
     xOffset={"method:n", title="Cut"},
-    y={"avg_time:q", title="Average Iteration Time", axis={labelFontSize=25, titleFontSize=25}},
-    color={"method:n", scale={range=colors}, orient="top", title=nothing, labelFontSize=25, titleFontSize=25},
+    y={"avg_time:q", title="Average Iteration Time", axis={labelFontSize=15, titleFontSize=15}},
+    color={"method:n", scale={range=colors}, orient="top", title=nothing, labelFontSize=15, titleFontSize=15},
     tooltip=[{ "alg:n"},{"method:n"}, {"avg_time:q"}, {"std_time:q"}],
-    width=300, height=250,
+    width=350, height=200,
     config={ 
         axis={labelFont="Times New Roman", titleFont="Times New Roman"}, 
         legend={
             labelFont="Times New Roman", titleFont="Times New Roman",
-            labelFontSize=25, symbolSize=150, orient="top", symbolStrokeWidth=3
+            labelFontSize=15, symbolSize=150, orient="top", symbolStrokeWidth=3
         }, 
         title={font="Times New Roman"},
         bar={width=20}
@@ -724,17 +724,17 @@ results |>
 results |>
 @vlplot(
     :bar,
-    x={"alg:n", title=nothing, axis={labelFont="Times New Roman", labelFontSize=25, titleFontSize=25, labelAngle=0}},
+    x={"alg:n", title=nothing, axis={labelFont="Times New Roman", labelFontSize=15, titleFontSize=15, labelAngle=0}},
     xOffset={"method:n", title="Cut"},
-    y={"avg_LM_iter:q", title="Average Iteration Counts", axis={labelFontSize=25, titleFontSize=25}},
-    color={"method:n", scale={range=colors}, orient="top", title=nothing, labelFontSize=25, titleFontSize=25},
+    y={"avg_LM_iter:q", title="Average Iteration Counts", axis={labelFontSize=15, titleFontSize=15}},
+    color={"method:n", scale={range=colors}, orient="top", title=nothing, labelFontSize=15, titleFontSize=15},
     tooltip=[{ "T:n"}, {"num:n"}, {"method:n"}, {"avg_LM_iter:q"}, {"std_LM_iter:q"}],
-    width=300, height=250,
+    width=350, height=200,
     config={ 
         axis={labelFont="Times New Roman", titleFont="Times New Roman"}, 
         legend={
             labelFont="Times New Roman", titleFont="Times New Roman",
-            labelFontSize=25, symbolSize=150, orient="top", symbolStrokeWidth=3
+            labelFontSize=15, symbolSize=150, orient="top", symbolStrokeWidth=3
         }, 
         title={font="Times New Roman"},
         bar={width=20}
@@ -919,3 +919,339 @@ df |> @vlplot(
         title={font="Times New Roman"} 
     }
 ) |> save("$(homedir())/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/logger/numericalResults-case30pwl/Periods6-Real5/core_point_Iter.pdf")
+
+## ---------------------------------------------------------------------------------------------------------------------------------------- ##
+## ------------------------------------------------------------  Sparsity  ---------------------------------------------------------------- ##
+## ---------------------------------------------------------------------------------------------------------------------------------------- ##
+med_method = :IntervalMed
+results = DataFrame(T = Int[], num = Int[], sparsity = Symbol[], method = String[], avg_time = Float64[], std_time = Float64[], avg_LM_iter = Float64[], std_LM_iter = Float64[])
+# 遍历不同的 (T, num) 组合
+for T in [6, 8, 12]
+    for num in [5, 10]
+        for method in ["LC", "PLC", "SMC"]
+            for sparsity in [:dense, :sparse]
+                # 读取数据
+                if method == "PLC" 
+                    data = load("/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/test_cut_sparsity/numericalResults-$case/Periods$T-Real$num/SDDPL-$method-$med_method-0.0-$sparsity.jld2")["sddpResults"][:solHistory]
+                else
+                    data = load("/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/test_cut_sparsity/numericalResults-$case/Periods$T-Real$num/SDDPL-$method-$med_method-$sparsity.jld2")["sddpResults"][:solHistory]
+                end
+                
+
+                df = DataFrame(Iter=data.Iter, time=data.time, LM_iters=data.LM_iter, Cut=method)
+                
+                # 计算平均值和标准差
+                avg_time = mean(df.time)
+                std_time = std(df.time)
+                avg_LM_iter = mean(df.LM_iters)
+                std_LM_iter = std(df.LM_iters)
+
+                # 存入 DataFrame
+                push!(results, (T, num, sparsity, method, avg_time, std_time, avg_LM_iter, std_LM_iter))
+            end
+        end
+    end
+end
+
+
+# 定义颜色
+colors = ["#1f77b4", "#ff7f0e", "#2ca02c"]  # LC, SMC, PLC
+
+# 分为stage number
+# 按 sparse/dense + method 分组的 Bar Chart
+df_plot = filter(row -> row.T == 12 && row.num == 10, results)
+
+results |>
+@vlplot(
+    :bar,
+    x = {
+        "sparsity:n",
+        title = "Sparsity",
+        axis = {labelFont="Times New Roman", labelFontSize=25, titleFontSize=25, labelAngle=0}
+    },
+    xOffset = {"method:n", title="Cut"},
+    y = {
+        "avg_time:q",
+        title = "Average Iteration Time",
+        axis = {labelFontSize=25, titleFontSize=25}
+    },
+    color = {
+        "method:n",
+        scale = {range=colors},
+        title = nothing
+    },
+    column = {
+        "T:n",
+        title = "T",
+        header = {
+            labelFont="Times New Roman",
+            titleFont="Times New Roman",
+            labelFontSize=25,
+            titleFontSize=25
+        }
+    },
+    row = {
+        "num:n",
+        title = "R",
+        header = {
+            labelFont="Times New Roman",
+            titleFont="Times New Roman",
+            labelFontSize=25,
+            titleFontSize=25
+        }
+    },
+    tooltip = [
+        {"T:n"}, {"num:n"}, {"sparsity:n"}, {"method:n"}, {"avg_time:q"}, {"std_time:q"}
+    ],
+    width = 250,
+    height = 250,
+    config = {
+        axis = {labelFont="Times New Roman", titleFont="Times New Roman"},
+        legend = {
+            labelFont="Times New Roman", titleFont="Times New Roman",
+            labelFontSize=25, symbolSize=150, symbolStrokeWidth=3
+        },
+        title = {font="Times New Roman"},
+        bar = {width=20}
+    }
+) +
+@vlplot(
+    :errorbar,
+    x={"sparsity:n"},
+    xOffset={"method:n"},
+    y={"avg_time:q"},
+    yError={"std_time:q"}
+)
+
+# plot for T = 12, num = 10
+df_plot = filter(row -> row.T == 12 && row.num == 10, results)
+
+df_plot |>
+@vlplot(
+    :bar,
+    x={"sparsity:n", title=nothing, axis={labelFont="Times New Roman", labelFontSize=15, titleFontSize=15, labelAngle=0}},
+    xOffset={"method:n", title="Cut"},
+    y={"avg_LM_iter:q", title="Average Iteration Counts", axis={labelFontSize=15, titleFontSize=15}},
+    color={"method:n", scale={range=colors}, orient="top", title=nothing, labelFontSize=15, titleFontSize=15},
+    tooltip=[{ "T:n"}, {"num:n"}, {"method:n"}, {"avg_LM_iter:q"}, {"std_LM_iter:q"}],
+    width=350, height=200,
+    config={ 
+        axis={labelFont="Times New Roman", titleFont="Times New Roman"}, 
+        legend={
+            labelFont="Times New Roman", titleFont="Times New Roman",
+            labelFontSize=15, symbolSize=150, orient="top", symbolStrokeWidth=3
+        }, 
+        title={font="Times New Roman"},
+        bar={width=20}
+    }
+) |> save("$(homedir())/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/test_cut_sparsity/numericalResults-$case/Periods$T-Real$num/DenseSparse_AverageIter-$med_method.pdf")
+
+
+df_plot |>
+@vlplot(
+    :bar,
+    x={"sparsity:n", title=nothing, axis={labelFont="Times New Roman", labelFontSize=15, titleFontSize=15, labelAngle=0}},
+    xOffset={"method:n", title="Cut"},
+    y={"avg_time:q", title="Average Iteration Time", axis={labelFontSize=15, titleFontSize=15}},
+    color={"method:n", scale={range=colors}, orient="top", title=nothing, labelFontSize=15, titleFontSize=15},
+    tooltip=[{ "T:n"}, {"num:n"}, {"method:n"}, {"avg_time:q"}, {"std_time:q"}],
+    width=350, height=200,
+    config={ 
+        axis={labelFont="Times New Roman", titleFont="Times New Roman"}, 
+        legend={
+            labelFont="Times New Roman", titleFont="Times New Roman",
+            labelFontSize=15, symbolSize=150, orient="top", symbolStrokeWidth=3
+        }, 
+        title={font="Times New Roman"},
+        bar={width=20}
+    }
+) |> save("$(homedir())/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/test_cut_sparsity/numericalResults-$case/Periods$T-Real$num/DenseSparse_AverageTime-$med_method.pdf")
+
+# differences 
+df_diff = combine(groupby(df_plot, :method)) do g
+    dense = filter(row -> row.sparsity == :dense, g)
+    sparse = filter(row -> row.sparsity == :sparse, g)
+    
+    Δ_time = dense.avg_time[1] - sparse.avg_time[1]
+    Δ_iter = dense.avg_LM_iter[1] - sparse.avg_LM_iter[1]
+    Δ_time_pct = 100 * Δ_time / dense.avg_time[1]
+    Δ_iter_pct = 100 * Δ_iter / dense.avg_LM_iter[1]
+    
+    return DataFrame(
+        Δ_time = Δ_time,
+        Δ_iter = Δ_iter,
+        Δ_time_pct = Δ_time_pct,
+        Δ_iter_pct = Δ_iter_pct
+    )
+end
+
+## Advantages of sparse-cut generation for the MSUC instance with T = 12 and R = 10
+df_diff
+
+p = @df df_diff groupedbar(
+    :method,
+    [:Δ_time_pct :Δ_iter_pct],
+    bar_position = :dodge,
+    bar_width = 0.55,
+    # xlabel = "Relative Performance: Dense − Sparse",
+    ylabel = "Percentage Increase (%)",
+    # title = "Extra Time and Iterations Required by Dense Cuts",
+    label = ["Time" "Iter."],
+    framestyle = :box,
+    grid = :y,
+    fillalpha = 0.8,
+    color = [:lightblue :lightgray],
+    linecolor = :black,
+    fillpattern = [:hline :vline],
+    ylim = (0, 100),
+    legend = :outertop,
+    legend_column=2,
+    fontfamily = "Times New Roman",   
+    guidefont = font(12, "Times New Roman"),   # 坐标轴标题字体
+    tickfont = font(11, "Times New Roman"),    # 坐标轴刻度字体
+    legendfont = font(11, "Times New Roman")   # 图例字体
+) |> save("$(homedir())/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/test_cut_sparsity/numericalResults-$case/Periods$T-Real$num/DenseSparse-$med_method.pdf")
+
+
+p = @df df_diff groupedbar(
+    :method,
+    [:Δ_time_pct :Δ_iter_pct],
+    bar_position = :dodge,
+    bar_width = 0.55,
+    ylabel = "Percentage Increase (%)",
+    label = ["Time" "Iter."],
+    framestyle = :box,
+    grid = :y,
+    fillalpha = 0.8,
+    color = [:lightblue :lightgray],
+    linecolor = :black,
+    fillpattern = [:hline :vline],
+    ylim = (0, 100),
+    legend = :outertop,
+    legend_column=2,
+    fontfamily = "Times New Roman",   
+    guidefont = font(12, "Times New Roman", :bold),   # 坐标轴标题加粗
+    tickfont = font(11, "Times New Roman", :bold),    # 坐标轴刻度加粗
+    legendfont = font(11, "Times New Roman", :bold)   # 图例加粗
+)
+
+
+
+
+## ---------------------------------------------------------------------------------------------------------------------------------------- ##
+## ----------------------------------------------------  Strengthened Benders Cut  -------------------------------------------------------- ##
+## ---------------------------------------------------------------------------------------------------------------------------------------- ##
+med_method = :IntervalMed
+sparsity = :sparse
+results = DataFrame(T = Int[], num = Int[], sparsity = Symbol[], method = Symbol[], avg_time = Float64[], std_time = Float64[], avg_LM_iter = Float64[], std_LM_iter = Float64[])
+# 遍历不同的 (T, num) 组合
+for T in [6, 8, 12]
+    for num in [5, 10]
+        for method in [:SBC, :SBCLC, :SBCPLC, :SBCSMC]
+            # 读取数据
+            data = load("/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/StrengthenedBendersCut/numericalResults-$case/Periods$T-Real$num/SDDPL-$method-$med_method-$sparsity.jld2")["sddpResults"][:solHistory]
+
+            df = DataFrame(Iter=data.Iter, time=data.time, LM_iters=data.LM_iter, Cut=method)
+            
+            # 计算平均值和标准差
+            avg_time = mean(df.time)
+            std_time = std(df.time)
+            avg_LM_iter = mean(df.LM_iters)
+            std_LM_iter = std(df.LM_iters)
+
+            # 存入 DataFrame
+            push!(results, (T, num, sparsity, method, avg_time, std_time, avg_LM_iter, std_LM_iter))
+        end
+    end
+end
+
+
+# 定义颜色
+colors = ["#1f77b4", "#ff7f0e", "#2ca02c"]  # LC, SMC, PLC
+
+
+
+result_df = DataFrame(
+    cut=Symbol[], 
+    T=Int[], 
+    num=Int[], 
+    best_LB=Float64[],         
+    final_gap=Float64[], 
+    total_iter=Int[], 
+    avg_iter_time=String[],         
+    # best_LB_time=Float64[], 
+    # best_LB_iter=Int[],
+    gap_under_1_time=Union{Missing, Float64}[],
+    gap_under_1_iter=Union{Missing, Int}[]
+);
+
+for cut in [:SBC, :SBCLC, :SBCPLC, :SBCSMC]
+    for T in [6, 8, 12]
+        for num in [5, 10]
+            try
+                file_path = "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/StrengthenedBendersCut/numericalResults-$case/Periods$T-Real$num/SDDPL-$cut-$med_method-$sparsity.jld2"
+                solHistory = load(file_path)["sddpResults"][:solHistory]
+
+                # 计算所需的统计数据
+                best_LB, best_LB_idx = findmax(solHistory.LB)  # 最优LB及其索引
+                final_gap = parse(Float64, replace(solHistory.gap[end], "%" => ""))  # 最终gap
+                total_iter = solHistory.Iter[end]  # 总迭代数
+                iter_times = diff(solHistory.Time)  # 计算每次迭代的时间间隔
+                avg_time = mean(iter_times)  # 计算平均迭代时间
+                std_time = std(iter_times)   # 计算标准差
+                avg_iter_time = @sprintf "%.1f (%.1f)" avg_time std_time  # 格式化字符串
+                best_LB_time = solHistory.Time[best_LB_idx]  # 到达best LB的时间
+                best_LB_iter = solHistory.Iter[best_LB_idx]  # 到达best LB的迭代数
+
+                # 将 gap 列（字符串）转换为 Float64 含义的百分数
+                gap_vals = parse.(Float64, replace.(solHistory.gap, "%" => ""))
+
+                # 找到 gap 第一次小于 1.0 的位置
+                below1_idx = findfirst(<(1.0), gap_vals)
+
+                # 初始化默认值
+                gap_under_1_iter = missing
+                gap_under_1_time = missing
+
+                if below1_idx !== nothing
+                    gap_under_1_iter = solHistory.Iter[below1_idx]
+                    gap_under_1_time = solHistory.Time[below1_idx]
+                end
+
+                # 添加到DataFrame
+                push!(result_df, (
+                    cut, T, num, best_LB, final_gap, total_iter, 
+                    avg_iter_time, 
+                    # best_LB_time, best_LB_iter,
+                    gap_under_1_time, gap_under_1_iter
+                    )
+                );
+            catch e
+                @warn "Error processing file: $file_path" exception=(e, catch_backtrace())
+            end
+        end
+    end
+end
+
+# 定义格式化函数，保留一位小数
+column_formatter = function(x, i, j)
+    if x isa Float64
+        return @sprintf("%.1f", x)  # 保留一位小数
+    elseif x isa Tuple  # 处理 iter_range 之类的元组数据
+        return "$(x[1])--$(x[2])"
+    else
+        return string(x)  # 其他数据类型转换为字符串
+    end
+end
+
+# 生成 LaTeX 表格
+latex_table = pretty_table(
+    String, 
+    result_df, 
+    backend=Val(:latex),
+    formatters=(column_formatter,)
+)
+
+# 输出 LaTeX 代码
+println(latex_table)
+

@@ -114,3 +114,20 @@ function binarize_continuous_variable(
     binary_representation = digits(max_integer, base=2, pad=num_binary_vars)  # 获取二进制表示（低位在前）
     return binary_representation
 end
+
+"""
+    get_cut_selection(cutSelection::Symbol, i::Int)
+
+    Base on cutSelection and iteration index i, determine the actual cut selection strategy to use.
+"""
+function get_cut_selection(cutSelection::Symbol, i::Int)
+    if cutSelection == :SBCLC
+        return i <= 3 ? :SBC : :LC
+    elseif cutSelection == :SBCSMC
+        return i <= 3 ? :SBC : :SMC
+    elseif cutSelection == :SBCPLC
+        return i <= 3 ? :SBC : :PLC
+    else
+        return cutSelection
+    end
+end

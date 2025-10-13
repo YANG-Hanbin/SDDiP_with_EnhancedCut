@@ -114,7 +114,7 @@ function stochastic_dual_dynamic_programming_algorithm(
             print_iteration_info_bar();
         end
         print_iteration_info(i, LB, UB, gap, iter_time, LM_iter, total_Time); 
-        save_info(
+        save_info_SBC(
             param, 
             param_cut,
             Dict(
@@ -125,7 +125,7 @@ function stochastic_dual_dynamic_programming_algorithm(
             logger_save = param.logger_save
         );
         LM_iter = 0;
-        if total_Time > param.terminate_time #|| i ≥ param.MaxIter || UB-LB ≤ param.terminate_threshold * UB  
+        if total_Time > param.terminate_time|| i ≥ param.MaxIter || UB-LB ≤ param.terminate_threshold * UB  
             return Dict(
                 :solHistory => solHistory, 
                 # :solution => stateInfoCollection, 
@@ -137,7 +137,7 @@ function stochastic_dual_dynamic_programming_algorithm(
         ## the first rule:: for branching: current convex envelope is good enough
         if i ≥ param.LiftIterThreshold && param.algorithm == :SDDPL                                                                 
             for t in reverse(1:indexSets.T-1) 
-                for ω in [1]#keys(Ξ̃)
+                for ω in [1] #keys(Ξ̃)
                     dev = Dict();
                     for g in indexSets.G 
                         if stateInfoCollection[i, t, ω].BinVar[:y][g] > .5
@@ -175,11 +175,12 @@ function stochastic_dual_dynamic_programming_algorithm(
         end
 
         ####################################################### Backward Steps ###########################################################
+        cut = get_cut_selection(param.cutSelection, i);
         for t = reverse(2:indexSets.T)
-            for ω in [1]#keys(Ξ̃)
+            for ω in 1:param.M #keys(Ξ̃)
                 backwardNodeInfoList = Dict{Int64, Tuple}(); 
                 for n in keys(scenarioTree.tree[t].nodes) 
-                    backwardNodeInfoList[n] = (i, t, n, ω, param.cutSelection, param_cut.core_point_strategy) 
+                    backwardNodeInfoList[n] = (i, t, n, ω, cut, param_cut.core_point_strategy) 
                 end
 
                 # backwardPassResult = pmap(backwardPass, values(backwardNodeInfoList))
