@@ -254,6 +254,14 @@ mutable struct CurrentInfo
     dG           :: Dict{Int64, StateInfo}                          ## actually is a matrix.  But we use dict to store it
 end
 
+mutable struct NormalizationCurrentInfo
+    x            :: Tuple{StateInfo, Float64}                                       ## record x point
+    f            :: Float64                                         ## record f(x_j)
+    G            :: Dict{Int64, Float64} 
+    df           :: Dict{Symbol, Any}
+    dG           :: Dict{Int64, Tuple{Union{Nothing, StateInfo}, Union{Nothing, Float64}}}                          ## actually is a matrix.  But we use dict to store it
+end
+
 
 struct ModelInfo
     model :: Model
@@ -305,4 +313,9 @@ mutable struct SquareMinimizationCutGeneration{T} <: CutGeneration
 end
 mutable struct StrengthenedBendersCutGeneration{T} <: CutGeneration 
 
+end
+mutable struct LinearNormalizationLagrangianCutGeneration{T} <: CutGeneration 
+    uₙ                  ::Union{Nothing, StateInfo}
+    uₙ₀                 ::Union{Nothing, Float64}
+    primal_bound        ::Union{Nothing, T}
 end

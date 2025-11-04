@@ -3,10 +3,10 @@
 #############################################################################################
 case                = "case30"; # "case30pwl", "case30", "case30pwl",
 algorithm           = :SDDPL; # :SDDPL, :SDDP, :SDDiP
-cut                 = :SBC; # :PLC, :SMC, :LC, :SBC, :BC, :SBCLC, :SBCSMC, :SBCPLC
+cut                 = :NormalizedCut; # :PLC, :SMC, :LC, :SBC, :BC, :SBCLC, :SBCSMC, :SBCPLC, :NormalizedCut
 numScenarios        = 500;
 M                   = 1; # number of samples for cut generation
-logger_save         = true;
+logger_save         = false;
 med_method          = :IntervalMed; # :IntervalMed, :ExactPoint
 ε                   = 1/2^8;
 ℓ                   = 0.0; 

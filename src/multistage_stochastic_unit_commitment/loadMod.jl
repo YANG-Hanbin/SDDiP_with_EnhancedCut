@@ -17,7 +17,8 @@ using Distributed; addprocs(5);
 
     include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "utilities", "structs.jl"))
     include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "utilities", "auxiliary.jl"))
-    include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "utilities", "level_set_method.jl"))
+    include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "utilities", "level_method_regular_subproblem.jl"))
+    include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "utilities", "level_method_normalized_subproblem.jl"))
     include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "utilities", "cut_variants.jl"))
     include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "utils.jl"))
     include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "forward_pass.jl"))

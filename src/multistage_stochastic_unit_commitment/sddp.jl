@@ -200,10 +200,10 @@ function stochastic_dual_dynamic_programming_algorithm(
 
                 for n in keys(scenarioTree.tree[t].nodes)
                     @everywhere begin
-                        n = $n; t = $t; i = $i; ω = $ω; (λ₀, λ₁) = $backwardPassResult[n][1]; # (λ₀, λ₁) = backwardPassResult[n][1]
+                        n = $n; t = $t; i = $i; ω = $ω; (λ₀, λ₁, πₙ₀) = $backwardPassResult[n][1]; # (λ₀, λ₁) = backwardPassResult[n][1]
                         @constraint(
                             ModelList[t-1].model, 
-                            ModelList[t-1].model[:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + 
+                            πₙ₀ * ModelList[t-1].model[:θ][n]/scenarioTree.tree[t-1].prob[n] ≥ λ₀ + 
                             sum(
                                 (
                                     param.algorithm == :SDDiP ? 

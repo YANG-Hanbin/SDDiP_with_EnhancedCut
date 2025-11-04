@@ -257,9 +257,21 @@ function backwardPass(
         );
     elseif cutSelection == :SBC
         CutGenerationInfo = StrengthenedBendersCutGeneration{Float64}();
+    elseif cutSelection == :NormalizedCut
+        CutGenerationInfo = LinearNormalizationLagrangianCutGeneration{Float64}(
+            setup_core_point(
+                stateInfoCollection[i, t-1, ω];
+                indexSets = indexSets,
+                paramOPF = paramOPF, 
+                param_cut = param_cut,
+                param = param
+            ),
+            1.0,
+            stateInfoCollection[i, t, ω].StateValue
+        );
     end
 
-    ((λ₀, λ₁), LMiter) = LevelSetMethod_optimization!(
+    ((λ₀, λ₁, πₙ₀), LMiter) = LevelSetMethod_optimization!(
         ModelList[t].model, 
         levelsetmethodOracleParam, 
         stateInfoCollection[i, t-1, ω],
@@ -270,7 +282,7 @@ function backwardPass(
         param = param, param_levelsetmethod = param_levelsetmethod
     );
                                                     
-    return ((λ₀, λ₁), LMiter)  
+    return ((λ₀, λ₁, πₙ₀), LMiter)  
 end
 
 

@@ -131,3 +131,75 @@ function get_cut_selection(cutSelection::Symbol, i::Int)
         return cutSelection
     end
 end
+
+"""
+    divide_fields(stateInfo, x::Number)
+
+    Recursively divide all numeric fields contained in `stateInfo` by `x`.
+
+    This function traverses all fields of the input object, including nested
+    structures such as `Dict`, `Array`, or user-defined `struct`s, and returns
+    a new object of the same type where every numeric value is divided by `x`.
+    Non-numeric or `nothing` fields remain unchanged.
+"""
+function divide_fields(stateInfo, x::Number)
+    # 定义一个递归函数，用于处理任意类型的对象
+    function _divide(v)
+        if v isa Number
+            return v / x
+        elseif v isa AbstractDict
+            return Dict(k => _divide(val) for (k, val) in v)
+        elseif v isa AbstractArray
+            return [ _divide(val) for val in v ]
+        elseif v === nothing
+            return nothing
+        elseif isstructtype(v)
+            fnames = fieldnames(typeof(v))
+            newvals = [ _divide(getfield(v, f)) for f in fnames ]
+            return typeof(v)(newvals...)
+        else
+            return v
+        end
+    end
+
+    # 处理 stateInfo 本身（struct 顶层）
+    fnames = fieldnames(typeof(stateInfo))
+    newvals = [ _divide(getfield(stateInfo, f)) for f in fnames ]
+    return typeof(stateInfo)(newvals...)
+end
+
+"""
+    inverse_fields(stateInfo, x::Number)
+
+    Recursively inverse all numeric fields contained in `stateInfo`.
+
+    This function traverses all fields of the input object, including nested
+    structures such as `Dict`, `Array`, or user-defined `struct`s, and returns
+    a new object of the same type where every numeric value is inverse.
+    Non-numeric or `nothing` fields remain unchanged.
+"""
+function inverse_fields(stateInfo)
+    # 定义一个递归函数，用于处理任意类型的对象
+    function _divide(v)
+        if v isa Number
+            return - v
+        elseif v isa AbstractDict
+            return Dict(k => _divide(val) for (k, val) in v)
+        elseif v isa AbstractArray
+            return [ _divide(val) for val in v ]
+        elseif v === nothing
+            return nothing
+        elseif isstructtype(v)
+            fnames = fieldnames(typeof(v))
+            newvals = [ _divide(getfield(v, f)) for f in fnames ]
+            return typeof(v)(newvals...)
+        else
+            return v
+        end
+    end
+
+    # 处理 stateInfo 本身（struct 顶层）
+    fnames = fieldnames(typeof(stateInfo))
+    newvals = [ _divide(getfield(stateInfo, f)) for f in fnames ]
+    return typeof(stateInfo)(newvals...)
+end

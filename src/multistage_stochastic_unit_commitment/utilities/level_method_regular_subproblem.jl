@@ -281,7 +281,8 @@ function LevelSetMethod_optimization!(
                 ) for g in G
             ) : 0.0
         ),
-        currentInfo.x
+        currentInfo.x,
+        1.0
     ];
 
     if typeof(CutGenerationInfo) == StrengthenedBendersCutGeneration{Float64} 
@@ -386,7 +387,8 @@ function LevelSetMethod_optimization!(
                             for k in keys(stateInfo.ContAugState[:s][g]); init = 0.0
                         ) for g in G
                     ) : 0.0),
-                currentInfo.x
+                currentInfo.x,
+                1.0
             ];
         end
 

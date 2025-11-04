@@ -2,7 +2,7 @@
     function solve_inner_minimization_problem(
         CutGenerationInfo::ParetoLagrangianCutGeneration,
         model::Model, 
-        x₀::StateInfo, 
+        πₙ::StateInfo, 
         stateInfo::StateInfo
     )
 
@@ -10,7 +10,7 @@
 
     1. `CutGenerationInfo::ParetoLagrangianCutGeneration` : the information of the cut that will be generated information
     2. `model::Model` : the backward model
-    3. `x₀::StateInfo` : the dual information
+    3. `πₙ::StateInfo` : the dual information
     4. `stateInfo::StateInfo` : the last stage decision
   
 # Returns
@@ -20,7 +20,7 @@
 function solve_inner_minimization_problem(
     CutGenerationInfo::ParetoLagrangianCutGeneration,
     model::Model, 
-    x₀::StateInfo, 
+    πₙ::StateInfo, 
     stateInfo::StateInfo;
     indexSets::IndexSets = indexSets,
     param::NamedTuple = param
@@ -30,17 +30,17 @@ function solve_inner_minimization_problem(
         Min,  
         model[:primal_objective_expression] +
         sum(
-            x₀.BinVar[:y][g] * (stateInfo.BinVar[:y][g] - model[:y_copy][g]) + 
-            x₀.BinVar[:v][g] * (stateInfo.BinVar[:v][g] - model[:v_copy][g]) + 
-            x₀.BinVar[:w][g] * (stateInfo.BinVar[:w][g] - model[:w_copy][g]) + 
+            πₙ.BinVar[:y][g] * (stateInfo.BinVar[:y][g] - model[:y_copy][g]) + 
+            πₙ.BinVar[:v][g] * (stateInfo.BinVar[:v][g] - model[:v_copy][g]) + 
+            πₙ.BinVar[:w][g] * (stateInfo.BinVar[:w][g] - model[:w_copy][g]) + 
             (param.algorithm == :SDDiP ?
                 sum(
-                    x₀.ContStateBin[:s][g][i] * (stateInfo.ContStateBin[:s][g][i] - model[:λ_copy][g, i]) for i in 1:param.κ[g]
-                ) : x₀.ContVar[:s][g] * (stateInfo.ContVar[:s][g] - model[:s_copy][g])
+                    πₙ.ContStateBin[:s][g][i] * (stateInfo.ContStateBin[:s][g][i] - model[:λ_copy][g, i]) for i in 1:param.κ[g]
+                ) : πₙ.ContVar[:s][g] * (stateInfo.ContVar[:s][g] - model[:s_copy][g])
             ) +
             (param.algorithm == :SDDPL ?
                 sum(
-                    x₀.ContAugState[:s][g][k] * (stateInfo.ContAugState[:s][g][k] - model[:augmentVar_copy][g, k]) 
+                    πₙ.ContAugState[:s][g][k] * (stateInfo.ContAugState[:s][g][k] - model[:augmentVar_copy][g, k]) 
                     for k in keys(stateInfo.ContAugState[:s][g]); init = 0.0
                 ) : 0.0
             ) 
@@ -95,19 +95,19 @@ function solve_inner_minimization_problem(
         ) : nothing
     );
     currentInfo = CurrentInfo(  
-        x₀, 
+        πₙ, 
         - F - sum(
             (param.algorithm == :SDDiP ?
                 sum(
-                    x₀.ContStateBin[:s][g][i] * (CutGenerationInfo.core_point.ContStateBin[:s][g][i] - stateInfo.ContStateBin[:s][g][i]) for i in 1:param.κ[g]
-                ) : x₀.ContVar[:s][g] * (CutGenerationInfo.core_point.ContVar[:s][g] - stateInfo.ContVar[:s][g])
+                    πₙ.ContStateBin[:s][g][i] * (CutGenerationInfo.core_point.ContStateBin[:s][g][i] - stateInfo.ContStateBin[:s][g][i]) for i in 1:param.κ[g]
+                ) : πₙ.ContVar[:s][g] * (CutGenerationInfo.core_point.ContVar[:s][g] - stateInfo.ContVar[:s][g])
             ) +
-            x₀.BinVar[:y][g] * (CutGenerationInfo.core_point.BinVar[:y][g] - stateInfo.BinVar[:y][g]) +
-            x₀.BinVar[:v][g] * (CutGenerationInfo.core_point.BinVar[:v][g] - stateInfo.BinVar[:v][g]) +
-            x₀.BinVar[:w][g] * (CutGenerationInfo.core_point.BinVar[:w][g] - stateInfo.BinVar[:w][g]) +
+            πₙ.BinVar[:y][g] * (CutGenerationInfo.core_point.BinVar[:y][g] - stateInfo.BinVar[:y][g]) +
+            πₙ.BinVar[:v][g] * (CutGenerationInfo.core_point.BinVar[:v][g] - stateInfo.BinVar[:v][g]) +
+            πₙ.BinVar[:w][g] * (CutGenerationInfo.core_point.BinVar[:w][g] - stateInfo.BinVar[:w][g]) +
             (param.algorithm == :SDDPL ?
                 sum(
-                    x₀.ContAugState[:s][g][k] * (CutGenerationInfo.core_point.ContAugState[:s][g][k] - stateInfo.ContAugState[:s][g][k])
+                    πₙ.ContAugState[:s][g][k] * (CutGenerationInfo.core_point.ContAugState[:s][g][k] - stateInfo.ContAugState[:s][g][k])
                     for k in keys(stateInfo.ContAugState[:s][g]); init = 0.0
                 ) : 0.0
             )
@@ -158,7 +158,7 @@ end
     function solve_inner_minimization_problem(
         CutGenerationInfo::SquareMinimizationCutGeneration,
         model::Model, 
-        x₀::StateInfo, 
+        πₙ::StateInfo, 
         stateInfo::StateInfo
     )
 
@@ -166,7 +166,7 @@ end
 
     1. `CutGenerationInfo::SquareMinimizationCutGeneration` : the information of the cut that will be generated information
     2. `model::Model` : the backward model
-    3. `x₀::StateInfo` : the dual information
+    3. `πₙ::StateInfo` : the dual information
     4. `stateInfo::StateInfo` : the last stage decision
   
 # Returns
@@ -176,7 +176,7 @@ end
 function solve_inner_minimization_problem(
     CutGenerationInfo::SquareMinimizationCutGeneration,
     model::Model, 
-    x₀::StateInfo, 
+    πₙ::StateInfo, 
     stateInfo::StateInfo;
     indexSets::IndexSets = indexSets
 )
@@ -185,17 +185,17 @@ function solve_inner_minimization_problem(
         Min,  
         model[:primal_objective_expression] +
         sum(
-            x₀.BinVar[:y][g] * (stateInfo.BinVar[:y][g] - model[:y_copy][g]) + 
-            x₀.BinVar[:v][g] * (stateInfo.BinVar[:v][g] - model[:v_copy][g]) + 
-            x₀.BinVar[:w][g] * (stateInfo.BinVar[:w][g] - model[:w_copy][g]) + 
+            πₙ.BinVar[:y][g] * (stateInfo.BinVar[:y][g] - model[:y_copy][g]) + 
+            πₙ.BinVar[:v][g] * (stateInfo.BinVar[:v][g] - model[:v_copy][g]) + 
+            πₙ.BinVar[:w][g] * (stateInfo.BinVar[:w][g] - model[:w_copy][g]) + 
             (param.algorithm == :SDDiP ?
                 sum(
-                    x₀.ContStateBin[:s][g][i] * (stateInfo.ContStateBin[:s][g][i] - model[:λ_copy][g, i]) for i in 1:param.κ[g]
-                ) : x₀.ContVar[:s][g] * (stateInfo.ContVar[:s][g] - model[:s_copy][g])
+                    πₙ.ContStateBin[:s][g][i] * (stateInfo.ContStateBin[:s][g][i] - model[:λ_copy][g, i]) for i in 1:param.κ[g]
+                ) : πₙ.ContVar[:s][g] * (stateInfo.ContVar[:s][g] - model[:s_copy][g])
             ) +
             (param.algorithm == :SDDPL ?
                 sum(
-                    x₀.ContAugState[:s][g][k] * (stateInfo.ContAugState[:s][g][k] - model[:augmentVar_copy][g, k]) 
+                    πₙ.ContAugState[:s][g][k] * (stateInfo.ContAugState[:s][g][k] - model[:augmentVar_copy][g, k]) 
                     for k in keys(stateInfo.ContAugState[:s][g]); init = 0.0
                 ) : 0.0
             ) 
@@ -250,19 +250,19 @@ function solve_inner_minimization_problem(
         ) : nothing
     );
     currentInfo = CurrentInfo(  
-        x₀, 
+        πₙ, 
         1/2 * (param.algorithm == :SDDiP ?
                 sum(
-                    sum(x₀.ContStateBin[:s][g][i] * x₀.ContStateBin[:s][g][i] for i in 1:param.κ[g]) 
+                    sum(πₙ.ContStateBin[:s][g][i] * πₙ.ContStateBin[:s][g][i] for i in 1:param.κ[g]) 
                     for g in indexSets.G
                 ) : 
-                sum(x₀.ContVar[:s][g] * x₀.ContVar[:s][g] for g in indexSets.G)
+                sum(πₙ.ContVar[:s][g] * πₙ.ContVar[:s][g] for g in indexSets.G)
         ) +
-        1/2 * sum(x₀.BinVar[:y][g] * x₀.BinVar[:y][g] + x₀.BinVar[:v][g] * x₀.BinVar[:v][g] + x₀.BinVar[:w][g] * x₀.BinVar[:w][g] for g in indexSets.G) + 
+        1/2 * sum(πₙ.BinVar[:y][g] * πₙ.BinVar[:y][g] + πₙ.BinVar[:v][g] * πₙ.BinVar[:v][g] + πₙ.BinVar[:w][g] * πₙ.BinVar[:w][g] for g in indexSets.G) + 
         (param.algorithm == :SDDPL ? 
         1/2 * sum(
                 sum(
-                    x₀.ContAugState[:s][g][k] * x₀.ContAugState[:s][g][k] for k in keys(stateInfo.ContAugState[:s][g]); init = 0.0
+                    πₙ.ContAugState[:s][g][k] * πₙ.ContAugState[:s][g][k] for k in keys(stateInfo.ContAugState[:s][g]); init = 0.0
                 ) for g in indexSets.G
             ) : 0.0
         ),                                                                                                                                                              ## obj function value
@@ -271,27 +271,27 @@ function solve_inner_minimization_problem(
         ),                                                                                                                                                              ## constraint value
         param.algorithm == :SDDPL ?
         Dict{Symbol, Dict{Int64, Any}}(
-            :s => Dict(g => x₀.ContVar[:s][g] for g in indexSets.G),
-            :y => Dict(g => x₀.BinVar[:y][g] for g in indexSets.G), 
-            :v => Dict(g => x₀.BinVar[:v][g] for g in indexSets.G), 
-            :w => Dict(g => x₀.BinVar[:w][g] for g in indexSets.G), 
-            :sur => Dict(g => Dict(k => x₀.ContAugState[:s][g][k] for k in keys(stateInfo.ContAugState[:s][g])) for g in indexSets.G),
+            :s => Dict(g => πₙ.ContVar[:s][g] for g in indexSets.G),
+            :y => Dict(g => πₙ.BinVar[:y][g] for g in indexSets.G), 
+            :v => Dict(g => πₙ.BinVar[:v][g] for g in indexSets.G), 
+            :w => Dict(g => πₙ.BinVar[:w][g] for g in indexSets.G), 
+            :sur => Dict(g => Dict(k => πₙ.ContAugState[:s][g][k] for k in keys(stateInfo.ContAugState[:s][g])) for g in indexSets.G),
             :λ => Dict(
                 g => (
                     param.algorithm == :SDDiP ?
-                        Dict(i => x₀.ContStateBin[:s][g][i] for i in 1:param.κ[g]) : nothing
+                        Dict(i => πₙ.ContStateBin[:s][g][i] for i in 1:param.κ[g]) : nothing
                 ) for g in indexSets.G
             )
         ) : 
         Dict{Symbol, Dict{Int64, Any}}(
-            :s => Dict(g => x₀.ContVar[:s][g] for g in indexSets.G),
-            :y => Dict(g => x₀.BinVar[:y][g] for g in indexSets.G),
-            :v => Dict(g => x₀.BinVar[:v][g] for g in indexSets.G),
-            :w => Dict(g => x₀.BinVar[:w][g] for g in indexSets.G),
+            :s => Dict(g => πₙ.ContVar[:s][g] for g in indexSets.G),
+            :y => Dict(g => πₙ.BinVar[:y][g] for g in indexSets.G),
+            :v => Dict(g => πₙ.BinVar[:v][g] for g in indexSets.G),
+            :w => Dict(g => πₙ.BinVar[:w][g] for g in indexSets.G),
             :λ => Dict(
                 g => (
                     param.algorithm == :SDDiP ?
-                        Dict(i => x₀.ContStateBin[:s][g][i] for i in 1:param.κ[g]) : nothing
+                        Dict(i => πₙ.ContStateBin[:s][g][i] for i in 1:param.κ[g]) : nothing
                 ) for g in indexSets.G
             )
         ),                                                                                                                                                              ## obj gradient
@@ -304,7 +304,7 @@ end
     function solve_inner_minimization_problem(
         CutGenerationInfo::LagrangianCutGeneration,
         model::Model, 
-        x₀::StateInfo, 
+        πₙ::StateInfo, 
         stateInfo::StateInfo
     )
 
@@ -312,7 +312,7 @@ end
 
     1. `CutGenerationInfo::LagrangianCutGeneration` : the information of the cut that will be generated information
     2. `model::Model` : the backward model
-    3. `x₀::StateInfo` : the dual information
+    3. `πₙ::StateInfo` : the dual information
     4. `stateInfo::StateInfo` : the last stage decision
   
 # Returns
@@ -322,7 +322,7 @@ end
 function solve_inner_minimization_problem(
     CutGenerationInfo::LagrangianCutGeneration,
     model::Model, 
-    x₀::StateInfo, 
+    πₙ::StateInfo, 
     stateInfo::StateInfo;
     indexSets::IndexSets = indexSets
 )
@@ -331,17 +331,17 @@ function solve_inner_minimization_problem(
         Min,  
         model[:primal_objective_expression] +
         sum(
-            x₀.BinVar[:y][g] * (stateInfo.BinVar[:y][g] - model[:y_copy][g]) + 
-            x₀.BinVar[:v][g] * (stateInfo.BinVar[:v][g] - model[:v_copy][g]) + 
-            x₀.BinVar[:w][g] * (stateInfo.BinVar[:w][g] - model[:w_copy][g]) + 
+            πₙ.BinVar[:y][g] * (stateInfo.BinVar[:y][g] - model[:y_copy][g]) + 
+            πₙ.BinVar[:v][g] * (stateInfo.BinVar[:v][g] - model[:v_copy][g]) + 
+            πₙ.BinVar[:w][g] * (stateInfo.BinVar[:w][g] - model[:w_copy][g]) + 
             (param.algorithm == :SDDiP ?
                 sum(
-                    x₀.ContStateBin[:s][g][i] * (stateInfo.ContStateBin[:s][g][i] - model[:λ_copy][g, i]) for i in 1:param.κ[g]
-                ) : x₀.ContVar[:s][g] * (stateInfo.ContVar[:s][g] - model[:s_copy][g])
+                    πₙ.ContStateBin[:s][g][i] * (stateInfo.ContStateBin[:s][g][i] - model[:λ_copy][g, i]) for i in 1:param.κ[g]
+                ) : πₙ.ContVar[:s][g] * (stateInfo.ContVar[:s][g] - model[:s_copy][g])
             ) +
             (param.algorithm == :SDDPL ?
                 sum(
-                    x₀.ContAugState[:s][g][k] * (stateInfo.ContAugState[:s][g][k] - model[:augmentVar_copy][g, k]) 
+                    πₙ.ContAugState[:s][g][k] * (stateInfo.ContAugState[:s][g][k] - model[:augmentVar_copy][g, k]) 
                     for k in keys(stateInfo.ContAugState[:s][g]); init = 0.0
                 ) : 0.0
             ) 
@@ -395,7 +395,7 @@ function solve_inner_minimization_problem(
         ) : nothing
     );
     currentInfo = CurrentInfo(  
-        x₀, 
+        πₙ, 
         - F,                                                                                                                                                            ## obj function value
         Dict(
             1 => 0.
@@ -435,7 +435,7 @@ end
     function solve_inner_minimization_problem(
         CutGenerationInfo::StrengthenedBendersCutGeneration,
         model::Model, 
-        x₀::StateInfo, 
+        πₙ::StateInfo, 
         stateInfo::StateInfo
     )
 
@@ -443,7 +443,7 @@ end
 
     1. `CutGenerationInfo::StrengthenedBendersCutGeneration` : the information of the cut that will be generated information
     2. `model::Model` : the backward model
-    3. `x₀::StateInfo` : the dual information
+    3. `πₙ::StateInfo` : the dual information
     4. `stateInfo::StateInfo` : the last stage decision
   
 # Returns
@@ -453,7 +453,7 @@ end
 function solve_inner_minimization_problem(
     CutGenerationInfo::StrengthenedBendersCutGeneration,
     model::Model, 
-    x₀::StateInfo, 
+    πₙ::StateInfo, 
     stateInfo::StateInfo;
     indexSets::IndexSets = indexSets
 )
@@ -462,17 +462,17 @@ function solve_inner_minimization_problem(
         Min,  
         model[:primal_objective_expression] +
         sum(
-            x₀.BinVar[:y][g] * (stateInfo.BinVar[:y][g] - model[:y_copy][g]) + 
-            x₀.BinVar[:v][g] * (stateInfo.BinVar[:v][g] - model[:v_copy][g]) + 
-            x₀.BinVar[:w][g] * (stateInfo.BinVar[:w][g] - model[:w_copy][g]) + 
+            πₙ.BinVar[:y][g] * (stateInfo.BinVar[:y][g] - model[:y_copy][g]) + 
+            πₙ.BinVar[:v][g] * (stateInfo.BinVar[:v][g] - model[:v_copy][g]) + 
+            πₙ.BinVar[:w][g] * (stateInfo.BinVar[:w][g] - model[:w_copy][g]) + 
             (param.algorithm == :SDDiP ?
                 sum(
-                    x₀.ContStateBin[:s][g][i] * (stateInfo.ContStateBin[:s][g][i] - model[:λ_copy][g, i]) for i in 1:param.κ[g]
-                ) : x₀.ContVar[:s][g] * (stateInfo.ContVar[:s][g] - model[:s_copy][g])
+                    πₙ.ContStateBin[:s][g][i] * (stateInfo.ContStateBin[:s][g][i] - model[:λ_copy][g, i]) for i in 1:param.κ[g]
+                ) : πₙ.ContVar[:s][g] * (stateInfo.ContVar[:s][g] - model[:s_copy][g])
             ) +
             (param.algorithm == :SDDPL ?
                 sum(
-                    x₀.ContAugState[:s][g][k] * (stateInfo.ContAugState[:s][g][k] - model[:augmentVar_copy][g, k]) 
+                    πₙ.ContAugState[:s][g][k] * (stateInfo.ContAugState[:s][g][k] - model[:augmentVar_copy][g, k]) 
                     for k in keys(stateInfo.ContAugState[:s][g]); init = 0.0
                 ) : 0.0
             ) 
@@ -526,7 +526,7 @@ function solve_inner_minimization_problem(
         ) : nothing
     );
     currentInfo = CurrentInfo(  
-        x₀, 
+        πₙ, 
         - F,                                                                                                                                                            ## obj function value
         Dict(
             1 => 0.
@@ -560,4 +560,4 @@ function solve_inner_minimization_problem(
         Dict(1 => negative_∇F )                                                                                                                                                               ## constraint gradient
     );
     return (currentInfo = currentInfo, currentInfo_f = F)
-end    
+end     
