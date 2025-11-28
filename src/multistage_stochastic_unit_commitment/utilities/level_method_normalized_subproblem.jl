@@ -134,7 +134,7 @@ function solve_inner_minimization_problem(
         (πₙ, πₙ₀),  
         - F,                                                                                                                                                            ## obj function value
         Dict(
-            1 => - normalization_function  - 1, 
+            1 => normalization_function - 1, 
             2 => πₙ₀
         ),                                                                                                                                                             ## constraint value
         param.algorithm == :SDDPL ?                                                                                                                            
@@ -165,7 +165,7 @@ function solve_inner_minimization_problem(
                 ) for g in indexSets.G
             )
         ),                                                                                                                                                              ## obj gradient
-        Dict(1 => (inverse_fields(CutGenerationInfo.uₙ), - CutGenerationInfo.uₙ₀), 
+        Dict(1 => (CutGenerationInfo.uₙ, CutGenerationInfo.uₙ₀), 
              2 => (nothing, 1.0)
         )                                                                                                                                                               ## constraint gradient
     );
@@ -456,7 +456,7 @@ function LevelSetMethod_optimization!(
                 nothing,
                 ContStateBin
             );
-            x0_nxt = JuMP.value(xθ);
+            x0_nxt = JuMP.value(xθ) ≤ 0 ? JuMP.value(xθ) : 0.;
         elseif st == MOI.NUMERICAL_ERROR ## need to figure out why this case happened and fix it
             # @info "Re-compute Next Iteration Point -- change to a safe level!"
             set_normalized_rhs( levelConstraint, w + .99 * (W - w))
@@ -507,7 +507,7 @@ function LevelSetMethod_optimization!(
                     nothing,
                     ContStateBin
                 );
-                x0_nxt = JuMP.value(xθ);
+                x0_nxt = JuMP.value(xθ) ≤ 0 ? JuMP.value(xθ) : 0.;
             else
                 return (cutInfo = cutInfo, iter = iter)
             end

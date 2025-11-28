@@ -114,7 +114,7 @@ function stochastic_dual_dynamic_programming_algorithm(
             print_iteration_info_bar();
         end
         print_iteration_info(i, LB, UB, gap, iter_time, LM_iter, total_Time); 
-        save_info_SBC(
+        save_info_NormalizedCuts(
             param, 
             param_cut,
             Dict(

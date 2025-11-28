@@ -128,6 +128,7 @@ function Δ_model_formulation(
     @constraint(alphaModel, z .≥ 0);
     @objective(alphaModel, Min, α);
     optimize!(alphaModel);
+    st = termination_status(alphaModel);
     a_min = JuMP.value(α);
 
     # alpha_max

@@ -256,6 +256,50 @@ function save_info_SBC(
     return 
 end
 
+function save_info_NormalizedCuts(
+    param::NamedTuple, 
+    param_cut::NamedTuple,
+    sddpResults::Dict;
+    logger_save::Bool = true
+)::Nothing
+    if logger_save == true
+        case = param.case; cutSelection = param.cutSelection; num = param.num; T = param.T; algorithm = param.algorithm; med_method = param.med_method; ε = Int(round(1/param.ε)); ℓ = param_cut.ℓ;
+        sparse_cut = param.sparse_cut;
+        M = param.M;
+        if algorithm == :SDDPL
+            if cutSelection == :PLC
+                save(
+                    "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/NormalizedCuts/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$med_method-$ℓ-$sparse_cut.jld2", 
+                    "sddpResults", 
+                    sddpResults
+                );
+            else
+                save(
+                    "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/NormalizedCuts/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$med_method-$sparse_cut.jld2", 
+                    "sddpResults", 
+                    sddpResults
+                );
+            end
+            
+        elseif algorithm == :SDDP
+            save(
+                "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/NormalizedCuts/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection.jld2", 
+                "sddpResults", 
+                sddpResults
+            );
+        elseif algorithm == :SDDiP
+            save(
+                "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/NormalizedCuts/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$ε.jld2", 
+                "sddpResults", 
+                sddpResults
+            );
+
+        end
+        
+    end
+    return 
+end
+
 function param_setup(;
     terminate_time::Any = 3600,
     TimeLimit::Any = 10,

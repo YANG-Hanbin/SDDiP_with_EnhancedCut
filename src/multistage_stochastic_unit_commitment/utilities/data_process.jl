@@ -1357,3 +1357,147 @@ mean(solHistory[1:t, :].time)
 std(solHistory[1:t,:].time)
 
 
+## ---------------------------------------------------------------------------------------------------------------------------------------- ##
+## ------------------------------------------------------- # Normalized Cuts  -------------------------------------------------------- ##
+## ---------------------------------------------------------------------------------------------------------------------------------------- ##
+med_method = :IntervalMed
+sparsity = :sparse
+result_df = DataFrame(
+    cut=Symbol[], 
+    T=Int[], 
+    num=Int[], 
+    best_LB=Float64[],         
+    final_gap=Float64[], 
+    total_iter=Int[], 
+    avg_iter_time=String[],         
+    # best_LB_time=Float64[], 
+    # best_LB_iter=Int[],
+    gap_under_1_time=Union{Missing, Float64}[],
+    gap_under_1_iter=Union{Missing, Int}[]
+);
+for cut in [:eps, :Mid]
+    for T in [6, 8, 12]
+        for num in [5, 10]
+            try
+                file_path = "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/NormalizedCuts/numericalResults-$case/$cut/Periods$T-Real$num/SDDPL-NormalizedCut-$med_method-$sparsity.jld2"
+                solHistory = load(file_path)["sddpResults"][:solHistory]
+
+                # 计算所需的统计数据
+                best_LB, best_LB_idx = findmax(solHistory.LB)  # 最优LB及其索引
+                final_gap = parse(Float64, replace(solHistory.gap[end], "%" => ""))  # 最终gap
+                total_iter = solHistory.Iter[end]  # 总迭代数
+                iter_times = diff(solHistory.Time)  # 计算每次迭代的时间间隔
+                avg_time = mean(iter_times)  # 计算平均迭代时间
+                std_time = std(iter_times)   # 计算标准差
+                avg_iter_time = @sprintf "%.1f (%.1f)" avg_time std_time  # 格式化字符串
+                best_LB_time = solHistory.Time[best_LB_idx]  # 到达best LB的时间
+                best_LB_iter = solHistory.Iter[best_LB_idx]  # 到达best LB的迭代数
+
+                # 将 gap 列（字符串）转换为 Float64 含义的百分数
+                gap_vals = parse.(Float64, replace.(solHistory.gap, "%" => ""))
+
+                # 找到 gap 第一次小于 0.1 的位置
+                below1_idx = findfirst(<(0.1), gap_vals)
+
+                # 初始化默认值
+                gap_under_1_iter = missing
+                gap_under_1_time = missing
+
+                if below1_idx !== nothing
+                    gap_under_1_iter = solHistory.Iter[below1_idx]
+                    gap_under_1_time = solHistory.Time[below1_idx]
+                end
+
+                # 添加到DataFrame
+                push!(result_df, (
+                    cut, T, num, best_LB, final_gap, total_iter, 
+                    avg_iter_time, 
+                    # best_LB_time, best_LB_iter,
+                    gap_under_1_time, gap_under_1_iter
+                    )
+                );
+            catch e
+                @warn "Error processing file: $file_path" exception=(e, catch_backtrace())
+            end
+        end
+    end
+end
+for cut in [:SMC, :PLC]
+    for T in [6, 8, 12]
+        for num in [5, 10]
+            try
+                file_path = "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/cut_generation_sample-1/numericalResults-$case/Periods$T-Real$num/SDDPL-$cut-$med_method-$sparsity.jld2"
+                solHistory = load(file_path)["sddpResults"][:solHistory]
+
+                # 计算所需的统计数据
+                best_LB, best_LB_idx = findmax(solHistory.LB)  # 最优LB及其索引
+                final_gap = parse(Float64, replace(solHistory.gap[end], "%" => ""))  # 最终gap
+                total_iter = solHistory.Iter[end]  # 总迭代数
+                iter_times = diff(solHistory.Time)  # 计算每次迭代的时间间隔
+                avg_time = mean(iter_times)  # 计算平均迭代时间
+                std_time = std(iter_times)   # 计算标准差
+                avg_iter_time = @sprintf "%.1f (%.1f)" avg_time std_time  # 格式化字符串
+                best_LB_time = solHistory.Time[best_LB_idx]  # 到达best LB的时间
+                best_LB_iter = solHistory.Iter[best_LB_idx]  # 到达best LB的迭代数
+
+                # 将 gap 列（字符串）转换为 Float64 含义的百分数
+                gap_vals = parse.(Float64, replace.(solHistory.gap, "%" => ""))
+
+                # 找到 gap 第一次小于 0.1 的位置
+                below1_idx = findfirst(<(0.1), gap_vals)
+
+                # 初始化默认值
+                gap_under_1_iter = missing
+                gap_under_1_time = missing
+
+                if below1_idx !== nothing
+                    gap_under_1_iter = solHistory.Iter[below1_idx]
+                    gap_under_1_time = solHistory.Time[below1_idx]
+                end
+
+                # 添加到DataFrame
+                push!(result_df, (
+                    cut, T, num, best_LB, final_gap, total_iter, 
+                    avg_iter_time, 
+                    # best_LB_time, best_LB_iter,
+                    gap_under_1_time, gap_under_1_iter
+                    )
+                );
+            catch e
+                @warn "Error processing file: $file_path" exception=(e, catch_backtrace())
+            end
+        end
+    end
+end
+
+
+# 定义格式化函数，保留一位小数
+column_formatter = function(x, i, j)
+    if x isa Float64
+        return @sprintf("%.1f", x)  # 保留一位小数
+    elseif x isa Tuple  # 处理 iter_range 之类的元组数据
+        return "$(x[1])--$(x[2])"
+    else
+        return string(x)  # 其他数据类型转换为字符串
+    end
+end
+
+# 生成 LaTeX 表格
+latex_table = pretty_table(
+    String, 
+    result_df, 
+    backend=Val(:latex),
+    formatters=(column_formatter,)
+)
+
+# 输出 LaTeX 代码
+println(latex_table)
+
+cut = :LC
+T = 12; num = 10; 
+solHistory = load("/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/cut_generation_sample-$M/numericalResults-$case/Periods$T-Real$num/SDDPL-$cut-$med_method-$sparsity.jld2")["sddpResults"][:solHistory]
+t = 11
+mean(solHistory[1:t, :].time)
+std(solHistory[1:t,:].time)
+
+
