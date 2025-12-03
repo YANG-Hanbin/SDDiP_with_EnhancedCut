@@ -114,16 +114,17 @@ function stochastic_dual_dynamic_programming_algorithm(
             print_iteration_info_bar();
         end
         print_iteration_info(i, LB, UB, gap, iter_time, LM_iter, total_Time); 
-        save_info_NormalizedCuts(
+
+        save_results_info(
             param, 
-            param_cut,
+            param_cut, 
             Dict(
                 :solHistory => solHistory, 
                 # :solution => stateInfoCollection, 
                 :gapHistory => gapList
-            );
-            logger_save = param.logger_save
+            )
         );
+
         LM_iter = 0;
         if total_Time > param.terminate_time|| i ≥ param.MaxIter || UB-LB ≤ param.terminate_threshold * UB  
             return Dict(

@@ -83,222 +83,97 @@ function print_iteration_info_bar()::Nothing
     return 
 end
 
-function save_info(
-    param::NamedTuple, 
-    param_cut::NamedTuple,
-    sddpResults::Dict;
-    logger_save::Bool = true
-)::Nothing
-    if logger_save == true
-        case = param.case; cutSelection = param.cutSelection; num = param.num; T = param.T; algorithm = param.algorithm; med_method = param.med_method; ε = Int(round(1/param.ε)); ℓ = param_cut.ℓ;
-        if algorithm == :SDDPL
-            if cutSelection == :PLC
-                save(
-                    "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$med_method-$ℓ.jld2", 
-                    "sddpResults", 
-                    sddpResults
-                );
-            else
-                save(
-                    "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$med_method.jld2", 
-                    "sddpResults", 
-                    sddpResults
-                );
-            end
-            
-        elseif algorithm == :SDDP
-            save(
-                "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection.jld2", 
-                "sddpResults", 
-                sddpResults
-            );
-        elseif algorithm == :SDDiP
-            save(
-                "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$ε.jld2", 
-                "sddpResults", 
-                sddpResults
-            );
+"""
+    build_results_path(param, param_cut; root=RESULTS_ROOT, run_id=nothing)
+"""
+function build_results_path(
+    param::NamedTuple,
+    param_cut::NamedTuple;
+    root::AbstractString = RESULTS_ROOT,
+    run_id = nothing,
+)::String
+    case      = param.case
+    algorithm = param.algorithm
+    T         = param.T
+    num       = param.num
 
-        end
-        
+    # --- 目录层级 ---
+    dir = joinpath(
+        root,
+        "case=$(case)",
+        "alg=$(algorithm)",
+        "T=$(T)",
+        "Real=$(num)",
+    )
+
+    # --- 文件名标签 ---
+    tags = String[]
+
+    cutSelection = param.cutSelection
+    push!(tags, "cut=$(cutSelection)")
+
+    # 有 med_method 就加
+    if haskey(param, :med_method)
+        med_method = param.med_method
+        push!(tags, "med=$(med_method)")
     end
-    return 
+
+    # 有 ε 就加 eps 标签
+    if haskey(param, :ε)
+        ε = param.ε
+        eps_int = Int(round(1 / ε))
+        push!(tags, "eps=$(eps_int)")
+    end
+
+    # 有 ℓ 就加 ell 标签
+    if haskey(param_cut, :ℓ)
+        ℓ = param_cut.ℓ
+        push!(tags, "ell=$(ℓ)")
+    end
+
+    # 有 sparsity 就加 sparsity 标签
+    if haskey(param, :sparse_cut)
+        sparse_cut = param.sparse_cut
+        push!(tags, "sparsity=$(sparse_cut)")
+    end
+
+    # run_id：如果外面没指定，用时间戳
+    if run_id === nothing
+        # ts = Dates.format(now(), "yyyymmdd\\THHMMSS")
+        ts = Dates.format(now(), "yyyymmdd")
+        run_id = ts
+    end
+    push!(tags, "run=$(run_id)")
+
+    filename = join(tags, "__") * ".jld2"
+
+    return joinpath(dir, filename)
 end
 
-function save_info_sparsity(
-    param::NamedTuple, 
+function save_results_info(
+    param::NamedTuple,
     param_cut::NamedTuple,
-    sddpResults::Dict;
-    logger_save::Bool = true
+    sddpResults::Dict,
 )::Nothing
-    if logger_save == true
-        case = param.case; cutSelection = param.cutSelection; num = param.num; T = param.T; algorithm = param.algorithm; med_method = param.med_method; ε = Int(round(1/param.ε)); ℓ = param_cut.ℓ;
-        sparse_cut = param.sparse_cut;
-        if algorithm == :SDDPL
-            if cutSelection == :PLC
-                save(
-                    "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/test_cut_sparsity/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$med_method-$ℓ-$sparse_cut.jld2", 
-                    "sddpResults", 
-                    sddpResults
-                );
-            else
-                save(
-                    "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/test_cut_sparsity/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$med_method-$sparse_cut.jld2", 
-                    "sddpResults", 
-                    sddpResults
-                );
-            end
-            
-        elseif algorithm == :SDDP
-            save(
-                "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/test_cut_sparsity/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection.jld2", 
-                "sddpResults", 
-                sddpResults
-            );
-        elseif algorithm == :SDDiP
-            save(
-                "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/test_cut_sparsity/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$ε.jld2", 
-                "sddpResults", 
-                sddpResults
-            );
+    param.logger_save || return nothing
 
-        end
-        
-    end
-    return 
+    filepath = build_results_path(
+        param,
+        param_cut;
+        root   = param.results_root,
+        run_id = param.run_id,
+    )
+
+    dir = dirname(filepath)
+    isdir(dir) || mkpath(dir)
+
+    # @info "Saving results to $filepath"
+    @save filepath sddpResults
+
+    return nothing
 end
 
-function save_info_M(
-    param::NamedTuple, 
-    param_cut::NamedTuple,
-    sddpResults::Dict;
-    logger_save::Bool = true
-)::Nothing
-    if logger_save == true
-        case = param.case; cutSelection = param.cutSelection; num = param.num; T = param.T; algorithm = param.algorithm; med_method = param.med_method; ε = Int(round(1/param.ε)); ℓ = param_cut.ℓ;
-        sparse_cut = param.sparse_cut;
-        M = param.M;
-        if algorithm == :SDDPL
-            if cutSelection == :PLC
-                save(
-                    "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/cut_generation_sample-$M/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$med_method-$ℓ-$sparse_cut.jld2", 
-                    "sddpResults", 
-                    sddpResults
-                );
-            else
-                save(
-                    "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/cut_generation_sample-$M/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$med_method-$sparse_cut.jld2", 
-                    "sddpResults", 
-                    sddpResults
-                );
-            end
-            
-        elseif algorithm == :SDDP
-            save(
-                "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/cut_generation_sample-$M/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection.jld2", 
-                "sddpResults", 
-                sddpResults
-            );
-        elseif algorithm == :SDDiP
-            save(
-                "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/cut_generation_sample-$M/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$ε.jld2", 
-                "sddpResults", 
-                sddpResults
-            );
-
-        end
-        
-    end
-    return 
-end
-
-function save_info_SBC(
-    param::NamedTuple, 
-    param_cut::NamedTuple,
-    sddpResults::Dict;
-    logger_save::Bool = true
-)::Nothing
-    if logger_save == true
-        case = param.case; cutSelection = param.cutSelection; num = param.num; T = param.T; algorithm = param.algorithm; med_method = param.med_method; ε = Int(round(1/param.ε)); ℓ = param_cut.ℓ;
-        sparse_cut = param.sparse_cut;
-        M = param.M;
-        if algorithm == :SDDPL
-            if cutSelection == :PLC
-                save(
-                    "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/StrengthenedBendersCut/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$med_method-$ℓ-$sparse_cut.jld2", 
-                    "sddpResults", 
-                    sddpResults
-                );
-            else
-                save(
-                    "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/StrengthenedBendersCut/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$med_method-$sparse_cut.jld2", 
-                    "sddpResults", 
-                    sddpResults
-                );
-            end
-            
-        elseif algorithm == :SDDP
-            save(
-                "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/StrengthenedBendersCut/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection.jld2", 
-                "sddpResults", 
-                sddpResults
-            );
-        elseif algorithm == :SDDiP
-            save(
-                "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/StrengthenedBendersCut/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$ε.jld2", 
-                "sddpResults", 
-                sddpResults
-            );
-
-        end
-        
-    end
-    return 
-end
-
-function save_info_NormalizedCuts(
-    param::NamedTuple, 
-    param_cut::NamedTuple,
-    sddpResults::Dict;
-    logger_save::Bool = true
-)::Nothing
-    if logger_save == true
-        case = param.case; cutSelection = param.cutSelection; num = param.num; T = param.T; algorithm = param.algorithm; med_method = param.med_method; ε = Int(round(1/param.ε)); ℓ = param_cut.ℓ;
-        sparse_cut = param.sparse_cut;
-        M = param.M;
-        if algorithm == :SDDPL
-            if cutSelection == :PLC
-                save(
-                    "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/NormalizedCuts/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$med_method-$ℓ-$sparse_cut.jld2", 
-                    "sddpResults", 
-                    sddpResults
-                );
-            else
-                save(
-                    "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/NormalizedCuts/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$med_method-$sparse_cut.jld2", 
-                    "sddpResults", 
-                    sddpResults
-                );
-            end
-            
-        elseif algorithm == :SDDP
-            save(
-                "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/NormalizedCuts/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection.jld2", 
-                "sddpResults", 
-                sddpResults
-            );
-        elseif algorithm == :SDDiP
-            save(
-                "/Users/aaron/SDDiP_with_EnhancedCut/src/multistage_stochastic_unit_commitment/new_logger/NormalizedCuts/numericalResults-$case/Periods$T-Real$num/$algorithm-$cutSelection-$ε.jld2", 
-                "sddpResults", 
-                sddpResults
-            );
-
-        end
-        
-    end
-    return 
-end
+const DEFAULT_RESULTS_ROOT = joinpath(@__DIR__, "..", "results")
 
 function param_setup(;
     terminate_time::Any = 3600,
@@ -321,7 +196,10 @@ function param_setup(;
     num::Int64 = 10,
     med_method::Symbol = :ExactPoint,
     case::String = "case30pwl",
-    logger_save::Bool = true
+    logger_save::Bool = true,
+    # 新增两个实验相关参数：
+    results_root::AbstractString = DEFAULT_RESULTS_ROOT,
+    run_id::Union{Nothing,String} = nothing,
 )::NamedTuple
 
     return (
@@ -340,21 +218,20 @@ function param_setup(;
         M                   = M,
         LiftIterThreshold   = LiftIterThreshold,
         branch_threshold    = branch_threshold,
-        branch_variable     = branch_variable, # :ALL, :MFV
-        sparse_cut          = sparse_cut, # :sparse, :dense
-        ## "interval_mid", "exact_point"
-        med_method          = med_method,   
-        ## :PLC, :SMC, :LC
-        cutSelection        = cutSelection,             
-        ## :SDDPL, :SDDP, :SDDiP
-        algorithm           = algorithm,   
-        T                   = T, 
-        num                 = num, 
-        case                = case, # "case_RTS_GMLC", "case30", "case30pwl", "case24_ieee_rts"  
-        logger_save         = logger_save   
+        branch_variable     = branch_variable,
+        sparse_cut          = sparse_cut,
+        med_method          = med_method,
+        cutSelection        = cutSelection,
+        algorithm           = algorithm,
+        T                   = T,
+        num                 = num,
+        case                = case,
+        logger_save         = logger_save,
+        # 新增
+        results_root        = results_root,
+        run_id              = run_id,
     )
 end
-
 
 function param_levelsetmethod_setup(;
     μ::Float64 = 0.9,

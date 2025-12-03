@@ -1,9 +1,40 @@
+using Pkg
+Pkg.activate(".")
+# using BenchmarkTools;
+# BenchmarkTools.DEFAULT_PARAMETERS.samples = 1000;
+# BenchmarkTools.DEFAULT_PARAMETERS.evals = 5;
+using Distributed; addprocs(5); 
+@everywhere begin
+    using JuMP, Gurobi, PowerModels;
+    using Statistics, StatsBase, Random, Dates, Distributions;
+    using Distributed, ParallelDataTransfer;
+    using CSV, DataFrames, Printf;
+    using JLD2, FileIO;
+    using Base.Filesystem: mkpath, dirname, isdir;
+
+    const GRB_ENV = Gurobi.Env();
+
+    project_root = @__DIR__;
+
+    include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "utilities", "structs.jl"))
+    include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "utilities", "auxiliary.jl"))
+    include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "utilities", "level_method_regular_subproblem.jl"))
+    include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "utilities", "level_method_normalized_subproblem.jl"))
+    include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "utilities", "cut_variants.jl"))
+    include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "utils.jl"))
+    include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "forward_pass.jl"))
+    include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "backward_pass.jl"))
+    include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "partition_tree.jl"))
+    include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "sddp.jl"))
+    # include(joinpath(project_root, "src", "multistage_stochastic_unit_commitment", "utilities", "extForm.jl"))
+end
+
 #############################################################################################
 ###################################### Parameter Setup ######################################
 #############################################################################################
 case                = "case30"; # "case30pwl", "case30", "case30pwl",
 algorithm           = :SDDPL; # :SDDPL, :SDDP, :SDDiP
-cut                 = :NormalizedCut; # :PLC, :SMC, :LC, :SBC, :BC, :SBCLC, :SBCSMC, :SBCPLC, :NormalizedCut
+cut                 = :NormalizedCut; # :PLC, :SMC, :LC, :SBC, :SBCLC, :SBCSMC, :SBCPLC, :NormalizedCut
 numScenarios        = 500;
 M                   = 1; # number of samples for cut generation
 logger_save         = true;
@@ -15,7 +46,7 @@ sparse_cut          = :sparse; # :sparse, :dense
 tightness           = false;
 branch_variable     = :ALL; # :ALL, :MFV
 LiftIterThreshold   = 2;
-num = 5; T = 6;
+num = 5; T = 12;
 
 for algorithm in [:SDDPL, :SDDP, :SDDiP]
     for cut in [:PLC, :SMC, :LC, :SBC, :BC]

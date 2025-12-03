@@ -104,7 +104,7 @@ function SDDiP_algorithm(
                     # find the lb and ub of this leaf node 
                     (lb, ub) = StateVarList[t].sur[g][keys_with_value_1][:lb], StateVarList[t].sur[g][keys_with_value_1][:ub]; med = solCollection[t, ω].stageSolution[g]; # solCollection[i, t, ω].stageSolution[:s][g];# (lb + ub)/2; #round(solCollection[i, t, ω].stageSolution[:s][g], digits = 3); 
                     # create two new leaf nodes, and update their info (lb, ub)
-                    left = length(StateVarList[t].sur[g]) + 1; right = length(StateVarList[t].sur[g]) + 2;
+                    left = length(StateVarList[t].sur[g]) + 1; right = left + 1;
                     @everywhere begin
                         t = $t; left = $left; right = $right; g = $g; 
                         forwardInfoList[t].model[:sur][g, left] = @variable(forwardInfoList[t].model, base_name = "sur[$g, $left]", binary = true); 
@@ -138,14 +138,14 @@ function SDDiP_algorithm(
                         ### Parent-Child relationship
                         if param.tightness
                             backwardInfoList[t+1].model[:sur_copy][g, left] = @variable(backwardInfoList[t+1].model, base_name = "sur_copy[$g, $left]", binary = true); 
-                            backwardInfoList[t+1].model[:sur_copy][g, right] = @variable(backwardInfoList[t+1].model, base_name = "sur_copy[$g, $left]", binary = true); 
+                            backwardInfoList[t+1].model[:sur_copy][g, right] = @variable(backwardInfoList[t+1].model, base_name = "sur_copy[$g, $right]", binary = true); 
                             backwardInfoList[t].model[:sur][g, left] = @variable(backwardInfoList[t].model, base_name = "sur[$g, $left]", binary = true); 
-                            backwardInfoList[t].model[:sur][g, right] = @variable(backwardInfoList[t].model, base_name = "sur[$g, $left]", binary = true); 
+                            backwardInfoList[t].model[:sur][g, right] = @variable(backwardInfoList[t].model, base_name = "sur[$g, $right]", binary = true); 
                         else
                             backwardInfoList[t+1].model[:sur_copy][g, left] = @variable(backwardInfoList[t+1].model, base_name = "sur_copy[$g, $left]", lower_bound = 0, upper_bound = 1); 
-                            backwardInfoList[t+1].model[:sur_copy][g, right] = @variable(backwardInfoList[t+1].model, base_name = "sur_copy[$g, $left]", lower_bound = 0, upper_bound = 1); 
+                            backwardInfoList[t+1].model[:sur_copy][g, right] = @variable(backwardInfoList[t+1].model, base_name = "sur_copy[$g, $right]", lower_bound = 0, upper_bound = 1); 
                             backwardInfoList[t].model[:sur][g, left] = @variable(backwardInfoList[t].model, base_name = "sur[$g, $left]", lower_bound = 0, upper_bound = 1); 
-                            backwardInfoList[t].model[:sur][g, right] = @variable(backwardInfoList[t].model, base_name = "sur[$g, $left]", lower_bound = 0, upper_bound = 1); 
+                            backwardInfoList[t].model[:sur][g, right] = @variable(backwardInfoList[t].model, base_name = "sur[$g, $right]", lower_bound = 0, upper_bound = 1); 
                         end
                         @constraint(backwardInfoList[t+1].model, backwardInfoList[t+1].model[:sur_copy][g, left] + backwardInfoList[t+1].model[:sur_copy][g, right] == backwardInfoList[t+1].model[:sur_copy][g, keys_with_value_1]);
                         @constraint(backwardInfoList[t].model, backwardInfoList[t].model[:sur][g, left] + backwardInfoList[t].model[:sur][g, right] == backwardInfoList[t].model[:sur][g, keys_with_value_1]);

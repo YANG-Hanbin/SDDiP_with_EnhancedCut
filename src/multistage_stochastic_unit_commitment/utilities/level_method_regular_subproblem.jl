@@ -13,45 +13,6 @@
 
 """
 function SetupLevelSetMethodOracleParam(
-    initial_point::StateInfo;
-    indexSets::IndexSets = indexSets,
-    param::NamedTuple = param,
-    param_levelsetmethod::NamedTuple = param_levelsetmethod
-)::LevelSetMethodOracleParam
-    
-    μ             = get(param_levelsetmethod, :μ, 0.9);
-    λ             = get(param_levelsetmethod, :λ, 0.5);
-    threshold     = get(param_levelsetmethod, :threshold, nothing);
-    nxt_bound     = get(param_levelsetmethod, :nxt_bound, 1e10);
-    MaxIter       = get(param_levelsetmethod, :MaxIter, 1);
-    verbose       = get(param_levelsetmethod, :levelsetmethod_verbose, true);
-
-    return LevelSetMethodOracleParam(
-        μ, 
-        λ, 
-        threshold, 
-        nxt_bound, 
-        MaxIter, 
-        verbose, 
-        initial_point
-    )
-end
-
-"""
-    function SetupLevelSetMethodOracleParam(
-        param::NamedTuple
-    )::LevelSetMethodOracleParam
-
-# Arguments
-
-    1. `param::NamedTuple` : the parameters of the level set method
-
-# Returns
-
-    1. `LevelSetMethodOracleParam` : the parameters of the level set method
-
-"""
-function SetupLevelSetMethodOracleParam(
     stateInfo::StateInfo;
     indexSets::IndexSets = indexSets,
     param::NamedTuple = param,

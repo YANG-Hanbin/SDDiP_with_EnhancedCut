@@ -68,6 +68,15 @@ mutable struct CurrentInfo
     S_at_x̂       :: Float64                             ## only for solving dual problem
 end
 
+mutable struct NormalizedCurrentInfo
+    x            :: Tuple{Dict{Symbol, Any}, Float64}                   ## record x point
+    f            :: Float64                             ## record f(x_j)
+    G            :: Dict{Int64, Float64} 
+    df           :: Dict{Symbol, Any}
+    dG           :: Dict{Int64, Tuple{Any, Float64}}      ## actually is a matrix.  But we use dict to store it
+    S_at_x̂       :: Float64                             ## only for solving dual problem
+end
+
 struct ModelInfo
     model :: Model
     x     :: Vector{VariableRef}

@@ -4,7 +4,11 @@ nonanticipativity()
     An auxiliary function to add nonanticipativity constraints to the extensive form model.
   
 """
-function nonanticipativity(; model::Model = model, scenarioList = scenarioList, t = t)
+function nonanticipativity(; 
+    model::Model = model, 
+    scenarioList = scenarioList, 
+    t = t
+)::Nothing
     if t < indexSets.T
         for n in keys(scenarioTree.tree[t].nodes)
             Ξ̃ = []
@@ -27,13 +31,16 @@ end
     extensive_form()
   
 """
-function extensive_form(; indexSets::IndexSets = indexSets, 
-                            paramDemand::ParamDemand = paramDemand, 
-                                paramOPF::ParamOPF = paramOPF, 
-                                    initialStageDecision::Dict{Symbol, Dict{Int64, Float64}} = initialStageDecision,
-                                        scenarioTree::ScenarioTree = scenarioTree, Ξ::Dict{Any, Any} = Ξ,
-                                            silent::Bool = true, timelimit::Real = 1e3, mipGap::Float64 = 1e-3
-                            )
+function extensive_form(; 
+    indexSets::IndexSets = indexSets, 
+    paramDemand::ParamDemand = paramDemand, 
+    paramOPF::ParamOPF = paramOPF, 
+    initialStageDecision::Dict{Symbol, Dict{Int64, Float64}} = initialStageDecision,
+    scenarioTree::ScenarioTree = scenarioTree, Ξ::Dict{Any, Any} = Ξ,                             
+    silent::Bool = true, 
+    timelimit::Real = 1e3, 
+    mipGap::Float64 = 1e-3
+)::NamedTuple{(:OPT, :statevariable_s, :statevariable_y), Tuple{Float64, Vector{Float64}, Vector{Float64}}}
     (D, G, L, B, T) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T);
     (Dᵢ, Gᵢ, in_L, out_L) = (indexSets.Dᵢ, indexSets.Gᵢ, indexSets.in_L, indexSets.out_L); 
     W = length(Ξ); ## number of scenarios
@@ -118,11 +125,10 @@ function extensive_form(; indexSets::IndexSets = indexSets,
     # nonanticipativity constraints
     nonanticipativity(model = model, scenarioList = keys(Ξ), t = 1)
     optimize!(model)
-    ####################################################### solve the model and display the result ###########################################################
-    extResult = (OPT = JuMP.objective_value(model), 
-                        statevariable_s = JuMP.value.(s[:, 1, 1]), 
-                            statevariable_y = JuMP.value.(y[:, 1, 1])
-                        )
 
-    return extResult
+    return (
+        OPT = JuMP.objective_value(model), 
+        statevariable_s = JuMP.value.(s[:, 1, 1]), 
+        statevariable_y = JuMP.value.(y[:, 1, 1])
+    )
 end

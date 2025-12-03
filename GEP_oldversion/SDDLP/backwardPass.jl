@@ -71,13 +71,19 @@ function backwardModel!(
     @constraint(model, Sc + x .== St);     
     
     # a cap constraint for two generators
-    @constraint(
-        model,
-        [i = 4:5],
-        y[i] ≤ sum(y)/5
-    )
-    
-
+    # @constraint(
+    #     model,
+    #     [i = 4:5],
+    #     y[i] ≤ sum(y)/5
+    # )
+    @expression(
+        model, 
+        primal_objective_expression, 
+        stageData.c1' * x + 
+        stageData.c2' * y + 
+        θ + 
+        stageData.penalty * slack
+    );
     return BackwardModelInfo(model, x, St, Sc, y, θ, slack)
 end
 
