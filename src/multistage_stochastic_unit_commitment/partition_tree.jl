@@ -74,30 +74,30 @@ function update_partition_tree!(
         ModelList[t].model[:augmentVar][g, right] == 
         ModelList[t].model[:augmentVar][g, keys_with_value_1]
     );
+
     ### bounding constraints
-    if :BoundingConstraintUpper ∈ keys(ModelList[t].model.obj_dict) 
-        delete(ModelList[t].model, ModelList[t].model[:BoundingConstraintUpper]);
-        delete(ModelList[t].model, ModelList[t].model[:BoundingConstraintLower]);
-        unregister(ModelList[t].model, :BoundingConstraintUpper);
-        unregister(ModelList[t].model, :BoundingConstraintLower);
-    end
-    @constraint(
+    delete(
         ModelList[t].model, 
-        BoundingConstraintUpper,
+        ModelList[t].model[:partition_lower_bound][g]
+    )
+    delete(
+        ModelList[t].model, 
+        ModelList[t].model[:partition_upper_bound][g]
+    )
+    ModelList[t].model[:partition_upper_bound][g] = @constraint(
+        ModelList[t].model, 
         ModelList[t].ContVar[:s][g] ≤ 
         sum(ModelList[t].ContVarLeaf[:s][g][k][:ub] * ModelList[t].ContVarLeaf[:s][g][k][:var] 
             for k in keys(ModelList[t].ContVarLeaf[:s][g]))
     );
-    @constraint(
+    ModelList[t].model[:partition_lower_bound][g] = @constraint(
         ModelList[t].model, 
-        BoundingConstraintLower,
         ModelList[t].ContVar[:s][g] ≥ 
         sum(
             ModelList[t].ContVarLeaf[:s][g][k][:lb] * ModelList[t].ContVarLeaf[:s][g][k][:var] 
             for k in keys(ModelList[t].ContVarLeaf[:s][g])
         )
     );
-    
 
     ## for backward pass, we need to add the logic constraints and bounding constraints for the copy variables in the next stage
     ### Parent-Child relationship
@@ -133,22 +133,21 @@ function update_partition_tree!(
         ModelList[t+1].model[:augmentVar_copy][g, right] == 
         ModelList[t+1].model[:augmentVar_copy][g, keys_with_value_1]
     );
-    if :AugBoundingConstraintUpper ∈ keys(ModelList[t+1].model.obj_dict) 
-        delete(ModelList[t+1].model, ModelList[t+1].model[:AugBoundingConstraintUpper]);
-        unregister(ModelList[t+1].model, :AugBoundingConstraintUpper);
-
-        delete(ModelList[t+1].model, ModelList[t+1].model[:AugBoundingConstraintLower]);
-        unregister(ModelList[t+1].model, :AugBoundingConstraintLower);
-    end
-    @constraint(
+    delete(
         ModelList[t+1].model, 
-        AugBoundingConstraintUpper,
+        ModelList[t+1].model[:partition_lower_bound_copy][g]
+    )
+    delete(
+        ModelList[t+1].model, 
+        ModelList[t+1].model[:partition_upper_bound_copy][g]
+    )
+    ModelList[t+1].model[:partition_upper_bound_copy][g] = @constraint(
+        ModelList[t+1].model, 
         ModelList[t+1].model[:s_copy][g] ≤ 
         sum(ModelList[t].ContVarLeaf[:s][g][k][:ub] * ModelList[t+1].model[:augmentVar_copy][g, k] for k in keys(ModelList[t].ContVarLeaf[:s][g]))
     );
-    @constraint(
+    ModelList[t+1].model[:partition_lower_bound_copy][g] = @constraint(
         ModelList[t+1].model, 
-        AugBoundingConstraintLower,
         ModelList[t+1].model[:s_copy][g] ≥ 
         sum(ModelList[t].ContVarLeaf[:s][g][k][:lb] * ModelList[t+1].model[:augmentVar_copy][g, k] for k in keys(ModelList[t].ContVarLeaf[:s][g]))
     );

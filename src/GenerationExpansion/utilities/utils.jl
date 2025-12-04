@@ -133,3 +133,25 @@ function save_results_info(
 
     return nothing
 end
+
+"""
+    get_cut_selection(cutSelection::Symbol, i::Int)
+
+    Base on cutSelection and iteration index i, determine the actual cut selection strategy to use.
+"""
+function get_cutType(
+    cutType::Symbol, 
+    i::Int;
+    threshold::Int = 3)
+    if cutType == :SBCLC
+        return i <= threshold ? :SBC : :LC
+    elseif cutType == :SBCSMC
+        return i <= threshold ? :SBC : :SMC
+    elseif cutType == :SBCPLC
+        return i <= threshold ? :SBC : :PLC
+    elseif cutType == :SBCLNC
+        return i <= threshold ? :SBC : :LNC
+    else
+        return cutType
+    end
+end

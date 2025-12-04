@@ -478,9 +478,7 @@ function solve_inner_minimization_problem(
     leaf_penalty = if param.algorithm == :SDDPL
         sum(
             sum(
-                πₙ.IntVarLeaf[g][k] *
-                (stateInfo.IntVarLeaf[g][k] - model[:region_indicator_copy][g][k])
-                for k in keys(stateInfo.IntVarLeaf[g]); init = 0.0
+                πₙ.IntVarLeaf[g][k] * (stateInfo.IntVarLeaf[g][k] - model[:region_indicator_copy][g][k]) for k in keys(stateInfo.IntVarLeaf[g]); init = 0.0
             ) for g in 1:binaryInfo.d
         )
     else
@@ -496,13 +494,14 @@ function solve_inner_minimization_problem(
     optimize!(model);
     F  = JuMP.objective_value(model);
 
-    normalization_function = cutTypeInfo.CoreState.StateValue * πₙ.StateValue +
-    (stateInfo.IntVar === nothing ? 0.0 : cutTypeInfo.CoreState.IntVar' * πₙ.IntVar) + (
-        stateInfo.IntVarLeaf === nothing ? 0.0 : sum(sum(
-            cutTypeInfo.CoreState.IntVarLeaf[g][k] * πₙ.IntVarLeaf[g][k] for k in keys(πₙ.IntVarLeaf[g])
-            ) for g in 1:binaryInfo.d) 
+    normalization_function = cutTypeInfo.CoreState.StateValue * πₙ.StateValue + (
+    stateInfo.IntVar === nothing ? 0.0 : cutTypeInfo.CoreState.IntVar' * πₙ.IntVar) + (
+        stateInfo.IntVarLeaf === nothing ? 0.0 : sum(
+            sum(
+                cutTypeInfo.CoreState.IntVarLeaf[g][k] * πₙ.IntVarLeaf[g][k] for k in keys(πₙ.IntVarLeaf[g])
+        ) for g in 1:binaryInfo.d) 
     ) + (
-            stateInfo.IntVarBinaries === nothing ? 0.0 : cutTypeInfo.CoreState.IntVarBinaries' * πₙ.IntVarBinaries
+        stateInfo.IntVarBinaries === nothing ? 0.0 : cutTypeInfo.CoreState.IntVarBinaries' * πₙ.IntVarBinaries
     );
     
     

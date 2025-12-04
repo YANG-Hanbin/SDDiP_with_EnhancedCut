@@ -261,13 +261,13 @@ end
 if abspath(PROGRAM_FILE) == @__FILE__
     summary = run_experiment_grid(
         case         = "case30",
-        algorithms   = [:SDDiP, :SDDP],
-        cuts         = [:SBCLC, :SBCSMC, :SBCPLC, :NormalizedCut],
+        algorithms   = [:SDDPL, :SDDiP, :SDDP],
+        cuts         = [:LC, :SBCLC, :SBCSMC, :SBCPLC, :NormalizedCut],
         nums         = [5, 10],
         Ts           = [6, 8, 12],
         numScenarios = 500,
         M            = 1,
-        logger_save  = true,
+        logger_save  = false,
         med_method   = :IntervalMed,
         ε            = 1 / 2^8,
         ℓ            = 0.5,

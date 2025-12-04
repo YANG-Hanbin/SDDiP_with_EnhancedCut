@@ -37,7 +37,9 @@ end
 function setupCutGenerationInfo(
     model::Model,
     stateInfo::StageInfo, 
-    primal_bound::Float64;    
+    primal_bound::Float64, 
+    cutType::Symbol;    
+    stageData::StageData = stageData,
     binaryInfo::BinaryInfo = binaryInfo,
     param::SDDPParam = param
 )::NamedTuple
@@ -47,7 +49,8 @@ function setupCutGenerationInfo(
         nothing,
         stateInfo.IntVar === nothing ?
             nothing :
-            stateInfo.IntVar .* 0 .+ 0.5,
+            stageData.ū ./ 2,
+            # stateInfo.IntVar .* 0 .+ 0.5,
         stateInfo.IntVarLeaf === nothing ?
             nothing :
             Dict(
@@ -61,7 +64,7 @@ function setupCutGenerationInfo(
     );
 
     πₙ = StageInfo(
-        - 1.0,
+        - 0.0,
         nothing,
         stateInfo.IntVar === nothing ?
             nothing :
@@ -90,10 +93,10 @@ function setupCutGenerationInfo(
         πₙ
     )
 
-    if param.cutType == :LC
+    if cutType == :LC
         cutGenerationProgramInfo = LagrangianCutGenerationProgram(0.0)
-    elseif param.cutType == :PLC
-        # state / binary state constraint
+    elseif cutType == :PLC
+        ## state / binary state constraint
         if param.algorithm == :SDDiP
             @constraint(
                 model,
@@ -109,19 +112,21 @@ function setupCutGenerationInfo(
         end
         @objective(model, Min, model[:primal_objective_expression])
         optimize!(model)
-        cutGenerationProgramInfo = ParetoLagrangianCutGenerationProgram(
-            coreState,
-            objective_value(model),
-            param.ε
-        )
+        if termination_status(model) == MOI.OPTIMAL
+            cutGenerationProgramInfo = ParetoLagrangianCutGenerationProgram(
+                coreState,
+                objective_value(model),
+                param.ε
+            )
+        else 
+            cutGenerationProgramInfo = ParetoLagrangianCutGenerationProgram(
+                coreState,
+                primal_bound,
+                param.ε
+            )
+        end 
         delete(model, model[:NonAnticipativity])
         unregister(model, :NonAnticipativity)
-
-        # cutGenerationProgramInfo = ParetoLagrangianCutGenerationProgram(
-        #     coreState,
-        #     primal_bound,
-        #     param.ε
-        # )
     elseif param.cutType == :SMC
         ## state / binary state constraint
         if param.algorithm == :SDDiP
@@ -150,7 +155,7 @@ function setupCutGenerationInfo(
         #     param.ε,
         #     primal_bound
         # )
-    elseif param.cutType == :SBC
+    elseif cutType == :SBC
         @objective(model, Min, model[:primal_objective_expression])
         if param.algorithm == :SDDP 
             @constraint(
@@ -228,7 +233,7 @@ function setupCutGenerationInfo(
         cutGenerationProgramInfo = StrengthenedBendersCutGenerationProgram{Float64}(
             coefficientBendersCut
         )
-    elseif param.cutType == :LNC 
+    elseif cutType == :LNC 
         # state / binary state constraint
         if param.algorithm == :SDDiP
             @constraint(
@@ -245,17 +250,19 @@ function setupCutGenerationInfo(
         end
         @objective(model, Min, model[:primal_objective_expression])
         optimize!(model)
-        cutGenerationProgramInfo = LinearNormalizationLagrangianCutGenerationProgram(
-            coreState,
-            objective_value(model)
-        )
+        if termination_status(model) == MOI.OPTIMAL
+            cutGenerationProgramInfo = LinearNormalizationLagrangianCutGenerationProgram(
+                coreState,
+                objective_value(model)
+            )
+        else 
+            cutGenerationProgramInfo = LinearNormalizationLagrangianCutGenerationProgram(
+                coreState,
+                primal_bound
+            )
+        end 
         delete(model, model[:NonAnticipativity])
         unregister(model, :NonAnticipativity)
-        
-        # cutGenerationProgramInfo = LinearNormalizationLagrangianCutGenerationProgram(
-        #     coreState,
-        #     primal_bound
-        # )
     end
 
     return (
@@ -270,7 +277,7 @@ end
     function for backward pass in parallel computing
 """
 function backwardPass(
-    backwardNodeInfo::Tuple{Int64, Int64, Int64}, 
+    backwardNodeInfo::Tuple, 
     solCollection::Dict{Any, Any}; 
     forwardInfoList::Dict{Int64, StageModel} = forwardInfoList,
     stageDataList::Dict{Int64, StageData} = stageDataList,
@@ -279,7 +286,7 @@ function backwardPass(
     binaryInfo::BinaryInfo = binaryInfo,
 )::Vector
 
-    (t, j, k) = backwardNodeInfo; 
+    (i, t, j, k) = backwardNodeInfo; 
     model_modification!(
         forwardInfoList[t].model,
         Ω[t][j].d;
@@ -287,10 +294,17 @@ function backwardPass(
         binaryInfo = binaryInfo,
     );
 
+    cutType = get_cutType(
+        param.cutType,
+        i
+    )
+
     (cutGenerationParamInfo, cutTypeInfo) = setupCutGenerationInfo(
         forwardInfoList[t].model,
         solCollection[t-1,k], 
-        solCollection[t,k].StateValue;
+        solCollection[t,k].StateValue,
+        cutType;
+        stageData = stageDataList[t],
         binaryInfo = binaryInfo,
         param = param
     );

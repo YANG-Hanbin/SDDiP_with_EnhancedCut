@@ -257,10 +257,10 @@ function LevelSetMethod_optimization!(
 
     # model for oracle
     oracleModel = Model(optimizer_with_attributes(
-        ()->Gurobi.Optimizer(GRB_ENV), 
-        "Threads" => 0)
+        ()->Gurobi.Optimizer(GRB_ENV))
     ); 
     MOI.set(oracleModel, MOI.Silent(), true);
+    set_optimizer_attribute(oracleModel, "Threads", 1);
     set_optimizer_attribute(oracleModel, "MIPGap", param.MIPGap);
     set_optimizer_attribute(oracleModel, "TimeLimit", param.TimeLimit);
 
@@ -287,11 +287,11 @@ function LevelSetMethod_optimization!(
 
 
     nxtModel = Model(optimizer_with_attributes(
-        ()->Gurobi.Optimizer(GRB_ENV), 
-        "Threads" => 0)
+        ()->Gurobi.Optimizer(GRB_ENV))
     ); 
     MOI.set(nxtModel, MOI.Silent(), true);
     set_optimizer_attribute(nxtModel, "MIPGap", param.MIPGap);
+    set_optimizer_attribute(nxtModel, "Threads", 1);
     set_optimizer_attribute(nxtModel, "TimeLimit", param.TimeLimit);
     @variable(nxtModel, xθ);
     @variable(nxtModel, xs[G]);

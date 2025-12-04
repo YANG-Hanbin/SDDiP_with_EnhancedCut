@@ -25,13 +25,14 @@ function Δ_model_formulation(
 
     alphaModel = Model(
         optimizer_with_attributes(
-            () -> Gurobi.Optimizer(GRB_ENV),
-            "Threads" => 0,
+            () -> Gurobi.Optimizer(GRB_ENV)
         ),
     )
     MOI.set(alphaModel, MOI.Silent(), true)
-    set_optimizer_attribute(alphaModel, "MIPGap",   1e-4)
+    set_optimizer_attribute(alphaModel, "MIPGap", 1e-4)
+    set_optimizer_attribute(alphaModel, "Threads", 1)
     set_optimizer_attribute(alphaModel, "TimeLimit", 10.0)
+    set_optimizer_attribute(alphaModel, "FeasibilityTol", 1e-8);
 
     @variable(alphaModel, z)
     @variable(alphaModel, 0 ≤ α ≤ 1)
@@ -68,7 +69,7 @@ function Δ_model_formulation(
     ps_min = primal_status(alphaModel)
 
     if st_min != MOI.OPTIMAL && st_min != MOI.LOCALLY_SOLVED
-        @warn "Δ_model_formulation: α_min model did not solve to optimality (status = $st_min, ps = $ps_min). Using α_min = 0."
+        # @warn "Δ_model_formulation: α_min model did not solve to optimality (status = $st_min, ps = $ps_min). Using α_min = 0."
         α_min = 0.0
     else
         α_min = value(α)
@@ -84,7 +85,7 @@ function Δ_model_formulation(
     ps_max = primal_status(alphaModel)
 
     if st_max != MOI.OPTIMAL && st_max != MOI.LOCALLY_SOLVED
-        @warn "Δ_model_formulation: α_max model did not solve to optimality (status = $st_max, ps = $ps_max). Using α_max = 1."
+        # @warn "Δ_model_formulation: α_max model did not solve to optimality (status = $st_max, ps = $ps_max). Using α_max = 1."
         α_max = 1.0
     else
         α_max = value(α)
@@ -238,12 +239,12 @@ function LevelSetMethod_optimization!(
     ############################################
     oracleModel = Model(
         optimizer_with_attributes(
-            () -> Gurobi.Optimizer(GRB_ENV),
-            "Threads" => 0,
+            () -> Gurobi.Optimizer(GRB_ENV)
         ),
     )
     MOI.set(oracleModel, MOI.Silent(), !param.verbose)
-    set_optimizer_attribute(oracleModel, "MIPGap",   param.gapSDDP)
+    set_optimizer_attribute(oracleModel, "MIPGap", param.gapSDDP)
+    set_optimizer_attribute(oracleModel, "Threads", 1)
     set_optimizer_attribute(oracleModel, "TimeLimit", param.timeSDDP)
 
     @variable(oracleModel, z ≥ -param.nxt_bound)
@@ -263,12 +264,12 @@ function LevelSetMethod_optimization!(
     ############################################
     nxtModel = Model(
         optimizer_with_attributes(
-            () -> Gurobi.Optimizer(GRB_ENV),
-            "Threads" => 0,
+            () -> Gurobi.Optimizer(GRB_ENV)
         ),
     )
     MOI.set(nxtModel, MOI.Silent(), !param.verbose)
-    set_optimizer_attribute(nxtModel, "MIPGap",    param.gapSDDP)
+    set_optimizer_attribute(nxtModel, "MIPGap", param.gapSDDP)
+    set_optimizer_attribute(nxtModel, "Threads", 1)
     set_optimizer_attribute(nxtModel, "TimeLimit", param.timeSDDP)
 
     @variable(nxtModel, z)
@@ -542,7 +543,6 @@ function add_constraint!(
     model::Model;
     binaryInfo = binaryInfo
 )::Nothing
-    m  = length(currentInfo.con)
     xⱼ = currentInfo.var
 
     # shorthand
@@ -647,7 +647,7 @@ function LevelSetMethod_optimization!(
             sum(
                 sum(
                     currentInfo.var.IntVarLeaf[g][k] * stateInfo.IntVarLeaf[g][k]
-                    for k in keys(stateInfo.IntVarLeaf[g]); init = 0.0
+                    for k in keys(stateInfo.IntVarLeaf[g])
                 ) for g in 1:binaryInfo.d
             ) : 0.0),
         currentInfo.var
@@ -664,16 +664,16 @@ function LevelSetMethod_optimization!(
     ############################################
     oracleModel = Model(
         optimizer_with_attributes(
-            () -> Gurobi.Optimizer(GRB_ENV),
-            "Threads" => 0,
+            () -> Gurobi.Optimizer(GRB_ENV)
         ),
     )
     MOI.set(oracleModel, MOI.Silent(), !param.verbose)
-    set_optimizer_attribute(oracleModel, "MIPGap",   param.gapSDDP)
+    set_optimizer_attribute(oracleModel, "MIPGap", param.gapSDDP)
+    set_optimizer_attribute(oracleModel, "Threads",1)
     set_optimizer_attribute(oracleModel, "TimeLimit", param.timeSDDP)
 
     @variable(oracleModel, z ≥ -param.nxt_bound)
-    @variable(oracleModel, xθ ≤ 0)
+    @variable(oracleModel, xθ)
     if param.algorithm == :SDDPL
         @variable(oracleModel, x[i = 1:d])
         @variable(oracleModel, x_sur[g in 1:d, k in keys(stateInfo.IntVarLeaf[g])])
@@ -690,12 +690,12 @@ function LevelSetMethod_optimization!(
     ############################################
     nxtModel = Model(
         optimizer_with_attributes(
-            () -> Gurobi.Optimizer(GRB_ENV),
-            "Threads" => 0,
+            () -> Gurobi.Optimizer(GRB_ENV)
         ),
     )
     MOI.set(nxtModel, MOI.Silent(), !param.verbose)
-    set_optimizer_attribute(nxtModel, "MIPGap",    param.gapSDDP)
+    set_optimizer_attribute(nxtModel, "MIPGap", param.gapSDDP)
+    set_optimizer_attribute(nxtModel, "Threads", 1)
     set_optimizer_attribute(nxtModel, "TimeLimit", param.timeSDDP)
 
     @variable(nxtModel, z)
@@ -766,7 +766,7 @@ function LevelSetMethod_optimization!(
                     sum(
                         sum(
                             currentInfo.var.IntVarLeaf[g][k] * stateInfo.IntVarLeaf[g][k]
-                            for k in keys(stateInfo.IntVarLeaf[g]); init = 0.0
+                            for k in keys(stateInfo.IntVarLeaf[g])
                         ) for g in 1:binaryInfo.d
                     ) : 0.0),
                 currentInfo.var

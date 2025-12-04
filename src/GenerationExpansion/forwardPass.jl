@@ -16,15 +16,15 @@ function forwardModel!(
     # construct forward problem (3.1)
     model = Model(
         optimizer_with_attributes(
-            () -> Gurobi.Optimizer(GRB_ENV),
-            "Threads" => 0,
+            () -> Gurobi.Optimizer(GRB_ENV)
         ),
     )
     MOI.set(model, MOI.Silent(), !param.verbose)
+    set_optimizer_attribute(model, "Threads", 1)
     set_optimizer_attribute(model, "MIPGap", param.solverGap)
     set_optimizer_attribute(model, "TimeLimit", param.solverTime)
-    set_optimizer_attribute(model, "MIPFocus", 3);           
     set_optimizer_attribute(model, "FeasibilityTol", 1e-8);
+    set_optimizer_attribute(model, "MIPFocus", 3);           
 
     # decision variables
     @variable(model, x[g = 1:binaryInfo.d] ≥ 0, Int)   # number of generators built in this stage
@@ -148,6 +148,43 @@ function forwardModel!(
                     ) for k in 1:1
                 ) for g in 1:binaryInfo.d
             ),
+        )
+
+        @constraint(
+            model,
+            partition_lower_bound[g in 1:binaryInfo.d],
+            St[g] ≥ sum(
+                IntVarLeaf[:St][g][k][:lb] *
+                region_indicator[g][k]
+                for k in keys(IntVarLeaf[:St][g])
+            )
+        )
+        @constraint(
+            model,
+            partition_upper_bound[g in 1:binaryInfo.d],
+            St[g] ≤ sum(
+                IntVarLeaf[:St][g][k][:ub] *
+                region_indicator[g][k]
+                for k in keys(IntVarLeaf[:St][g])
+            )
+        )
+        @constraint(
+            model,
+            partition_lower_bound_copy[g in 1:binaryInfo.d],
+            Sc[g] ≥ sum(
+                IntVarLeaf[:St][g][k][:lb] *
+                region_indicator_copy[g][k]
+                for k in keys(IntVarLeaf[:St][g])
+            )
+        )
+        @constraint(
+            model,
+            partition_upper_bound_copy[g in 1:binaryInfo.d],
+            Sc[g] ≤ sum(
+                IntVarLeaf[:St][g][k][:ub] *
+                region_indicator_copy[g][k]
+                for k in keys(IntVarLeaf[:St][g])
+            )
         )
 
     elseif param.algorithm == :SDDiP

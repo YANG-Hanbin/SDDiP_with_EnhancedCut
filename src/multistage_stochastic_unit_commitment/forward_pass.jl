@@ -26,10 +26,10 @@ function forwardModel!(
 )::SDDPModel
     ## build the forward model
     model = Model(optimizer_with_attributes(
-        () -> Gurobi.Optimizer(GRB_ENV), 
-        "Threads" => 0)); 
+        () -> Gurobi.Optimizer(GRB_ENV))); 
     MOI.set(model, MOI.Silent(), !param.verbose);
     set_optimizer_attribute(model, "MIPGap", param.MIPGap);
+    set_optimizer_attribute(model, "Threads", 1);
     set_optimizer_attribute(model, "TimeLimit", param.TimeLimit);
                 
     ## define variables
@@ -89,6 +89,7 @@ function forwardModel!(
 
         # constraints for augmented variables: Choosing one leaf node
         @constraint(model, [g in indexSets.G, k in [1]], augmentVar[g, k] == 1);
+        @constraint(model, [g in indexSets.G, k in [1]], augmentVar_copy[g, k] == 1);
         ContVarLeaf = Dict(
             :s => Dict{Any, Dict{Any, Dict{Symbol, Any}}}(
                 g => Dict(
@@ -103,6 +104,44 @@ function forwardModel!(
             )
         );
         ContVarBinaries = nothing;
+
+        @constraint(
+            model,
+            partition_lower_bound[g in indexSets.G],
+            s[g] ≥ sum(
+                ContVarLeaf[:s][g][k][:lb] *
+                augmentVar[g, k]
+                for k in keys(ContVarLeaf[:s][g])
+            )
+        )
+        @constraint(
+            model,
+            partition_upper_bound[g in indexSets.G],
+            s[g] ≤ sum(
+                ContVarLeaf[:s][g][k][:ub] *
+                augmentVar[g, k]
+                for k in keys(ContVarLeaf[:s][g])
+            )
+        )
+        @constraint(
+            model,
+            partition_lower_bound_copy[g in indexSets.G],
+            s_copy[g] ≥ sum(
+                ContVarLeaf[:s][g][k][:lb] *
+                augmentVar_copy[g, k]
+                for k in keys(ContVarLeaf[:s][g])
+            )
+        )
+        @constraint(
+            model,
+            partition_upper_bound_copy[g in indexSets.G],
+            s_copy[g] ≤ sum(
+                ContVarLeaf[:s][g][k][:ub] *
+                augmentVar_copy[g, k]
+                for k in keys(ContVarLeaf[:s][g])
+            )
+        )
+
     elseif param.algorithm == :SDDP 
         ## define copy variables
         @variable(model, 0 ≤ s_copy[g in indexSets.G] ≤ paramOPF.smax[g]);

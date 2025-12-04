@@ -115,7 +115,7 @@ function stochastic_dual_dynamic_programming_algorithm(
             )
         end
 
-        if param.algorithm == :SDDPL && i ≥ 10
+        if param.algorithm == :SDDPL && i ≥ param.branchingStart
             for t in 1:param.T-1
                 for ω in [1]  # 这里你可以换成真正的节点集合 keys(Ξ̃)
                     dev = Dict{Int, Float64}()
@@ -133,6 +133,11 @@ function stochastic_dual_dynamic_programming_algorithm(
                             (info[:ub] - solCollection[t, ω].IntVar[g]),
                             (solCollection[t, ω].IntVar[g] - info[:lb]),
                         )
+                        if param.cutSparsity
+                            for k in collect(keys(solCollection[t, ω].IntVarLeaf[g]))   
+                                solCollection[t, ω].IntVarLeaf[g][k] == 1.0 || delete!(solCollection[t, ω].IntVarLeaf[g], k)
+                            end
+                        end
                     end
 
                     # choose generator with largest deviation
@@ -195,7 +200,7 @@ function stochastic_dual_dynamic_programming_algorithm(
                                 forwardInfoList[t_local].IntVarLeaf[:St][g_local],
                                 keys_with_value_1_loc,
                             )
-
+                            
                             # logic constraints (forward models)
                             @constraint(
                                 forwardInfoList[t_local].model,
@@ -203,7 +208,11 @@ function stochastic_dual_dynamic_programming_algorithm(
                                 forwardInfoList[t_local].model[:region_indicator][g_local][right_local] ==
                                 forwardInfoList[t_local].model[:region_indicator][g_local][keys_with_value_1_loc],
                             )
-                            @constraint(
+                            delete(
+                                forwardInfoList[t_local].model, 
+                                forwardInfoList[t_local].model[:partition_lower_bound][g_local]
+                            )
+                            forwardInfoList[t_local].model[:partition_lower_bound][g_local] = @constraint(
                                 forwardInfoList[t_local].model,
                                 forwardInfoList[t_local].model[:St][g_local] ≥ sum(
                                     forwardInfoList[t_local].IntVarLeaf[:St][g_local][k][:lb] *
@@ -211,7 +220,11 @@ function stochastic_dual_dynamic_programming_algorithm(
                                     for k in keys(forwardInfoList[t_local].IntVarLeaf[:St][g_local])
                                 ),
                             )
-                            @constraint(
+                            delete(
+                                forwardInfoList[t_local].model, 
+                                forwardInfoList[t_local].model[:partition_upper_bound][g_local]
+                            )
+                            forwardInfoList[t_local].model[:partition_upper_bound][g_local] = @constraint(
                                 forwardInfoList[t_local].model,
                                 forwardInfoList[t_local].model[:St][g_local] ≤ sum(
                                     forwardInfoList[t_local].IntVarLeaf[:St][g_local][k][:ub] *
@@ -257,7 +270,11 @@ function stochastic_dual_dynamic_programming_algorithm(
                                 forwardInfoList[t_local + 1].model[:region_indicator_copy][g_local][right_local] ==
                                 forwardInfoList[t_local + 1].model[:region_indicator_copy][g_local][keys_with_value_1_loc],
                             )
-                            @constraint(
+                            delete(
+                                forwardInfoList[t_local + 1].model, 
+                                forwardInfoList[t_local + 1].model[:partition_lower_bound_copy][g_local]
+                            )
+                            forwardInfoList[t_local + 1].model[:partition_lower_bound_copy][g_local] = @constraint(
                                 forwardInfoList[t_local + 1].model,
                                 forwardInfoList[t_local + 1].model[:Sc][g_local] ≥ sum(
                                     forwardInfoList[t_local].IntVarLeaf[:St][g_local][k][:lb] *
@@ -265,7 +282,11 @@ function stochastic_dual_dynamic_programming_algorithm(
                                     for k in keys(forwardInfoList[t_local].IntVarLeaf[:St][g_local])
                                 ),
                             )
-                            @constraint(
+                            delete(
+                                forwardInfoList[t_local + 1].model, 
+                                forwardInfoList[t_local + 1].model[:partition_upper_bound_copy][g_local]
+                            )
+                            forwardInfoList[t_local + 1].model[:partition_upper_bound_copy][g_local] = @constraint(
                                 forwardInfoList[t_local + 1].model,
                                 forwardInfoList[t_local + 1].model[:Sc][g_local] ≤ sum(
                                     forwardInfoList[t_local].IntVarLeaf[:St][g_local][k][:ub] *
@@ -306,11 +327,11 @@ function stochastic_dual_dynamic_programming_algorithm(
         
         
         for t in reverse(2:param.T)
-            for k in [1]
+            for ω in [1]
                 backwardNodeInfoList = Dict{Int, Tuple}()
 
                 for j in keys(Ω[t])
-                    backwardNodeInfoList[j] = (t, j, k)
+                    backwardNodeInfoList[j] = (i, t, j, ω)
                 end
 
                 backwardPassResult = pmap(values(backwardNodeInfoList)) do backwardNodeInfo
@@ -328,9 +349,9 @@ function stochastic_dual_dynamic_programming_algorithm(
                     IntVar_init         = sum(probList[t][j] * backwardPassResult[j][2].IntVar for j in keys(Ω[t]))
                     IntVarLeaf_init = Dict(
                         g => Dict(
-                            kk => sum(
-                                sum(probList[t][j] * backwardPassResult[j][2].IntVarLeaf[g][kk] for j in keys(Ω[t]))
-                            ) for kk in keys(solCollection[t-1, k].IntVarLeaf[g])
+                            k => sum(
+                                sum(probList[t][j] * backwardPassResult[j][2].IntVarLeaf[g][k] for j in keys(Ω[t]))
+                            ) for k in keys(solCollection[t-1, ω].IntVarLeaf[g])
                         ) for g in 1:binaryInfo.d
                     )
                     IntVarBinaries_init = nothing
@@ -354,12 +375,10 @@ function stochastic_dual_dynamic_programming_algorithm(
                     λ₀_loc  = $λ₀
                     λ₁_loc  = $λ₁
 
-                    m_prev = forwardInfoList[t_local - 1].model
-
                     # state 部分 (SDDP / SDDPL)
                     term_state = 0.0
                     if param.algorithm == :SDDP || param.algorithm == :SDDPL
-                        term_state = λ₁_loc.IntVar' * m_prev[:St]
+                        term_state = λ₁_loc.IntVar' * forwardInfoList[t_local - 1].model[:St]
                     end
 
                     # leaf 部分 (只有 SDDPL)
@@ -367,9 +386,9 @@ function stochastic_dual_dynamic_programming_algorithm(
                     if param.algorithm == :SDDPL
                         term_leaf = sum(
                             sum(
-                                λ₁_loc.IntVarLeaf[g][kk] *
-                                m_prev[:region_indicator][g][kk]
-                                for kk in keys(λ₁_loc.IntVarLeaf[g])
+                                λ₁_loc.IntVarLeaf[g][k] *
+                                forwardInfoList[t_local - 1].model[:region_indicator][g][k]
+                                for k in keys(λ₁_loc.IntVarLeaf[g])
                             ) for g in 1:binaryInfo.d
                         )
                     end
@@ -377,14 +396,14 @@ function stochastic_dual_dynamic_programming_algorithm(
                     # binary 部分 (只有 SDDiP)
                     term_bin = 0.0
                     if param.algorithm == :SDDiP
-                        term_bin = λ₁_loc.IntVarBinaries' * m_prev[:Lt]
+                        term_bin = λ₁_loc.IntVarBinaries' * forwardInfoList[t_local - 1].model[:Lt]
                     end
 
                     rhs = term_state + term_leaf + term_bin + λ₀_loc
 
                     @constraint(
-                        m_prev,
-                        λ₁_loc.StateValue * m_prev[:θ] + rhs ≤ 0
+                        forwardInfoList[t_local - 1].model,
+                        λ₁_loc.StateValue * forwardInfoList[t_local - 1].model[:θ] + rhs ≤ 0
                     )
                 end
             end

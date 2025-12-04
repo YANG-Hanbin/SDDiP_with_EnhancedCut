@@ -153,6 +153,12 @@ function stochastic_dual_dynamic_programming_algorithm(
                                 ), digits = 5
                             );
                         end
+
+                        if param.sparse_cut == :sparse
+                            for k in collect(keys(stateInfoCollection[i, t, ω].ContAugState[:s][g]))   
+                                stateInfoCollection[i, t, ω].ContAugState[:s][g][k] == 1.0 || delete!(stateInfoCollection[i, t, ω].ContAugState[:s][g], k)
+                            end
+                        end
                     end
                     ##TODO: the second rule: current point is far from being an extreme point
                     if param.branch_variable == :MFV

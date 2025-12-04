@@ -31,6 +31,7 @@ function run_generation_expansion_experiments(;
     ε::Float64                 = 1e-4,
     discreteZ::Bool            = true,
     cutSparsity::Bool          = true,
+    startBranching::Int        = 3,
     verbose::Bool              = false,
     ℓ1::Float64                = 0.0,
     ℓ2::Float64                = 0.0,
@@ -69,6 +70,7 @@ function run_generation_expansion_experiments(;
             discreteZ        = discreteZ,
             cutType          = cutType,
             cutSparsity      = cutSparsity,
+            startBranching   = startBranching,
             T                = T,
             num              = num,
             verbose          = verbose,
@@ -107,9 +109,14 @@ function run_generation_expansion_experiments(;
     return results
 end
 
-algorithms = [:SDDP]
-cutTypes = [:SMC, :PLC, :SBC]
-T_list = [10, 15]
+# algorithms = [:SDDPL]
+# cutTypes = [:PLC, :SBC, :SBCLC, :SBCSMC, :SBCPLC, :LC, :LNC]
+# T_list = [10, 15]
+# num_list = [5, 10]
+
+algorithms = [:SDDPL]
+cutTypes = [:PLC]
+T_list = [15]
 num_list = [5, 10]
 
 results = run_generation_expansion_experiments(
@@ -126,6 +133,7 @@ results = run_generation_expansion_experiments(
     ε                           = 1e-4,
     discreteZ                   = true,
     cutSparsity                 = true,
+    startBranching              = 10,
     verbose                     = false,
     ℓ1                          = 0.0,
     ℓ2                          = 0.0,
