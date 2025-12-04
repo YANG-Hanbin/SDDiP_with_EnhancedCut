@@ -36,7 +36,7 @@ function solve_inner_minimization_problem(
         sum(
             sum(
                 πₙ.IntVarLeaf[g][k] *
-                (stateInfo.IntVarLeaf[g][k] - model[:region_indicator_copy][g, k])
+                (stateInfo.IntVarLeaf[g][k] - model[:region_indicator_copy][g][k])
                 for k in keys(stateInfo.IntVarLeaf[g]); init = 0.0
             ) for g in 1:binaryInfo.d
         )
@@ -83,7 +83,7 @@ function solve_inner_minimization_problem(
             :St => value.(model[:Sc]) .- cutTypeInfo.CoreState.IntVar,
             :region_indicator => Dict(
                 g => Dict(
-                    k => JuMP.value(model[:region_indicator_copy][g, k]) - cutTypeInfo.CoreState.IntVarLeaf[g][k]
+                    k => JuMP.value(model[:region_indicator_copy][g][k]) - cutTypeInfo.CoreState.IntVarLeaf[g][k]
                     for k in keys(stateInfo.IntVarLeaf[g])
                 ) for g in 1:binaryInfo.d
             ),
@@ -105,7 +105,7 @@ function solve_inner_minimization_problem(
             :St => value.(model[:Sc]) .- stateInfo.IntVar,
             :region_indicator => Dict(
                 g => Dict(
-                    k => JuMP.value(model[:region_indicator_copy][g, k]) - stateInfo.IntVarLeaf[g][k]
+                    k => JuMP.value(model[:region_indicator_copy][g][k]) - stateInfo.IntVarLeaf[g][k]
                     for k in keys(stateInfo.IntVarLeaf[g])
                 ) for g in 1:binaryInfo.d
             ),
@@ -168,7 +168,7 @@ function solve_inner_minimization_problem(
         sum(
             sum(
                 πₙ.IntVarLeaf[g][k] *
-                (stateInfo.IntVarLeaf[g][k] - model[:region_indicator_copy][g, k])
+                (stateInfo.IntVarLeaf[g][k] - model[:region_indicator_copy][g][k])
                 for k in keys(stateInfo.IntVarLeaf[g]); init = 0.0
             ) for g in 1:binaryInfo.d
         )
@@ -222,7 +222,7 @@ function solve_inner_minimization_problem(
                 :St => value.(model[:Sc]) .- stateInfo.IntVar,
                 :region_indicator => Dict(
                     g => Dict(
-                        k => JuMP.value(model[:region_indicator_copy][g, k]) - stateInfo.IntVarLeaf[g][k]
+                        k => JuMP.value(model[:region_indicator_copy][g][k]) - stateInfo.IntVarLeaf[g][k]
                                 for k in keys(stateInfo.IntVarLeaf[g])
                     ) for g in 1:binaryInfo.d
                 )
@@ -275,7 +275,7 @@ function solve_inner_minimization_problem(
         sum(
             sum(
                 πₙ.IntVarLeaf[g][k] *
-                (stateInfo.IntVarLeaf[g][k] - model[:region_indicator_copy][g, k])
+                (stateInfo.IntVarLeaf[g][k] - model[:region_indicator_copy][g][k])
                 for k in keys(stateInfo.IntVarLeaf[g]); init = 0.0
             ) for g in 1:binaryInfo.d
         )
@@ -297,7 +297,7 @@ function solve_inner_minimization_problem(
             :St => value.(model[:Sc]) .- stateInfo.IntVar,
             :region_indicator => Dict(
                 g => Dict(
-                    k => JuMP.value(model[:region_indicator_copy][g, k]) -
+                    k => JuMP.value(model[:region_indicator_copy][g][k]) -
                         stateInfo.IntVarLeaf[g][k]
                     for k in keys(stateInfo.IntVarLeaf[g])
                 ) for g in 1:binaryInfo.d
@@ -383,7 +383,7 @@ function solve_inner_minimization_problem(
         sum(
             sum(
                 πₙ.IntVarLeaf[g][k] *
-                (stateInfo.IntVarLeaf[g][k] - model[:region_indicator_copy][g, k])
+                (stateInfo.IntVarLeaf[g][k] - model[:region_indicator_copy][g][k])
                 for k in keys(stateInfo.IntVarLeaf[g]); init = 0.0
             ) for g in 1:binaryInfo.d
         )
@@ -411,7 +411,7 @@ function solve_inner_minimization_problem(
             :St => value.(model[:Sc]) .- stateInfo.IntVar,
             :region_indicator => Dict(
                 g => Dict(
-                    k => JuMP.value(model[:region_indicator_copy][g, k]) - stateInfo.IntVarLeaf[g][k]
+                    k => JuMP.value(model[:region_indicator_copy][g][k]) - stateInfo.IntVarLeaf[g][k]
                             for k in keys(stateInfo.IntVarLeaf[g])
                 ) for g in 1:binaryInfo.d
             )
@@ -427,8 +427,7 @@ function solve_inner_minimization_problem(
                 :St => stateInfo.IntVar .* 0.0,
                 :region_indicator => Dict(
                     g => Dict(
-                        k => 0.0
-                                for k in keys(stateInfo.IntVarLeaf[g])
+                        k => 0.0 for k in keys(stateInfo.IntVarLeaf[g])
                     ) for g in 1:binaryInfo.d
                 )
             ) : param.algorithm == :SDDiP ? 
@@ -480,7 +479,7 @@ function solve_inner_minimization_problem(
         sum(
             sum(
                 πₙ.IntVarLeaf[g][k] *
-                (stateInfo.IntVarLeaf[g][k] - model[:region_indicator_copy][g, k])
+                (stateInfo.IntVarLeaf[g][k] - model[:region_indicator_copy][g][k])
                 for k in keys(stateInfo.IntVarLeaf[g]); init = 0.0
             ) for g in 1:binaryInfo.d
         )
@@ -513,7 +512,7 @@ function solve_inner_minimization_problem(
             :St => value.(model[:Sc]) .- stateInfo.IntVar,
             :region_indicator => Dict(
                 g => Dict(
-                    k => JuMP.value(model[:region_indicator_copy][g, k]) - stateInfo.IntVarLeaf[g][k]
+                    k => JuMP.value(model[:region_indicator_copy][g][k]) - stateInfo.IntVarLeaf[g][k]
                     for k in keys(stateInfo.IntVarLeaf[g])
                 ) for g in 1:binaryInfo.d
             ),

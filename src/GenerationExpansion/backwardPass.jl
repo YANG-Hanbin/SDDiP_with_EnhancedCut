@@ -180,7 +180,7 @@ function setupCutGenerationInfo(
             @constraint(
                 model, 
                 NonAnticipativity[g in 1:binaryInfo.d, i in keys(stateInfo.IntVarLeaf[g])], 
-                model[:region_indicator_copy][g, i] .== stateInfo.IntVarLeaf[g][i]
+                model[:region_indicator_copy][g][i] .== stateInfo.IntVarLeaf[g][i]
             );  
             lp_model = relax_integrality(model);
             optimize!(model);
@@ -229,33 +229,33 @@ function setupCutGenerationInfo(
             coefficientBendersCut
         )
     elseif param.cutType == :LNC 
-        ## state / binary state constraint
-        # if param.algorithm == :SDDiP
-        #     @constraint(
-        #         model,
-        #         NonAnticipativity,
-        #         model[:Lc] .== stateInfo.IntVarBinaries,
-        #     )
-        # else
-        #     @constraint(
-        #         model,
-        #         NonAnticipativity,
-        #         model[:Sc] .== stateInfo.IntVar,
-        #     )
-        # end
-        # @objective(model, Min, model[:primal_objective_expression])
-        # optimize!(model)
-        # cutGenerationProgramInfo = LinearNormalizationLagrangianCutGenerationProgram(
-        #     coreState,
-        #     objective_value(model)
-        # )
-        # delete(model, model[:NonAnticipativity])
-        # unregister(model, :NonAnticipativity)
-        
+        # state / binary state constraint
+        if param.algorithm == :SDDiP
+            @constraint(
+                model,
+                NonAnticipativity,
+                model[:Lc] .== stateInfo.IntVarBinaries,
+            )
+        else
+            @constraint(
+                model,
+                NonAnticipativity,
+                model[:Sc] .== stateInfo.IntVar,
+            )
+        end
+        @objective(model, Min, model[:primal_objective_expression])
+        optimize!(model)
         cutGenerationProgramInfo = LinearNormalizationLagrangianCutGenerationProgram(
             coreState,
-            primal_bound
+            objective_value(model)
         )
+        delete(model, model[:NonAnticipativity])
+        unregister(model, :NonAnticipativity)
+        
+        # cutGenerationProgramInfo = LinearNormalizationLagrangianCutGenerationProgram(
+        #     coreState,
+        #     primal_bound
+        # )
     end
 
     return (

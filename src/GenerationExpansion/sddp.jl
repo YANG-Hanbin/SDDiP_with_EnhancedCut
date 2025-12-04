@@ -6,7 +6,7 @@ Returns a Dict with:
 - :solution   => first-stage solution
 - :gapHistory => Vector of gaps
 """
-function SDDiP_algorithm(
+function stochastic_dual_dynamic_programming_algorithm(
     Ω::Dict{Int, Dict{Int, RandomVariables}},
     probList::Dict{Int, Vector{Float64}},
     stageDataList::Dict{Int, StageData};
@@ -115,7 +115,7 @@ function SDDiP_algorithm(
             )
         end
 
-        if param.algorithm == :SDDPL && i ≥ 2
+        if param.algorithm == :SDDPL && i ≥ 10
             for t in 1:param.T-1
                 for ω in [1]  # 这里你可以换成真正的节点集合 keys(Ξ̃)
                     dev = Dict{Int, Float64}()
@@ -130,10 +130,8 @@ function SDDiP_algorithm(
                         )
                         info = forwardInfoList[t].IntVarLeaf[:St][g][k_leaf]
                         dev[g] = min(
-                            (info[:ub] - solCollection[t, ω].IntVar[g]) /
-                            (info[:ub] - info[:lb] + 1e-6),
-                            (solCollection[t, ω].IntVar[g] - info[:lb]) /
-                            (info[:ub] - info[:lb] + 1e-6),
+                            (info[:ub] - solCollection[t, ω].IntVar[g]),
+                            (solCollection[t, ω].IntVar[g] - info[:lb]),
                         )
                     end
 
@@ -149,10 +147,10 @@ function SDDiP_algorithm(
                         # current interval [lb, ub] and split point med
                         lb  = forwardInfoList[t].IntVarLeaf[:St][g][keys_with_value_1][:lb]
                         ub  = forwardInfoList[t].IntVarLeaf[:St][g][keys_with_value_1][:ub]
-                        med = solCollection[t, ω].IntVar[g]
+                        med = round(solCollection[t, ω].IntVar[g], digits = 2)
 
                         # create two new leaf nodes and update info
-                        left  = length(forwardInfoList[t].IntVarLeaf[:St][g]) + 1
+                        left  = length(forwardInfoList[t].model[:region_indicator][g]) + 1
                         right = left + 1
 
                         @everywhere begin
@@ -166,32 +164,30 @@ function SDDiP_algorithm(
                             keys_with_value_1_loc = $keys_with_value_1
 
                             # forward model: new region indicators
-                            forwardInfoList[t_local].model[:region_indicator][g_local, left_local] =
-                                @variable(
-                                    forwardInfoList[t_local].model,
-                                    base_name = "region_indicator[$g_local, $left_local]",
-                                    binary    = true,
-                                )
-                            forwardInfoList[t_local].model[:region_indicator][g_local, right_local] =
-                                @variable(
-                                    forwardInfoList[t_local].model,
-                                    base_name = "region_indicator[$g_local, $right_local]",
-                                    binary    = true,
-                                )
+                            forwardInfoList[t_local].model[:region_indicator][g_local][left_local] = @variable(
+                                forwardInfoList[t_local].model,
+                                base_name = "region_indicator[$g_local, $left_local]",
+                                binary    = true,
+                            )
+                            forwardInfoList[t_local].model[:region_indicator][g_local][right_local] = @variable(
+                                forwardInfoList[t_local].model,
+                                base_name = "region_indicator[$g_local, $right_local]",
+                                binary    = true,
+                            )
 
                             forwardInfoList[t_local].IntVarLeaf[:St][g_local][left_local] = Dict(
                                 :lb      => lb_local,
                                 :ub      => med_local,
                                 :parent  => keys_with_value_1_loc,
                                 :sibling => right_local,
-                                :var     => forwardInfoList[t_local].model[:region_indicator][g_local, left_local],
+                                :var     => forwardInfoList[t_local].model[:region_indicator][g_local][left_local],
                             )
                             forwardInfoList[t_local].IntVarLeaf[:St][g_local][right_local] = Dict(
                                 :lb      => med_local,
                                 :ub      => ub_local,
                                 :parent  => keys_with_value_1_loc,
                                 :sibling => left_local,
-                                :var     => forwardInfoList[t_local].model[:region_indicator][g_local, right_local],
+                                :var     => forwardInfoList[t_local].model[:region_indicator][g_local][right_local],
                             )
 
                             # remove old leaf node
@@ -203,15 +199,15 @@ function SDDiP_algorithm(
                             # logic constraints (forward models)
                             @constraint(
                                 forwardInfoList[t_local].model,
-                                forwardInfoList[t_local].model[:region_indicator][g_local, left_local] +
-                                forwardInfoList[t_local].model[:region_indicator][g_local, right_local] ==
-                                forwardInfoList[t_local].model[:region_indicator][g_local, keys_with_value_1_loc],
+                                forwardInfoList[t_local].model[:region_indicator][g_local][left_local] +
+                                forwardInfoList[t_local].model[:region_indicator][g_local][right_local] ==
+                                forwardInfoList[t_local].model[:region_indicator][g_local][keys_with_value_1_loc],
                             )
                             @constraint(
                                 forwardInfoList[t_local].model,
                                 forwardInfoList[t_local].model[:St][g_local] ≥ sum(
                                     forwardInfoList[t_local].IntVarLeaf[:St][g_local][k][:lb] *
-                                    forwardInfoList[t_local].model[:region_indicator][g_local, k]
+                                    forwardInfoList[t_local].model[:region_indicator][g_local][k]
                                     for k in keys(forwardInfoList[t_local].IntVarLeaf[:St][g_local])
                                 ),
                             )
@@ -219,34 +215,34 @@ function SDDiP_algorithm(
                                 forwardInfoList[t_local].model,
                                 forwardInfoList[t_local].model[:St][g_local] ≤ sum(
                                     forwardInfoList[t_local].IntVarLeaf[:St][g_local][k][:ub] *
-                                    forwardInfoList[t_local].model[:region_indicator][g_local, k]
+                                    forwardInfoList[t_local].model[:region_indicator][g_local][k]
                                     for k in keys(forwardInfoList[t_local].IntVarLeaf[:St][g_local])
                                 ),
                             )
 
                             # backward-side region_indicator_copy
                             if param.discreteZ
-                                forwardInfoList[t_local + 1].model[:region_indicator_copy][g_local, left_local] =
+                                forwardInfoList[t_local + 1].model[:region_indicator_copy][g_local][left_local] =
                                     @variable(
                                         forwardInfoList[t_local + 1].model,
                                         base_name = "region_indicator_copy[$g_local, $left_local]",
                                         binary    = true,
                                     )
-                                forwardInfoList[t_local + 1].model[:region_indicator_copy][g_local, right_local] =
+                                forwardInfoList[t_local + 1].model[:region_indicator_copy][g_local][right_local] =
                                     @variable(
                                         forwardInfoList[t_local + 1].model,
                                         base_name = "region_indicator_copy[$g_local, $right_local]",
                                         binary    = true,
                                     )
                             else
-                                forwardInfoList[t_local + 1].model[:region_indicator_copy][g_local, left_local] =
+                                forwardInfoList[t_local + 1].model[:region_indicator_copy][g_local][left_local] =
                                     @variable(
                                         forwardInfoList[t_local + 1].model,
                                         base_name   = "region_indicator_copy[$g_local, $left_local]",
                                         lower_bound = 0,
                                         upper_bound = 1,
                                     )
-                                forwardInfoList[t_local + 1].model[:region_indicator_copy][g_local, right_local] =
+                                forwardInfoList[t_local + 1].model[:region_indicator_copy][g_local][right_local] =
                                     @variable(
                                         forwardInfoList[t_local + 1].model,
                                         base_name   = "region_indicator_copy[$g_local, $right_local]",
@@ -257,15 +253,15 @@ function SDDiP_algorithm(
 
                             @constraint(
                                 forwardInfoList[t_local + 1].model,
-                                forwardInfoList[t_local + 1].model[:region_indicator_copy][g_local, left_local] +
-                                forwardInfoList[t_local + 1].model[:region_indicator_copy][g_local, right_local] ==
-                                forwardInfoList[t_local + 1].model[:region_indicator_copy][g_local, keys_with_value_1_loc],
+                                forwardInfoList[t_local + 1].model[:region_indicator_copy][g_local][left_local] +
+                                forwardInfoList[t_local + 1].model[:region_indicator_copy][g_local][right_local] ==
+                                forwardInfoList[t_local + 1].model[:region_indicator_copy][g_local][keys_with_value_1_loc],
                             )
                             @constraint(
                                 forwardInfoList[t_local + 1].model,
                                 forwardInfoList[t_local + 1].model[:Sc][g_local] ≥ sum(
                                     forwardInfoList[t_local].IntVarLeaf[:St][g_local][k][:lb] *
-                                    forwardInfoList[t_local + 1].model[:region_indicator_copy][g_local, k]
+                                    forwardInfoList[t_local + 1].model[:region_indicator_copy][g_local][k]
                                     for k in keys(forwardInfoList[t_local].IntVarLeaf[:St][g_local])
                                 ),
                             )
@@ -273,7 +269,7 @@ function SDDiP_algorithm(
                                 forwardInfoList[t_local + 1].model,
                                 forwardInfoList[t_local + 1].model[:Sc][g_local] ≤ sum(
                                     forwardInfoList[t_local].IntVarLeaf[:St][g_local][k][:ub] *
-                                    forwardInfoList[t_local + 1].model[:region_indicator_copy][g_local, k]
+                                    forwardInfoList[t_local + 1].model[:region_indicator_copy][g_local][k]
                                     for k in keys(forwardInfoList[t_local].IntVarLeaf[:St][g_local])
                                 ),
                             )
@@ -372,7 +368,7 @@ function SDDiP_algorithm(
                         term_leaf = sum(
                             sum(
                                 λ₁_loc.IntVarLeaf[g][kk] *
-                                m_prev[:region_indicator][g, kk]
+                                m_prev[:region_indicator][g][kk]
                                 for kk in keys(λ₁_loc.IntVarLeaf[g])
                             ) for g in 1:binaryInfo.d
                         )

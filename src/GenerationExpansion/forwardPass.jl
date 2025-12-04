@@ -78,14 +78,20 @@ function forwardModel!(
     # algorithm-specific structures
     if param.algorithm == :SDDPL
         # region indicator for surrogate leaves
-        region_indicator = Dict(
-            (g, i) => @variable(model, base_name = "region_indicator[$g, $i]", binary = true)
-            for g in 1:binaryInfo.d, i in 1:1
+        region_indicator = Dict( 
+            g => Dict(
+                i => @variable(
+                    model, 
+                    base_name = "region_indicator[$g, $i]", 
+                    binary = true
+                ) for i in 1:1
+            ) for g in 1:binaryInfo.d
         )
+
         model[:region_indicator] = region_indicator
 
         # choose exactly one leaf per generator
-        @constraint(model, [g in 1:binaryInfo.d], region_indicator[g, 1] == 1)
+        @constraint(model, [g in 1:binaryInfo.d], region_indicator[g][1] == 1)
 
         # copy variable Sc for previous state
         if param.discreteZ
@@ -99,22 +105,28 @@ function forwardModel!(
         # copy of region indicator (for cuts or auxiliary use)
         if param.discreteZ
             region_indicator_copy = Dict(
-                (g, i) => @variable(model, base_name = "region_indicator_copy[$g, $i]", binary = true)
-                for g in 1:binaryInfo.d, i in 1:1
+                g => Dict(
+                    i => @variable(
+                        model, 
+                        base_name = "region_indicator_copy[$g, $i]", 
+                        binary = true
+                    ) for i in 1:1
+                ) for g in 1:binaryInfo.d
             )
         else
             region_indicator_copy = Dict(
-                (g, i) => @variable(
-                    model,
-                    base_name   = "region_indicator_copy[$g, $i]",
-                    lower_bound = 0,
-                    upper_bound = 1,
-                )
-                for g in 1:binaryInfo.d, i in 1:1
+                g => Dict(
+                    i => @variable(
+                        model,
+                        base_name   = "region_indicator_copy[$g, $i]",
+                        lower_bound = 0,
+                        upper_bound = 1,
+                    ) for i in 1:1
+                ) for g in 1:binaryInfo.d
             )
         end
         model[:region_indicator_copy] = region_indicator_copy
-        @constraint(model, [g in 1:binaryInfo.d], region_indicator_copy[g, 1] == 1)
+        @constraint(model, [g in 1:binaryInfo.d], region_indicator_copy[g][1] == 1)
 
         # state transition and initial condition (Ŝ = 0 at t = 1)
         @constraint(model, Sc + x .== St)
@@ -132,7 +144,7 @@ function forwardModel!(
                         :ub     => stageData.ū[g],
                         :parent => nothing,
                         :sibling => nothing,
-                        :var    => region_indicator[g, k],
+                        :var    => region_indicator[g][k],
                     ) for k in 1:1
                 ) for g in 1:binaryInfo.d
             ),
@@ -286,30 +298,6 @@ function forwardPass(
 
         optimize!(forwardInfo.model)
 
-        # 检查求解状态
-        st  = JuMP.termination_status(forwardInfo.model)
-        pst = JuMP.primal_status(forwardInfo.model)
-
-        # if st == MOI.INFEASIBLE || st == MOI.INFEASIBLE_OR_UNBOUNDED
-        #     @error "Forward model infeasible at stage $t, scenario $ω"
-        #     @info  "Ŝ (state)  = $Ŝ"
-        #     @info  "L̂ (binary) = $L̂"
-
-        #     # 如果想直接停掉整个算法：
-        #     print_conflict_constraints(forwardInfo.model)
-        #     error("Forward problem infeasible at stage $t, scenario $ω")
-
-        #     # 或者 return 某个特殊标记，后面外层 while 收到就跳出
-        # end
-
-        # # 如果只接受有可行解的情况，可以再加个判断：
-        # if pst != MOI.FEASIBLE_POINT && pst != MOI.NEARLY_FEASIBLE_POINT
-        #     @warn "No feasible primal solution (st = $st, pst = $pst) at stage $t, scenario $ω"
-        #     @info "Ŝ (state)  = $Ŝ"
-        #     @info "L̂ (binary) = $L̂"
-        #     error("Forward problem has no feasible primal solution")
-        # end
-
         stateValue = objective_value(forwardInfo.model)
         stageValue = stateValue - value(forwardInfo.model[:θ])
 
@@ -321,7 +309,7 @@ function forwardPass(
         # IntVarLeaf: only for SDDPL
         IntVarLeaf = param.algorithm == :SDDPL ? Dict(
             g => Dict(
-                i => round.(value(forwardInfo.model[:region_indicator][g, i]), digits = 3)
+                i => round.(value(forwardInfo.model[:region_indicator][g][i]), digits = 3)
                 for i in keys(forwardInfo.IntVarLeaf[:St][g])
             ) for g in 1:binaryInfo.d
         ) : nothing

@@ -16,13 +16,14 @@ addprocs(5)
 
     const PROJECT_ROOT = @__DIR__
 
-    include(joinpath(PROJECT_ROOT, "src", "GenerationExpansion", "utils", "structs.jl"))
+    include(joinpath(PROJECT_ROOT, "src", "GenerationExpansion", "utilities", "structs.jl"))
     include(joinpath(PROJECT_ROOT, "src", "GenerationExpansion", "forwardPass.jl"))
     include(joinpath(PROJECT_ROOT, "src", "GenerationExpansion", "backwardPass.jl"))
-    include(joinpath(PROJECT_ROOT, "src", "GenerationExpansion", "LevelSetMethod.jl"))
-    include(joinpath(PROJECT_ROOT, "src", "GenerationExpansion", "utils", "setting.jl"))
+    include(joinpath(PROJECT_ROOT, "src", "GenerationExpansion", "level_method.jl"))
+    include(joinpath(PROJECT_ROOT, "src", "GenerationExpansion", "utilities", "setting.jl"))
+    include(joinpath(PROJECT_ROOT, "src", "GenerationExpansion", "utilities", "utils.jl"))
     include(joinpath(PROJECT_ROOT, "src", "GenerationExpansion", "cut_variants.jl"))
-    include(joinpath(PROJECT_ROOT, "src", "GenerationExpansion", "SDDiP.jl"))
+    include(joinpath(PROJECT_ROOT, "src", "GenerationExpansion", "sddp.jl"))
 end
 
 timeSDDP        = 3600.0;
@@ -32,7 +33,7 @@ sample_size_SDDP= 100;
 solverGap = 1e-4; solverTime = 20.0;
 ε               = 1e-4;
 discreteZ       = true;
-cutType         = :LNC;
+cutType         = :SMC;
 cutSparsity     = true;
 verbose         = false;
 ℓ1              = 0.0;
@@ -41,7 +42,7 @@ nxt_bound       = 1e8;
 logger_save     = false;
 algorithm       = :SDDPL;
 T               = 10;
-num             = 5;
+num             = 10;
 
 
 stageDataList = load("src/GenerationExpansion/numerical_data/testData_stage($T)_real($num)/stageDataList.jld2")["stageDataList"]
@@ -74,7 +75,7 @@ param = param_setup(
     param = $param;
 end
 
-sddipResults = SDDiP_algorithm(
+sddipResults = stochastic_dual_dynamic_programming_algorithm(
     Ω, 
     probList, 
     stageDataList; 

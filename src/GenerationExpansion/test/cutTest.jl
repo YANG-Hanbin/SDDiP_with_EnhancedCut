@@ -23,8 +23,8 @@ function run_generation_expansion_experiments(;
     timeSDDP::Float64          = 3600.0,
     gapSDDP::Float64           = 1e-3,
     iterSDDP::Int              = 300,
-    sample_size_SDDP::Int      = 100,
-    solverGap::Float64         = 1e-4,
+    sample_size_SDDP::Int      = 500,
+    solverGap::Float64         = 1e-6,
     solverTime::Float64        = 20.0,
 
     # model / level-set parameters
@@ -89,7 +89,7 @@ function run_generation_expansion_experiments(;
         end
 
         # ------------------ run algorithm ------------------
-        sddipResults = SDDiP_algorithm(
+        sddipResults = stochastic_dual_dynamic_programming_algorithm(
             Ω,
             probList,
             stageDataList;
@@ -107,15 +107,28 @@ function run_generation_expansion_experiments(;
     return results
 end
 
-algorithms = [:SDDPL]
-cutTypes = [:LNC]
-T_list = [10]
-num_list = [5]
+algorithms = [:SDDP]
+cutTypes = [:SMC, :PLC, :SBC]
+T_list = [10, 15]
+num_list = [5, 10]
 
 results = run_generation_expansion_experiments(
-    algorithms = algorithms,
-    cutTypes   = cutTypes,
-    T_list     = T_list,
-    num_list   = num_list,
-    nxt_bound  = 1e5 # 1e5 for :LC
+    algorithms                  = algorithms,
+    cutTypes                    = cutTypes,
+    T_list                      = T_list,
+    num_list                    = num_list,
+    timeSDDP                    = 3600.0,
+    gapSDDP                     = 1e-3,
+    iterSDDP                    = 300,
+    sample_size_SDDP            = 500,
+    solverGap                   = 1e-6,
+    solverTime                  = 20.0,
+    ε                           = 1e-4,
+    discreteZ                   = true,
+    cutSparsity                 = true,
+    verbose                     = false,
+    ℓ1                          = 0.0,
+    ℓ2                          = 0.0,
+    nxt_bound                   = 1e5,
+    logger_save                 = true
 )
