@@ -110,14 +110,10 @@ function run_generation_expansion_experiments(;
 end
 
 algorithms = [:SDDPL]
-cutTypes = [:SMC, :PLC, :SBC, :SBCLC, :SBCSMC, :SBCPLC, :LC, :LNC]
+cutTypes = [:LC, :SMC, :PLC, :LNC, :SBC, :SBCLC, :SBCSMC, :SBCPLC, :SBCLNC]
 T_list = [10, 15]
 num_list = [5, 10]
 
-# algorithms = [:SDDPL]
-# cutTypes = [:PLC]
-# T_list = [15]
-# num_list = [5, 10]
 
 results = run_generation_expansion_experiments(
     algorithms                  = algorithms,
