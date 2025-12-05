@@ -140,6 +140,14 @@ cutTypes = [:LNC]
 T_list = [10]
 num_list = [5]
 
+algorithms = [:SDDPL]
+cutTypes = [:SMC, :LC, :LNC]
+cutTypes = [:SBCLC, :SBCSMC, :SBCPLC]
+cutTypes = [:SBC, :PLC]
+
+T_list = [15]
+num_list = [5, 10]
+
 results = run_generation_expansion_experiments(
     algorithms                  = algorithms,
     cutTypes                    = cutTypes,
@@ -154,10 +162,10 @@ results = run_generation_expansion_experiments(
     ε                           = 1e-4,
     discreteZ                   = true,
     cutSparsity                 = true,
-    startBranching              = 3,
+    startBranching              = 10,
     verbose                     = false,
     ℓ1                          = 0.0,
     ℓ2                          = 0.0,
-    nxt_bound                   = 1e8,
-    logger_save                 = false
+    nxt_bound                   = 1e5,
+    logger_save                 = true
 )

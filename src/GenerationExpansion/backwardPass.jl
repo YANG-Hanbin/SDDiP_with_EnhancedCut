@@ -127,7 +127,7 @@ function setupCutGenerationInfo(
         end 
         delete(model, model[:NonAnticipativity])
         unregister(model, :NonAnticipativity)
-    elseif param.cutType == :SMC
+    elseif cutType == :SMC
         ## state / binary state constraint
         if param.algorithm == :SDDiP
             @constraint(

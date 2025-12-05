@@ -1,4 +1,4 @@
-include(joinpath(@__DIR__, "loadMod.jl"))
+# include(joinpath(@__DIR__, "loadMod.jl"))
 
 """
 Run generation expansion experiments over multiple
@@ -109,15 +109,15 @@ function run_generation_expansion_experiments(;
     return results
 end
 
-# algorithms = [:SDDPL]
-# cutTypes = [:PLC, :SBC, :SBCLC, :SBCSMC, :SBCPLC, :LC, :LNC]
-# T_list = [10, 15]
-# num_list = [5, 10]
-
 algorithms = [:SDDPL]
-cutTypes = [:PLC]
-T_list = [15]
+cutTypes = [:SMC, :PLC, :SBC, :SBCLC, :SBCSMC, :SBCPLC, :LC, :LNC]
+T_list = [10, 15]
 num_list = [5, 10]
+
+# algorithms = [:SDDPL]
+# cutTypes = [:PLC]
+# T_list = [15]
+# num_list = [5, 10]
 
 results = run_generation_expansion_experiments(
     algorithms                  = algorithms,
@@ -133,7 +133,7 @@ results = run_generation_expansion_experiments(
     ε                           = 1e-4,
     discreteZ                   = true,
     cutSparsity                 = true,
-    startBranching              = 10,
+    startBranching              = 3,
     verbose                     = false,
     ℓ1                          = 0.0,
     ℓ2                          = 0.0,
